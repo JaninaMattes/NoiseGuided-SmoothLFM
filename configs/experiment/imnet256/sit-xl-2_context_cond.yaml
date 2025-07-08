@@ -1,0 +1,42 @@
+# @package _global_
+defaults:
+  - override /data: imagenet256_latents
+  - override /model: sit-l-2_context-cfg-t2i
+  - override /autoencoder: sd_ae
+  - override /lr_scheduler: constant    # constant, linear, cosine
+  - override /metrics: img_metrics    # latent noisy image metrics
+
+name: imnet256/sit-l-2/context_cond
+
+use_wandb: False
+
+data:
+  params:
+    batch_size: 32
+    val_batch_size: 16
+
+lr_scheduler:
+  params:
+    num_warmup_steps: 2000
+
+trainer_module:
+  params:
+    lr: 1e-4
+    use_context: True           # Cond: use context conditioning for flow model
+    source_timestep: 0.5        # Cond: semantic conditioning step
+    target_timestep: 1.0        # Cond: semantic conditioning step
+    ema_rate: 0.0               # Other: no EMA
+    
+checkpoint_params:
+  every_n_train_steps: 20000    # gradient update steps
+
+trainer_params:
+  limit_val_batches: 8        # calculate number of samples for 1k FID
+  # val_check_interval: 10000   # steps, regardless of gradient accumulation
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true    # enable checkpointing
+  gradient_clip_val: 1.0        # 0.0 for no clipping, 1.0 for default - or 0.5 for ViT
+  precision: bf16-mixed         # 16-bit mixed-precision - use "16-mixed" or "bf16-mixed" or "bf16 (historical - not recommended)"
+
+
+# bash scripts/slurm/start_juelich.sh --time 24:00:00 --name sit-base --nodes 2 --args experiment=imnet256/sit-xl_base data=imagenet256

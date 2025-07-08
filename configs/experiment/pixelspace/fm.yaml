@@ -1,0 +1,25 @@
+# @package _global_
+defaults:
+  - override /data: cifar10
+  - override /model: pixelspace/fm_unet-b_class
+  - override /autoencoder: null
+
+name: pixelspace/fm
+
+use_wandb: False
+
+data:
+  params:
+    batch_size: 128
+    val_batch_size: 128
+
+checkpoint_params:
+  every_n_train_steps: 10000  # gradient update steps
+
+trainer_params:
+  limit_val_batches: 8        # calculate number of samples for 1k FID
+  # val_check_interval: 10000   # steps, regardless of gradient accumulation
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true    # enable checkpointing
+  gradient_clip_val: 1.0        # 0.0 for no clipping, 1.0 for default - or 0.5 for ViT
+  precision: bf16-mixed         # 16-bit mixed-precision - use "16-mixed" or "bf16-mixed" or "bf16 (historical - not recommended)"

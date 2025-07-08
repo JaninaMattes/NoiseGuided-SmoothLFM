@@ -1,0 +1,42 @@
+# @package _global_
+defaults:
+  - override /data: imagenet256_latents
+  - override /model: skip-vit-bvae-b-2-t2i # skip-vit-bvae-s-2-t2i-nbtlnk
+  - override /autoencoder: sd_ae
+  - override /lr_scheduler: constant
+  - override /metrics: noise_metric   # latent noisy image metrics
+
+name: imnet256/skip-vit-bvae-b-2/soruce_0.25t-target_1.0t-beta_0.0001b/
+
+use_wandb: False
+
+data:
+  params:
+    batch_size: 32
+    val_batch_size: 16
+
+lr_scheduler:
+  params:
+    num_warmup_steps: 2000
+
+trainer_module:
+  params:
+    lr: 1e-4
+    source_timestep: 0.5        # Source: x0, t=0.0 (full-noise), t=1.0 (data), t={0.25, ..., 0.75} etc. default: 0.5 (mid-point)
+    target_timestep: 0.5        # Target: x1, t=0.0 (full-noise), t=1.0 (data), t={0.25, ..., 0.75} etc. default: 0.5 (mid-point)
+    ema_rate: 0.0                # Other: no EMA
+    
+checkpoint_params:
+  every_n_train_steps: 10000    # gradient update steps
+
+trainer_params:
+  limit_val_batches: 8          # calculate number of samples for 1k FID
+  # val_check_interval: 10000   # steps, regardless of gradient accumulation
+  check_val_every_n_epoch: 1
+  enable_checkpointing: true    # enable checkpointing
+  gradient_clip_val: 1.0        # 0.0 for no clipping, 1.0 for default - or 0.5 for ViT
+  precision: bf16-mixed         # 16-bit mixed-precision - use "16-mixed" or "bf16-mixed" or "bf16 (historical - not recommended)"
+
+
+# bash scripts/slurm/start_juelich.sh --time 24:00:00 --name sit-base --nodes 2 --args experiment=imnet256/sit-xl_base data=imagenet256
+# bvae-skipvit-b-2_t2i

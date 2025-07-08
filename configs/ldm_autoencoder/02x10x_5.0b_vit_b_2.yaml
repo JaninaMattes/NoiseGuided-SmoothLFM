@@ -1,0 +1,7 @@
+name: AutoencoderLDM_VITB2_05x10x_5B
+target: ldm.models.wrapper.beta_vae-t2i.BVaeLDMWrapper     # Wrapper to use LDM Autoencder pre-trained model    
+params:
+  ckpt_path: logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101646/checkpoints/last.ckpt
+  # (Baseline model x0.5 -> x0.5)
+
+  

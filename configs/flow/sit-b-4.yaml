@@ -1,0 +1,16 @@
+name: SiT-XL-2
+# Flow Model
+target: ldm.frameworks.flow.fm.FlowModel
+params:
+  schedule: linear
+  sigma_min: 0.0
+  net_cfg:
+    target: ldm.models.wrapper.dit.DiTLDMWrapper
+    params:
+      model_type: DiT-XL/2  
+      input_size: 32
+      num_classes: 1000
+      learn_sigma: True
+      legacy_attn: True
+      class_dropout_prob: 0.1
+      ckpt_path: checkpoints/SiT-XL-2-256x256.pt
