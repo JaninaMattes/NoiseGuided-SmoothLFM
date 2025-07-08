@@ -1,0 +1,33 @@
+# python
+# - 3.12
+# pytorch
+# - 2.5.1
+# - conda install pytorch torchvision pytorch-cuda=12.4 -c pytorch -c nvidia
+# lightning
+# - 2.5.0
+# - conda install lightning -c conda-forge
+
+# pip install hydra-core --upgrade
+# conda install -c conda-forge pillow matplotlib einops timm h5py pandas webdataset tensorboard wandb
+# pip install torch-fidelity
+# pip install torchdiffeq
+# pip install open_clip_torch
+# pip install notebook
+# pip install -U xformers --index-url https://download.pytorch.org/whl/cu124
+# pip install git+https://github.com/joh-schb/jutils.git#egg=jutils
+
+timm
+hydra-core
+pillow
+matplotlib
+einops
+timm
+h5py
+pandas
+webdataset
+tensorboard
+wandb
+torch-fidelity
+torchdiffeq
+open_clip_torch
+xformers
