@@ -1,0 +1,28 @@
+# default_trainer.yaml
+train:
+  lr: 1e-4
+  weight_decay: 0.0
+  n_images_to_vis: 16
+  log_grad_norm: True
+  checkpoint_callback_params:   # filename refers to number of gradient updates
+    every_n_train_steps: 10000  # gradient update steps
+    save_top_k: -1              # needs to be -1, otherwise it overwrites
+    verbose: True
+    save_last: True
+    auto_insert_metric_name: False
+  trainer_params:
+    max_epochs: -1
+    num_sanity_val_steps: 0
+    accumulate_grad_batches: 1  # set to 6 for single node training, s.t. bs>=128
+    log_every_n_steps: 50       # gradient update steps
+    limit_val_batches: 8        # calculate number of samples for 1k FID - TODO
+    # val_check_interval: 10000   # steps, regardless of gradient accumulation
+    check_val_every_n_epoch: 1
+  lr_scheduler:
+    target: ldm.lr_schedulers.get_constant_schedule_with_warmup
+    params:
+      num_warmup_steps: 0
+  callbacks:
+    - target: pytorch_lightning.callbacks.LearningRateMonitor
+      params:
+        logging_interval: 'step'

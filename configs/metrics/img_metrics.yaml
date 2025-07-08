@@ -1,0 +1,5 @@
+name: img_metrics
+target: ldm.metrics.img_metrics.ImageMetricsTracker
+params:
+  num_crops: 4
+  crop_size: 256

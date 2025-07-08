@@ -1,0 +1,5 @@
+name: latents_metrics
+target: ldm.metrics.noise_metrics.NoiseMetricsTracker
+params:
+  num_crops: 4
+  crop_size: 256
