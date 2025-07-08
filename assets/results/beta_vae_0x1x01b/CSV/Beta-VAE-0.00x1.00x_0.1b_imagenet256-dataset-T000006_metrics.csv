@@ -1,0 +1,12 @@
+evaluation_type,model_name,dataset,CFG,CCFG,SSIM,PSNR,MSE,COS,MSE-DPL,MSE-ISTD,Cos-DPL,Cos-ISTD,interpolation_pair
+image_quality,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,1.0,1.0,nan,17.104815,1.128345,0.122114,nan,nan,nan,nan,nan
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.002320,0.001540,0.004563,0.004342,admiral_to_cabbage_butterly
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.001586,0.000870,0.004175,0.003174,monarch_to_admiral_butterfly
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.001939,0.001071,0.004307,0.003316,siamese_to_persian_cat
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.001901,0.001050,0.003652,0.002651,red_panda_to_giant_panda
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.002341,0.001493,0.005575,0.003625,pembroke_corgi_to_cardigan_corgi
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.001669,0.000836,0.005263,0.003243,husky_to_doberman
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.002100,0.001279,0.004690,0.003633,grey_to_white_wolf
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.001808,0.000963,0.004430,0.002519,horse_to_zebra
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.001793,0.000890,0.004082,0.002263,camel_to_impala
+smoothness,Beta-VAE-0.00x1.00x_0.1b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,nan,nan,nan,nan,nan,nan,0.002704,0.001439,0.004500,0.002695,lion_to_tiger
