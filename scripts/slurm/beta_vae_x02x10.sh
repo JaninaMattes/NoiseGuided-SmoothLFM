@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --time=15:00:00
+#SBATCH --time=12:00:00
 #SBATCH --partition=a100
 #SBATCH --gres=gpu:a100:1
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
-#SBATCH --job-name=SiT-XL2_02x10x01b_cls_drop_run
+#SBATCH --job-name=vitb_x02x10x5b
 
 # ---------------------- Info
 echo "################################"
@@ -29,24 +29,22 @@ export NCCL_ASYNC_ERROR_HANDLING=1
 export PYTHONFAULTHANDLER=1
 export CUDA_LAUNCH_BLOCKING=0
 
-# ---------------------- Dynamic Parameters
+# ---------------------- Define Timesteps
 export SOURCE_TIMESTEP=0.20
-export BETAVAE_TARGET_TIMESTEP=1.00     # Target for BetaVAE  (1.0: data manifold)
-export BETAVAE_MODEL_TYPE="BetaVAE-B-2" # Model type for BetaVAE
-export TARGET_TIMESTEP=1.00             # Target for FM is always 1.0 (data manifold)
-export BETA_VALUE=0.1
-# Note: cls_cond_w_dropout is used for the context conditioning with dropout
-export LR_RATE=5e-5
-export NUM_CLASS=1000 # Number of classes for the dataset
+export TARGET_TIMESTEP=1.00
+export BETA_VALUE=5.0
+export LR_RATE=1e-4
+export DATASET='imagenet256_hdf5_v0'
 
-export TIMESTEP_TAG="${SOURCE_TIMESTEP}x-${BETAVAE_TARGET_TIMESTEP}x_${BETA_VALUE}b"
+# Define job name dynamically based on timesteps
+export JOB_NAME="bvae_vits2_run_${SOURCE_TIMESTEP}x-${TARGET_TIMESTEP}x"
 
 # ---------------------- Define args
-export ARGS="experiment=imnet256/sit-xl_context_cond \
-  model=sit-xl-2_context \
-  data=imagenet256_hdf5_v0 \
+export ARGS="experiment=imnet256/bvae-skipvit-b-2 \
+  trainer_params.accumulate_grad_batches=2 \
   data.params.batch_size=128 \
   data.params.val_batch_size=128 \
+  data=${DATASET} \
   data.params.source_timestep=$SOURCE_TIMESTEP \
   data.params.target_timestep=$TARGET_TIMESTEP \
   data.params.train.params.source_timestep=$SOURCE_TIMESTEP \
@@ -55,25 +53,23 @@ export ARGS="experiment=imnet256/sit-xl_context_cond \
   data.params.validation.params.target_timestep=$TARGET_TIMESTEP \
   trainer_module.params.source_timestep=$SOURCE_TIMESTEP \
   trainer_module.params.target_timestep=$TARGET_TIMESTEP \
-  trainer_module.params.lr=$LR_RATE \
-  trainer_module.params.num_classes=$NUM_CLASS \
-  +resume_checkpoint=null \
-  trainer_params.limit_val_batches=10 \
   trainer_params.check_val_every_n_epoch=1 \
-  trainer_params.accumulate_grad_batches=2 \
+  trainer_params.limit_val_batches=1 \
   trainer_params.precision=bf16-mixed \
-  name=imnet256/SiT-XL-2/context_cls_cond_w_dropout/${TIMESTEP_TAG}/${BETAVAE_MODEL_TYPE}/V0 \
+  trainer_module.params.lr=$LR_RATE \
+  model=skip-vit-bvae-b-2-t2i \
+  model.params.beta=$BETA_VALUE \
+  name=imnet256/beta-vae-skipViT-b-2/${DATASET}/${SOURCE_TIMESTEP}x-${TARGET_TIMESTEP}x-${BETA_VALUE}b/ \
   devices=1 \
   checkpoint_params.every_n_train_steps=5000 \
+  +resume_checkpoint=null \
   autoencoder=sd_ae \
-  ldm_autoencoder=v0/dataset_2/02x10x_0.1b_vit_b_2.yaml \
-  metrics=img_metrics \
+  metrics=noise_metrics \
   use_wandb=True"
 
 # ---------------------- Launch
 srun --ntasks-per-node=1 \
-    python train_rf.py $ARGS \
-    num_nodes=${SLURM_NNODES} slurm_id=${SLURM_JOB_ID}
+    python train_bvae_ti2.py ${ARGS} "num_nodes=${SLURM_NNODES}" "slurm_id=${SLURM_JOB_ID}"
 
 # ---------------------- End
 echo "########## JOB FINISHED ##########"

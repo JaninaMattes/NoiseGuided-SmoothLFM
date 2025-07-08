@@ -56,7 +56,7 @@ export ARGS="experiment=imnet256/sit-xl_context_cond_cfg_v0 \
   trainer_module.params.target_timestep=$TARGET_TIMESTEP \
   trainer_module.params.lr=$LR_RATE \
   trainer_module.params.num_classes=$NUM_CLASS \
-  +resume_checkpoint=logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_5.0b/BetaVAE-B-2/2025-06-19/30139/checkpoints/last.ckpt \
+  +resume_checkpoint=null \
   trainer_params.limit_val_batches=10 \
   trainer_params.check_val_every_n_epoch=1 \
   trainer_params.accumulate_grad_batches=2 \
