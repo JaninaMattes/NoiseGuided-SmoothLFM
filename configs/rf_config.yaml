@@ -1,0 +1,120 @@
+defaults:
+  - _self_
+  - model: sit-s-2
+  - data: dummy256_latent               # dummy data
+  - autoencoder: tiny_ae                # pre-trained autoencoder on SD latent codes
+  - ldm_autoencoder: ldm_bvae           # ldm_bvae_baseline, ldm_bvae  # pre-trained autoencoder on LDM latent codes (Baseline x0.5 -> x0.5)
+  - lr_scheduler: null
+  - metrics: null
+  - experiment: null                    # must be last in defaults list as it can override all others
+
+  # disable hydra logging
+  - override hydra/hydra_logging: disabled  
+  - override hydra/job_logging: disabled 
+  
+# ----------------------------------------
+name: debug/your_exp
+
+# ----------------------------------------
+# logging
+use_wandb: False
+use_wandb_offline: False
+wandb_project: image-ldm
+
+tags: [
+  "flow",
+  "dit-l-2",
+  "context_conditional",
+  "patchsize_2",
+  "class_unconditional",
+  "imagenet256",
+]
+
+# checkpoint loading
+load_weights: null
+resume_checkpoint: null         # resume training (set your ...ckpt)
+
+# checkpoint saving (lightning callback)
+checkpoint_params:              # filename refers to number of gradient updates
+    every_n_train_steps: 10000  # gradient update steps
+    save_top_k: -1              # needs to be -1, otherwise it overwrites
+    verbose: True
+    save_last: True
+    auto_insert_metric_name: False
+
+# ----------------------------------------
+# train logics
+trainer_module:
+  target: ldm.trainer_rf_vae.TrainerModuleLatentFlow
+  params:
+    lr: 1e-4
+    weight_decay: 0.0
+    n_images_to_vis: 16
+    log_grad_norm: False       # Other: grad log might be slow
+    num_classes: 1000           # Other: no class labels  # 1000 for Imagenet256, 100 for CIFAR10, 10 for MNIST
+    
+    sample_kwargs:
+      num_steps: 50
+      progress: False
+    
+    # EMA
+    ema_rate: 0.9999       # if 0, no EMA         
+    ema_update_every: 1
+    ema_update_after_step: 1000
+    
+    # model specific
+    flow_cfg: ${model}
+    first_stage_cfg: ${oc.select:autoencoder, null}
+    third_stage_cfg: ${oc.select:ldm_autoencoder, null}
+    metric_tracker_cfg: ${oc.select:metrics, null}
+    # num_classes: ${oc.select:model.params.net_cfg.params.num_classes, -1}
+    lr_scheduler_cfg: ${oc.select:lr_scheduler, null}
+  
+trainer_params:
+  max_steps: -1
+  max_epochs: -1
+  num_sanity_val_steps: 1
+  accumulate_grad_batches: 8  # gradient accumulation -> effective batch size = batch_size * accumulate_grad_batches
+  log_every_n_steps: 50       # gradient update steps
+  limit_val_batches: 8        # per GPU
+  # val_check_interval: 4000   # steps, regardless of gradient accumulation
+  check_val_every_n_epoch: 1
+  gradient_clip_val: 1.0        # 0.0 for no clipping, 1.0 for default - or 0.5 for ViT if unstable
+  precision: 32-true
+
+callbacks:
+  - target: lightning.pytorch.callbacks.LearningRateMonitor
+    params:
+      logging_interval: 'step'
+
+# ----------------------------------------
+# profiling
+profile: false
+profiling:
+  warmup: 40
+  active: 1
+  filename: profile.json
+  cpu: true
+  cuda: true
+  record_shapes: false
+  profile_memory: false
+  with_flops: false
+
+# ----------------------------------------
+# distributed
+num_nodes: 1
+devices: -1
+auto_requeue: False
+tqdm_refresh_rate: 1        # set higher on slurm (otherwise prints tqdm every step)
+deepspeed_stage: 0
+p2p_disable: False          # heidelberg
+slurm_id: null
+
+# ----------------------------------------
+user: ${oc.env:USER}
+
+# don't log and save files
+hydra:
+  output_subdir: null
+  run:
+    dir: .
