@@ -42,8 +42,8 @@ export NUM_CLASS=1000 # Number of classes for the dataset
 export TIMESTEP_TAG="${SOURCE_TIMESTEP}x-${BETAVAE_TARGET_TIMESTEP}x_${BETA_VALUE}b"
 
 # ---------------------- Define args
-export ARGS="experiment=imnet256/sit-xl_context_cond_cfg_v0 \
-  model=sit-xl-2_context-cfg-v0 \
+export ARGS="experiment=imnet256/sit-xl_context_cond \
+  model=sit-xl-2_context \
   data=imagenet256_hdf5_v0 \
   data.params.batch_size=128 \
   data.params.val_batch_size=128 \
@@ -57,7 +57,7 @@ export ARGS="experiment=imnet256/sit-xl_context_cond_cfg_v0 \
   trainer_module.params.target_timestep=$TARGET_TIMESTEP \
   trainer_module.params.lr=$LR_RATE \
   trainer_module.params.num_classes=$NUM_CLASS \
-  +resume_checkpoint=logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_0.1b/BetaVAE-B-2/V0/2025-07-07/30774/checkpoints/last.ckpt \
+  +resume_checkpoint=null \
   trainer_params.limit_val_batches=10 \
   trainer_params.check_val_every_n_epoch=1 \
   trainer_params.accumulate_grad_batches=2 \
