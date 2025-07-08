@@ -1,0 +1,2 @@
+evaluation_type,model_name,dataset,CFG,CCFG,SSIM,PSNR,MSE,COS,MSE-DPL,MSE-ISTD,Cos-DPL,Cos-ISTD,interpolation_pair
+image_quality,Beta-VAE-0.20x1.00x_0.5b_imagenet256-dataset-T000006,imagenet256-dataset-T000006,1.0,1.0,nan,17.056925,0.884194,0.103496,nan,nan,nan,nan,nan
