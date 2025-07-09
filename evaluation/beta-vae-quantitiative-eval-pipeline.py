@@ -1132,4 +1132,4 @@ if __name__ == "__main__":
     )
 
 
-# CUDA_VISIBLE_DEVICES=2 python '/export/home/ra93jiz/dev/Img-IDM/ldm/evaluation/beta_vae_quantitiative_eval.py'
+# CUDA_VISIBLE_DEVICES=0 python ...

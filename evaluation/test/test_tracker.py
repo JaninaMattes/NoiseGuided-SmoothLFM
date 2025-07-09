@@ -4,7 +4,12 @@
 # - https://github.com/NVlabs/stylegan/blob/master/metrics/perceptual_path_length.py
 
 
-import os, sys
+from data_processing.tools.norm import denorm_tensor, denorm_metrics_tensor
+from ldm.helpers import un_normalize_ims  # Convert from [-1, 1] to [0, 255]
+from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
+from ldm.trainer_rf_vae import TrainerModuleLatentFlow
+import os
+import sys
 import gc
 
 from tqdm import tqdm
@@ -29,7 +34,7 @@ from matplotlib import rcParams
 from elatentlpips import ELatentLPIPS
 
 
-# helper 
+# helper
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
@@ -42,21 +47,13 @@ from jutils import exists, freeze, default
 from jutils import tensor2im, ims_to_grid
 
 
-
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
+project_root = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../../../'))
 sys.path.append(project_root)
-
-from ldm.trainer_rf_vae import TrainerModuleLatentFlow
-from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
-
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_tensor, denorm_metrics_tensor
-
 
 
 torch.set_float32_matmul_precision('high')
-
 
 
 ############################################
@@ -65,7 +62,8 @@ torch.set_float32_matmul_precision('high')
 class SmoothnessMetricsTracker(nn.Module):
     def __init__(self, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.lpips = LPIPS(net_type='alex').to(self.device)
         self.lpips.eval()
         self.reset()
@@ -76,33 +74,39 @@ class SmoothnessMetricsTracker(nn.Module):
 
     @torch.no_grad()
     def update(self, interpolated_imgs_batch):
-        assert interpolated_imgs_batch.dim() == 5, f"Expected 5D tensor, got {interpolated_imgs_batch.dim()}D"
+        assert interpolated_imgs_batch.dim(
+        ) == 5, f"Expected 5D tensor, got {interpolated_imgs_batch.dim()}D"
         B, T, C, H, W = interpolated_imgs_batch.shape
         assert T > 1, "Each sequence must contain at least 2 images."
 
         # Normalize only if needed (i.e., not already in [-1, 1])
         min_val, max_val = interpolated_imgs_batch.min(), interpolated_imgs_batch.max()
         if min_val < -1.01 or max_val > 1.01:
-            print(f"[WARN] Input outside LPIPS range [{min_val:.3f}, {max_val:.3f}]. Normalizing.")
-            
-            # Rescale to [-1, 1] dynamically per sequence
-            min_per_seq = interpolated_imgs_batch.amin(dim=(2, 3, 4), keepdim=True)
-            max_per_seq = interpolated_imgs_batch.amax(dim=(2, 3, 4), keepdim=True)
-            denom = (max_per_seq - min_per_seq).clamp(min=1e-5)
-            interpolated_imgs_batch = 2 * (interpolated_imgs_batch - min_per_seq) / denom - 1
-            
-        batch = interpolated_imgs_batch.to(self.device)
-        
-        print(f"[INFO] Processing batch of shape {batch.shape} for smoothness metrics.")
+            print(
+                f"[WARN] Input outside LPIPS range [{min_val:.3f}, {max_val:.3f}]. Normalizing.")
 
+            # Rescale to [-1, 1] dynamically per sequence
+            min_per_seq = interpolated_imgs_batch.amin(
+                dim=(2, 3, 4), keepdim=True)
+            max_per_seq = interpolated_imgs_batch.amax(
+                dim=(2, 3, 4), keepdim=True)
+            denom = (max_per_seq - min_per_seq).clamp(min=1e-5)
+            interpolated_imgs_batch = 2 * \
+                (interpolated_imgs_batch - min_per_seq) / denom - 1
+
+        batch = interpolated_imgs_batch.to(self.device)
+
+        print(
+            f"[INFO] Processing batch of shape {batch.shape} for smoothness metrics.")
 
         for i in range(B):
             sequence = batch[i]  # (T, C, H, W)
             dists = []
-            
+
             with torch.amp.autocast("cuda"):
                 for t in range(T - 1):
-                    d = self.lpips(sequence[t].unsqueeze(0), sequence[t + 1].unsqueeze(0)).item()
+                    d = self.lpips(sequence[t].unsqueeze(
+                        0), sequence[t + 1].unsqueeze(0)).item()
                     dists.append(d)
 
             if len(dists) == 0:
@@ -115,7 +119,6 @@ class SmoothnessMetricsTracker(nn.Module):
             self.istds.append(float(torch.tensor(dists).std()))
 
         print(f"[INFO] Processed {B} sequences for smoothness metrics.")
-        
 
     @torch.no_grad()
     def aggregate(self):
@@ -127,8 +130,6 @@ class SmoothnessMetricsTracker(nn.Module):
         mean_istd = torch.tensor(self.istds).mean().item()
 
         return {'ppl': mean_ppl, 'istd': mean_istd}
-
-
 
 
 # class SmoothnessMetricsTracker(nn.Module):
@@ -216,8 +217,6 @@ class SmoothnessMetricsTracker(nn.Module):
 #         }
 
 
-
-
 class LatentSmoothnessTracker(nn.Module):
     """
     Computes smoothness metrics for latent sequences using cosine similarity and MSE (L2).
@@ -226,13 +225,15 @@ class LatentSmoothnessTracker(nn.Module):
     These metrics are latent-space adaptations of PPL and ISTD:
     - Original PPL (Perceptual Path Length) measures LPIPS distances between images generated from small latent interpolations [Karras et al., CVPR 2019].
     - Original ISTD (Interpolation Standard Deviation) quantifies pixel-level L2 variance in interpolated samples [Guo et al., CVPR 2024].
-    
-    
+
+
     As a variant we instead measure smoothness directly in latent space without decoding to pixel-space images.
     """
+
     def __init__(self, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         self.reset()
 
     def reset(self):
@@ -248,7 +249,8 @@ class LatentSmoothnessTracker(nn.Module):
         Args:
             latent_seq_batch: (B, T, D) or (B, T, D, H, W)
         """
-        assert latent_seq_batch.dim() in [3, 5], f"Expected 3D or 5D input, got {latent_seq_batch.dim()}D."
+        assert latent_seq_batch.dim() in [
+            3, 5], f"Expected 3D or 5D input, got {latent_seq_batch.dim()}D."
         B, T = latent_seq_batch.shape[:2]
         assert T > 1, "At least two timesteps required."
 
@@ -294,13 +296,11 @@ class LatentSmoothnessTracker(nn.Module):
         }
 
 
-
-
-
 class LatentSimilarityTracker(nn.Module):
     def __init__(self, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         # Pixel-space similarity metrics
         self.ssim = SSIM(data_range=1.0).to(self.device)
@@ -324,22 +324,27 @@ class LatentSimilarityTracker(nn.Module):
         assert target.shape == pred.shape, f"Shape mismatch: {target.shape} vs {pred.shape}"
         target = target.to(self.device).float()
         pred = pred.to(self.device).float()
-            
+
         # Cosine (on raw latents)
         flat_target = target.view(target.size(0), -1)
         flat_pred = pred.view(pred.size(0), -1)
-        self.cosine_sims.append(F.cosine_similarity(flat_target, flat_pred, dim=1))
+        self.cosine_sims.append(F.cosine_similarity(
+            flat_target, flat_pred, dim=1))
 
         # Optional: normalize for PSNR / SSIM
         if target.size(1) == 3:
-            norm_target = denorm_metrics_tensor(target, target_range=(0, 1), dtype='float')
-            norm_pred   = denorm_metrics_tensor(pred, target_range=(0, 1), dtype='float')
+            norm_target = denorm_metrics_tensor(
+                target, target_range=(0, 1), dtype='float')
+            norm_pred = denorm_metrics_tensor(
+                pred, target_range=(0, 1), dtype='float')
             self.ssims.append(self.ssim(norm_pred, norm_target))
             self.psnrs.append(self.psnr(norm_pred, norm_target))
         else:
             # For latents: either skip PSNR or normalize entire vector
-            norm_target = denorm_metrics_tensor(target, target_range=(0, 1), dtype='float')
-            norm_pred   = denorm_metrics_tensor(pred, target_range=(0, 1), dtype='float')
+            norm_target = denorm_metrics_tensor(
+                target, target_range=(0, 1), dtype='float')
+            norm_pred = denorm_metrics_tensor(
+                pred, target_range=(0, 1), dtype='float')
             self.psnrs.append(self.psnr(norm_pred, norm_target))
 
         # MSE / MAE on raw
@@ -347,23 +352,23 @@ class LatentSimilarityTracker(nn.Module):
         self.mses.append(torch.mean((pred - target) ** 2, dim=dim))
         self.maes.append(torch.mean(torch.abs(pred - target), dim=dim))
 
-        
-    
     def aggregate(self):
         return dict(
             cosine=torch.cat(self.cosine_sims).mean().item(),
-            ssim=torch.stack(self.ssims).mean().item() if self.ssims else float("nan"),
-            psnr=torch.stack(self.psnrs).mean().item() if self.psnrs else float("nan"),
+            ssim=torch.stack(self.ssims).mean(
+            ).item() if self.ssims else float("nan"),
+            psnr=torch.stack(self.psnrs).mean(
+            ).item() if self.psnrs else float("nan"),
             mse=torch.cat(self.mses).mean().item(),
             mae=torch.cat(self.maes).mean().item()
         )
 
 
-
 class ImageMetricsTracker(nn.Module):
     def __init__(self, num_crops: int = 1, crop_size: int = 256, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         self.ssim = SSIM(data_range=1.0).to(self.device)
         self.psnr = PSNR(data_range=1.0).to(self.device)
@@ -394,13 +399,13 @@ class ImageMetricsTracker(nn.Module):
         self.crop_size = crop_size
 
         self.reset()
-        
 
     def update(self, target, pred, noise_target=None, noise_pred=None):
         assert pred.shape == target.shape, f"Shape mismatch: {pred.shape} vs {target.shape}"
 
         # Convert to [0, 255] uint8
-        real_ims_glb = un_normalize_ims(target) if target.max() <= 1 else target
+        real_ims_glb = un_normalize_ims(
+            target) if target.max() <= 1 else target
         fake_ims_glb = un_normalize_ims(pred) if pred.max() <= 1 else pred
 
         real_ims_glb = real_ims_glb.clamp(0, 255).to(torch.uint8)
@@ -446,15 +451,20 @@ class ImageMetricsTracker(nn.Module):
             self.global_fid.update(fake_ims_glb, real=False)
 
         # Normalize pred and target for pixel metrics
-        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype='float')
-        target_norm = denorm_metrics_tensor(target, target_range=(0, 1), dtype='float')
+        pred_norm = denorm_metrics_tensor(
+            pred, target_range=(0, 1), dtype='float')
+        target_norm = denorm_metrics_tensor(
+            target, target_range=(0, 1), dtype='float')
 
         with torch.amp.autocast("cuda"):
             self.ssims.append(self.ssim(pred_norm, target_norm))
             self.psnrs.append(self.psnr(pred_norm, target_norm))
-            self.mses.append(torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]))
-            self.maes.append(torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]))
-            self.lpips_scores.append(self.lpips(pred_norm * 2 - 1, target_norm * 2 - 1))
+            self.mses.append(torch.mean(
+                (pred_norm - target_norm) ** 2, dim=[1, 2, 3]))
+            self.maes.append(torch.mean(
+                torch.abs(pred_norm - target_norm), dim=[1, 2, 3]))
+            self.lpips_scores.append(self.lpips(
+                pred_norm * 2 - 1, target_norm * 2 - 1))
 
     def reset(self):
         self.ssims = []
@@ -480,11 +490,10 @@ class ImageMetricsTracker(nn.Module):
     def _check_fid_inputs(self, tensor, name):
         assert isinstance(tensor, torch.Tensor), f"{name} must be a tensor."
         assert tensor.dtype == torch.uint8, f"{name} must be uint8 but got {tensor.dtype}."
-        assert tensor.dim() == 4 and tensor.size(1) == 3, f"{name} must have shape (N, 3, H, W), got {tensor.shape}."
-        assert tensor.min() >= 0 and tensor.max() <= 255, f"{name} must be in [0, 255], got range [{tensor.min()}, {tensor.max()}]."
-
-
-
+        assert tensor.dim() == 4 and tensor.size(
+            1) == 3, f"{name} must have shape (N, 3, H, W), got {tensor.shape}."
+        assert tensor.min() >= 0 and tensor.max(
+        ) <= 255, f"{name} must be in [0, 255], got range [{tensor.min()}, {tensor.max()}]."
 
 
 # ========== Test Case ========== #
@@ -492,7 +501,7 @@ if __name__ == "__main__":
 
     print("PyTorch CUDA version:", torch.version.cuda)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     print("=== Testing LatentSmoothnessTracker ===")
     tracker = LatentSmoothnessTracker(device=device)
 
@@ -500,7 +509,8 @@ if __name__ == "__main__":
     B, T, D = 32, 6, 1024
     base_latent = torch.randn(B, 1, D)
     noise = torch.randn(B, T, D) * 0.05  # small noise
-    latents_smooth = base_latent + torch.linspace(0, 1, T).view(1, T, 1) * noise
+    latents_smooth = base_latent + \
+        torch.linspace(0, 1, T).view(1, T, 1) * noise
 
     tracker.reset()
     tracker.update(latents_smooth)
@@ -529,19 +539,27 @@ if __name__ == "__main__":
 
     base_latent = torch.randn(B, 1, D)
     noise = torch.randn(B, T, D) * 0.5  # heavy distortion
-    latents_heavy_distorted = base_latent + torch.linspace(0, 1, T).view(1, T, 1) * noise
-    
+    latents_heavy_distorted = base_latent + \
+        torch.linspace(0, 1, T).view(1, T, 1) * noise
+
     tracker.update(latents_heavy_distorted)
     heavy_distorted_metrics = tracker.aggregate()
     print("Heavy Distorted metrics:", heavy_distorted_metrics)
 
     # Assertions
-    assert heavy_distorted_metrics["latent_mdpl"] > smooth_metrics["latent_mdpl"], "latent_mdpl should be higher for heavy distorted paths"
-    assert heavy_distorted_metrics["latent_mistd"] > smooth_metrics["latent_mistd"], "latent_mistd should be higher for heavy distorted paths"
-    assert heavy_distorted_metrics["latent_cdpl"] > smooth_metrics["latent_cdpl"], "latent_cdpl should be higher for heavy distorted paths"
-    assert heavy_distorted_metrics["latent_cistd"] > smooth_metrics["latent_cistd"], "latent_cistd should be higher for heavy distorted paths"
+    assert heavy_distorted_metrics["latent_mdpl"] > smooth_metrics[
+        "latent_mdpl"], "latent_mdpl should be higher for heavy distorted paths"
+    assert heavy_distorted_metrics["latent_mistd"] > smooth_metrics[
+        "latent_mistd"], "latent_mistd should be higher for heavy distorted paths"
+    assert heavy_distorted_metrics["latent_cdpl"] > smooth_metrics[
+        "latent_cdpl"], "latent_cdpl should be higher for heavy distorted paths"
+    assert heavy_distorted_metrics["latent_cistd"] > smooth_metrics[
+        "latent_cistd"], "latent_cistd should be higher for heavy distorted paths"
 
     print("LatentSmoothnessTracker heavy distortion test passed\n")
+
+# CUDA_VISIBLE_DEVICES=0 python ... 
+
     
     # print("=== Testing ImageMetricsTracker ===")
     # tracker = ImageMetricsTracker(num_crops=4, crop_size=128, device=device)
@@ -554,14 +572,12 @@ if __name__ == "__main__":
     # tracker.update(lat_clean, lat_noisy)
     # print(tracker.aggregate())
 
-
-
     # # ========== Test ImageMetricsTracker ========== #
     # print("=== Testing ImageMetricsTracker ===")
     # tracker = ImageMetricsTracker(num_crops=4, crop_size=128, device=device)
     # tracker.reset()
     # batch_size = 128
-    
+
     # for batch_idx in range(20):
     #     # Simulate batch: random images
     #     lat_clean = torch.rand(batch_size, 3, 256, 256, device=device)
@@ -569,39 +585,37 @@ if __name__ == "__main__":
 
     #     tracker.update(lat_clean, lat_noisy)
     #     print(f"Batch {batch_idx + 1}/20 processed.")
-        
+
     # # Aggregate metrics
     # metrics = tracker.aggregate()
     # # Average
     # print("\n=== Final Aggregated Metrics ===")
     # print(f"Global FID: {metrics['gfid']:.6f}")
     # print(f"Local FID : {metrics['lfid']:.6f}" if metrics['lfid'] is not None else "Local FID: N/A")
-    # print(f"SSIM      : {metrics['ssim']:.6f}")     
+    # print(f"SSIM      : {metrics['ssim']:.6f}")
     # print(f"PSNR      : {metrics['psnr']:.6f}")
     # print(f"MSE       : {metrics['mse']:.6f}")
     # print(f"MAE       : {metrics['mae']:.6f}")
     # print(f"LPIPS     : {metrics['lpips']:.6f}")
-    
-    
-    
+
     # ========== Test ImageMetricsTracker ========== #
 
     # print("=== Testing ImageMetricsTracker ===")
     # tracker = ImageMetricsTracker(num_crops=4, crop_size=128, device=device)
     # gfid, lfid, ssim, psnr, mse, mae, lpips = [], [], [], [], [], [], []
-    
+
     # batch_size = 128
-    
+
     # for batch_idx in range(20):
     #     # Simulate batch: random images
     #     tracker.reset()
-        
+
     #     lat_clean = torch.rand(128, 3, 256, 256, device=device)
     #     lat_noisy = lat_clean + 0.05 * torch.randn_like(lat_clean, device=device)
 
     #     tracker.update(lat_clean, lat_noisy)
     #     print(f"Batch {batch_idx + 1}/20 processed.")
-        
+
     #     # Aggregate metrics
     #     metrics = tracker.aggregate()
     #     # print(f"→ Batch {batch_idx + 1} Metrics: {metrics}")
@@ -612,7 +626,7 @@ if __name__ == "__main__":
     #     mse.append(metrics['mse'])
     #     mae.append(metrics['mae'])
     #     lpips.append(metrics['lpips'])
-        
+
     #     # Optional: free VRAM
     #     torch.cuda.empty_cache()
 
@@ -626,7 +640,6 @@ if __name__ == "__main__":
     # print(f"MAE       : {torch.tensor(mae).mean().item():.6f}")
     # print(f"LPIPS     : {torch.tensor(lpips).mean().item():.6f}")
 
-    
     # # ========== Test LatentSimilarityTracker ========== #
     # print("=== Testing LatentSimilarityTracker ===")
     # tracker = LatentSimilarityTracker()
@@ -642,7 +655,6 @@ if __name__ == "__main__":
     # tracker.update(img_clean, img_noisy)
 
     # print(tracker.aggregate())
-    
 
     # # ========== Test LatentSmoothnessTracker ========== #
     # print("\n=== Testing LatentSmoothnessTracker ===")
@@ -661,11 +673,9 @@ if __name__ == "__main__":
     # print("→ Latent PPL :", f"{results['ppl']:.6f}")
     # print("→ Latent ISTD:", f"{results['istd']:.6f}")
 
-
-    
     # # ========== Test SmoothnessMetricsTracker ========== #
     # print("\n=== Testing SmoothnessMetricsTracker ===")
-    
+
     # tracker = SmoothnessMetricsTracker(device=device)
 
     # # Dummy data: 2 sequences, each with 10 images (T), 3 channels, 256x256, in [-1, 1]
@@ -680,8 +690,6 @@ if __name__ == "__main__":
     # print(f"PPL  : {metrics['ppl']:.6f}")
     # print(f"ISTD : {metrics['istd']:.6f}")
 
-
-
     # # Dummy data: 2 sequences, each with 10 images (T), 3 channels, 64x64, in [-1, 1]
     # B, T, C, H, W = 10, 10, 3, 256, 256
     # dummy_data = torch.randn(B, T, C, H, W) * 0.1  # Small noise → for a smooth sequence
@@ -693,8 +701,6 @@ if __name__ == "__main__":
     # print("\n=== Final Aggregated Metrics ===")
     # print(f"PPL  : {metrics['ppl']:.6f}")
     # print(f"ISTD : {metrics['istd']:.6f}")
-
-
 
     # # Dummy data: 2 sequences, each with 10 images (T), 3 channels, 64x64, in [-1, 1]
     # B, T, C, H, W = 1, 10, 3, 256, 256

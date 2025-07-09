@@ -563,63 +563,6 @@ def run_pca_eval(
 
 
 
-# if __name__ == "__main__":
-
-#     #####################################
-#     # Evaluation Setup
-#     #####################################
-#     source_timestep = 0.20
-#     target_timestep = 1.00
-#     beta            = 1e-4  # Beta value for the VAE
-#     dataset_name    = 'imagenet256-dataset-T000006'
-#     group           = "validation"  # or "test"
-#     baseline        = (source_timestep == 0.50 and target_timestep == 0.50)
-
-#     num_components   = 5
-#     max_samples      = 80000
-#     batch_size       = 64
-
-
-
-#     #####################################
-#     # Model Setup
-#     #####################################
-    
-#     # beta: 1e-4 
-#     Beta02x10x_1e4b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
-    
-#     # beta: 0.1
-#     Beta00x00x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt'
-#     Beta02x02x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt'                     # Open 
-#     Beta05x05x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt'                     # Open (Baseline)
-#     Beta05x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt'                                       # Open
-#     Beta04x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'  
-#     Beta03x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'  
-#     Beta02x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt'                    ####### DONE
-#     Beta00x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt'                 # Open
-
-#     # beta: 0.5
-#     Beta02x10x_05b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.0x-0.5b/2025-06-30/manual/V2/2025-07-03/101646/checkpoints/last.ckpt'
-
-#     # beta: 1.0
-#     Beta05x05x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt'                                                                                                                                   # Open (Baseline)
-#     Beta05x10x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'                                                                                                                                   # Open
-#     Beta02x10x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt'                                          # Open
-
-#     # beta: 2.0
-#     Beta02x10x_2b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-2.0b/V0/2025-07-02/101646/checkpoints/last.ckpt'                     # Open
-    
-    
-#     # beta: 3.0
-#     Beta02x10x_3b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt'                     # Open
-
-#     # beta: 5.0
-#     Beta05x05x_5b ='./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt'                                                                                                                                   # Open (Baseline)
-#     Beta05x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'                                                                                                                                  # Open
-#     Beta02x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'                   # Open
-
-
-
 if __name__ == "__main__":
     #####################################
     # Shared Parameters
@@ -730,3 +673,7 @@ if __name__ == "__main__":
         plt.savefig(combined_plot_path, bbox_inches='tight', dpi=300)
         print(f"\n[INFO] Combined validation plot saved to: {combined_plot_path}")
         plt.show()
+
+
+
+# CUDA_VISIBLE_DEVICES=0 python ... 
