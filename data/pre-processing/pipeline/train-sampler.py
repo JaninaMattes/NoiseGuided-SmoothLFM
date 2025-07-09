@@ -1,4 +1,8 @@
 
+from data_processing.sampler.data_handler import NumpyDataHandler, HDF5DatasetManager
+from data_processing.tools.norm import denorm_tensor
+from ldm.models.transformer.dit import DiT_models
+from ldm.flow import FlowModel
 import os
 import gc
 import re
@@ -30,19 +34,13 @@ from jutils.nn import AutoencoderKL
 from jutils import exists, freeze, default, ims_to_grid, instantiate_from_config, denorm
 from jutils.vision import tensor2im
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../'))
+project_root = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), '../../'))
 sys.path.append(project_root)
 
 
-from ldm.flow import FlowModel
-from ldm.models.transformer.dit import DiT_models
-
-from data_processing.tools.norm import denorm_tensor
-from data_processing.sampler.data_handler import NumpyDataHandler, HDF5DatasetManager
-
 # Seed
 torch.manual_seed(2025)
-
 
 
 torch.set_float32_matmul_precision('high')
@@ -87,7 +85,8 @@ def img_to_grid(img: torch.Tensor, stack: str = "row", split: Optional[int] = 4)
         raise ValueError(f"Unknown stack type {stack}")
     if split is not None and img.shape[0] % split == 0:
         splitter = dict(b1=split) if stack == "row" else dict(b2=split)
-        img = einops.rearrange(img, "(b1 b2) c h w -> (b1 h) (b2 w) c", **splitter)
+        img = einops.rearrange(
+            img, "(b1 b2) c h w -> (b1 h) (b2 w) c", **splitter)
     else:
         to = "(b h) w c" if stack == "row" else "h (b w) c"
         img = einops.rearrange(img, "b c h w -> " + to)
@@ -104,8 +103,10 @@ def normalize_img(img: np.ndarray) -> np.ndarray:
 
 def show_samples(intermediates: Dict[str, torch.Tensor], save_dir: Optional[str] = None, prefix: str = "",
                  title: str = "One-sided diffusion") -> None:
-    sorted_intermediates = dict(sorted(intermediates.items(), key=lambda x: float(x[0]), reverse=True))
-    all_steps = torch.stack(list(sorted_intermediates.values()))  # [T, B, C, H, W]
+    sorted_intermediates = dict(
+        sorted(intermediates.items(), key=lambda x: float(x[0]), reverse=True))
+    all_steps = torch.stack(
+        list(sorted_intermediates.values()))  # [T, B, C, H, W]
     all_steps = all_steps.permute(1, 0, 2, 3, 4)  # [B, T, C, H, W]
 
     for i, sample in enumerate(all_steps):
@@ -137,12 +138,15 @@ class SampleProcessor:
         self,
         dataloader: DataLoader,
         first_stage_ckpt: str,                      # First stage model checkpoint
-        second_stage_ckpt: str,                     # Second stage model checkpoint 
+        second_stage_ckpt: str,                     # Second stage model checkpoint
         source_data_dir: str,                       # original/raw data location
         target_data_dir: str,                       # where to save processed samples
-        hdf5_dir: Optional[str] = None,             # where to save hdf5 files, defaults to target_data_dir
-        hdf5_file_name: Optional[str] = None,       # HDF5 file name, defaults to imagenet256-testset-T%H%M%S.hdf5
-        start_file_idx: Optional[int] = None,       # Starting index for saving files
+        # where to save hdf5 files, defaults to target_data_dir
+        hdf5_dir: Optional[str] = None,
+        # HDF5 file name, defaults to imagenet256-testset-T%H%M%S.hdf5
+        hdf5_file_name: Optional[str] = None,
+        # Starting index for saving files
+        start_file_idx: Optional[int] = None,
         selected_timesteps: List[float] = None,
         input_size: int = 32,
         num_classes: int = 1000,
@@ -157,12 +161,14 @@ class SampleProcessor:
     ):
         self.device = device
         if not torch.cuda.is_available() and self.device == 'cuda':
-            raise ValueError("CUDA is not available. Please set device to 'cpu'.")
+            raise ValueError(
+                "CUDA is not available. Please set device to 'cpu'.")
         self.dataloader = dataloader
-        
+
         # Validate source data dir
         if not exists(source_data_dir):
-            raise ValueError(f"Source data directory {source_data_dir} does not exist.")
+            raise ValueError(
+                f"Source data directory {source_data_dir} does not exist.")
         self.source_data_dir = Path(source_data_dir)
 
         # Validate/create target directory for processed outputs
@@ -180,12 +186,12 @@ class SampleProcessor:
 
         self.hdf5_file_name = hdf5_file_name
         print(f"Using HDF5 directory: {self.hdf5_dir}")
-        
-            
+
         if not selected_timesteps:
-            raise ValueError("Selected timesteps must be provided and cannot be empty.")
+            raise ValueError(
+                "Selected timesteps must be provided and cannot be empty.")
         self.selected_timesteps = sorted(selected_timesteps, reverse=True)
-        
+
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.input_size = input_size
@@ -197,7 +203,8 @@ class SampleProcessor:
         self.current_file_idx = None
 
         # Setup DiT-XL/2 model
-        y_null = torch.tensor([self.num_classes] * self.batch_size, device=self.device)
+        y_null = torch.tensor([self.num_classes] *
+                              self.batch_size, device=self.device)
         self.sample_kwargs = sample_kwargs or {}
         self.sample_kwargs.update({
             'num_steps': num_steps,
@@ -207,7 +214,8 @@ class SampleProcessor:
         })
 
         # Load models
-        self.first_stage = torch.compile(AutoencoderKL(ckpt_path=first_stage_ckpt).to(self.device), fullgraph=True)
+        self.first_stage = torch.compile(AutoencoderKL(
+            ckpt_path=first_stage_ckpt).to(self.device), fullgraph=True)
         freeze(self.first_stage)
         self.first_stage.eval()
 
@@ -222,7 +230,6 @@ class SampleProcessor:
         freeze(self.second_stage)
         self.second_stage.eval()
 
-
     @torch.no_grad()
     def encode_first_stage(self, x: torch.Tensor) -> torch.Tensor:
         return self.first_stage.encode(x) if self.first_stage else x
@@ -232,7 +239,7 @@ class SampleProcessor:
         return self.first_stage.decode(z) if self.first_stage else z
 
     @torch.no_grad()
-    def encode_second_stage(self, latent: torch.Tensor, y: Optional[torch.Tensor] = None, 
+    def encode_second_stage(self, latent: torch.Tensor, y: Optional[torch.Tensor] = None,
                             return_intermediates: bool = True, sample_kwargs: Optional[Dict] = None) -> Tuple:
         return self.second_stage.encode(latent, y=y, return_intermediates=return_intermediates, **(sample_kwargs or {}))
 
@@ -251,17 +258,20 @@ class SampleProcessor:
             y = labels.to(self.device).long()
 
             latent = self.encode_first_stage(x)
-            xt, intermediates = self.encode_second_stage(latent, y=y, return_intermediates=True, sample_kwargs=self.sample_kwargs)
+            xt, intermediates = self.encode_second_stage(
+                latent, y=y, return_intermediates=True, sample_kwargs=self.sample_kwargs)
 
             filtered_intermediates = {
-                f"{t:.1f}": intermediates.get(f"{t:.1f}") 
-                for t in self.selected_timesteps 
+                f"{t:.1f}": intermediates.get(f"{t:.1f}")
+                for t in self.selected_timesteps
                 if intermediates.get(f"{t:.1f}") is not None
             }
 
             if batch_idx % self.log_every == 0:
-                print(f"Batch {batch_idx}/{self.end_batch_id} - {self.group_name}")
-                show_samples(filtered_intermediates, save_dir=str(self.target_data_dir), prefix=f"{self.group_name}_samples_{batch_idx}")
+                print(
+                    f"Batch {batch_idx}/{self.end_batch_id} - {self.group_name}")
+                show_samples(filtered_intermediates, save_dir=str(
+                    self.target_data_dir), prefix=f"{self.group_name}_samples_{batch_idx}")
 
             data_dict = {
                 'image': x.detach().cpu(),
@@ -276,23 +286,22 @@ class SampleProcessor:
             torch.cuda.empty_cache()
             gc.collect()
 
-
         hdf5_filename = self.hdf5_file_name or f'imagenet256-testset-{datetime.datetime.now().strftime("T%H%M%S")}.hdf5'
         print(f"Save to hdf5 file {hdf5_filename}.")
-        
+
         self.save_to_hdf5(filename=hdf5_filename, group_name=self.group_name)
         torch.cuda.empty_cache()
         gc.collect()
 
-
     """    Save to HDF5 (New Version)   """
-    def save_to_hdf5(self, 
-                    group_name='train', 
-                    img_shape=(3, 256, 256), 
-                    latent_shape=(4, 32, 32), 
-                    label_shape=(1,), 
-                    filename='data.hdf5',
-                    timesteps=None):
+
+    def save_to_hdf5(self,
+                     group_name='train',
+                     img_shape=(3, 256, 256),
+                     latent_shape=(4, 32, 32),
+                     label_shape=(1,),
+                     filename='data.hdf5',
+                     timesteps=None):
 
         file_path = self.hdf5_dir / filename
         print(f"[INFO] Saving data to HDF5 file: {file_path}")
@@ -300,21 +309,24 @@ class SampleProcessor:
         group_dir = Path(self.target_data_dir) / group_name
         images_dir = group_dir / 'Images'
         labels_dir = group_dir / 'Labels'
-        
+
         print(f"[INFO] Group directory: {group_dir}")
         print(f"[INFO] Images directory: {images_dir}")
         print(f"[INFO] Labels directory: {labels_dir}")
 
         if timesteps is not None:
             timestep_names = {f"Latents_{t:.2f}" for t in timesteps}
-            latent_timestep_dirs = [d for d in group_dir.glob('Latents_*') if d.name in timestep_names]
+            latent_timestep_dirs = [d for d in group_dir.glob(
+                'Latents_*') if d.name in timestep_names]
         else:
             latent_timestep_dirs = sorted(group_dir.glob('Latents_*'))
-        
-        print(f"[INFO] Found latent timestep directories: {latent_timestep_dirs}")
+
+        print(
+            f"[INFO] Found latent timestep directories: {latent_timestep_dirs}")
 
         if not images_dir.exists() or not labels_dir.exists():
-            print(f"[ERROR] Required directories (Images/Labels) do not exist in {group_dir}")
+            print(
+                f"[ERROR] Required directories (Images/Labels) do not exist in {group_dir}")
             return None
 
         with h5py.File(file_path, 'a') as h5_file:
@@ -338,11 +350,14 @@ class SampleProcessor:
             else:
                 lbl_dset = group['labels']
 
-            image_paths = sorted(images_dir.glob('*.png'), key=lambda p: int(p.stem))
-            label_paths = sorted(labels_dir.glob('*.npy'), key=lambda p: int(p.stem))
+            image_paths = sorted(images_dir.glob('*.png'),
+                                 key=lambda p: int(p.stem))
+            label_paths = sorted(labels_dir.glob('*.npy'),
+                                 key=lambda p: int(p.stem))
 
             # Assert equal number of images and labels
-            assert len(image_paths) == len(label_paths), "Number of images and labels do not match!"
+            assert len(image_paths) == len(
+                label_paths), "Number of images and labels do not match!"
 
             # Append images and labels
             for img_path, label_path in zip(image_paths, label_paths):
@@ -352,7 +367,8 @@ class SampleProcessor:
                 img = np.transpose(img, (2, 0, 1))  # HWC to CHW
 
                 # Load label
-                label = np.load(label_path).astype(np.int64).reshape(label_shape)
+                label = np.load(label_path).astype(
+                    np.int64).reshape(label_shape)
 
                 # Resize datasets to append
                 img_dset.resize(img_dset.shape[0] + 1, axis=0)
@@ -366,8 +382,9 @@ class SampleProcessor:
                 timestep = timestep_dir.name.split('_')[-1]
                 latent_group_name = f'latents_{timestep}'
 
-                print(f"[INFO] Processing latent group: {latent_group_name} in {timestep_dir}")
-                
+                print(
+                    f"[INFO] Processing latent group: {latent_group_name} in {timestep_dir}")
+
                 if latent_group_name not in group:
                     lat_dset = group.create_dataset(
                         latent_group_name, shape=(0,) + latent_shape, maxshape=(None,) + latent_shape,
@@ -386,7 +403,6 @@ class SampleProcessor:
         print(f"Data appended to {file_path}.")
         return file_path
 
-
     def ensure_chw_format(latent: torch.Tensor) -> torch.Tensor:
         """Ensure latent is in (C, H, W) format."""
         if latent.ndim == 3 and latent.shape[0] <= 4:
@@ -398,16 +414,14 @@ class SampleProcessor:
         else:
             raise ValueError(f"Unexpected latent shape: {latent.shape}")
 
-
-
     def get_last_index(self, img_dir: str) -> int:
         image_files = [f for f in os.listdir(img_dir) if f.endswith('.png')]
         if not image_files:
             return 0
-        last_index = max(int(re.search(r'(\d+)\.png', f).group(1)) for f in image_files)
+        last_index = max(int(re.search(r'(\d+)\.png', f).group(1))
+                         for f in image_files)
         return last_index
-    
-    
+
     def save_files_to_data_dir(self, data: Dict[str, Any], group_name: str = 'train') -> str:
         """
         Store images, labels, and latents in a structured directory format.
@@ -438,13 +452,13 @@ class SampleProcessor:
         self.create_directory(group_dir)
         self.create_directory(img_dir)
         self.create_directory(labels_dir)
-        
+
         # Increment index
         if self.current_file_idx is None:
             self.current_file_idx = self.start_file_idx
         else:
             self.current_file_idx = self.get_last_image_number(img_dir) + 1
-        
+
         #######################################
         # Save images, labels, and latents
         start_index = self.current_file_idx
@@ -453,7 +467,7 @@ class SampleProcessor:
 
         if 'image' in data:
             self.save_images(data['image'], img_dir, start_index)
-        
+
         if 'label' in data:
             labels_dir = group_dir / 'Labels'
             self.create_directory(labels_dir)
@@ -468,7 +482,7 @@ class SampleProcessor:
             latent_dir = group_dir / 'Latents_0.00'
             self.create_directory(latent_dir)
             self.save_latents(data['latent'], latent_dir, start_index)
-            
+
         if 'intermediate_steps' in data and 'intermediates' in data:
             for step, interm_batch in zip(data['intermediate_steps'], data['intermediates']):
                 if step == 0.0:  # Skip end
@@ -476,14 +490,13 @@ class SampleProcessor:
                 latent_dir = group_dir / f'Latents_{step:.2f}'
                 self.create_directory(latent_dir)
                 self.save_latents(interm_batch, latent_dir, start_index)
-                
+
         self.store_metadata(group_dir, data, start_index, num_samples)
         #######################################
-               
-        logging.info(f"[INFO] Successfully saved batch of {num_samples} samples to {group_dir}")
+
+        logging.info(
+            f"[INFO] Successfully saved batch of {num_samples} samples to {group_dir}")
         return str(group_dir)
-    
-    
 
     def save_latents(self, latents: np.ndarray, latent_dir: Path, start_index: int) -> None:
         """Save batch of latent representations as numpy files."""
@@ -501,7 +514,6 @@ class SampleProcessor:
                 logging.error(f"Error saving latent {latent_path}: {e}")
                 raise
 
-
     def save_images(self, images: np.ndarray, img_dir: Path, start_index: int) -> None:
         """Save batch of original images in [-1,1] normalised form as png files."""
         # Convert to numpy array
@@ -511,7 +523,7 @@ class SampleProcessor:
         if isinstance(images, np.ndarray):
             images = images.transpose(0, 2, 3, 1)
             images = torch.from_numpy(images)
-        
+
         images = denorm_tensor(images)          # to [0, 255]
         transform = T.ToPILImage()
 
@@ -525,7 +537,6 @@ class SampleProcessor:
                 logging.error(f"Error saving image {image_path}: {e}")
                 raise
 
-
     def save_labels(self, labels: np.ndarray, labels_dir: Path, start_index: int) -> None:
         """Save labels as individual numpy files with double precision."""
         labels = labels.detach().cpu().numpy()
@@ -538,8 +549,7 @@ class SampleProcessor:
             except Exception as e:
                 logging.error(f"Error saving label {label_path}: {e}")
                 raise
-           
-            
+
     def load_images(self, img_dir: Path, start_index: int, num_images: int) -> np.ndarray:
         """Load batch of images and convert them back to [-1,1] normalised form."""
         images = []
@@ -556,8 +566,7 @@ class SampleProcessor:
                 logging.error(f"Error loading image {image_path}: {e}")
                 raise
         return np.array(images)
-    
-    
+
     def load_latents(self, latent_dir: Path, start_index: int, num_images: int) -> np.ndarray:
         """Load batch of latent representations."""
         latents = []
@@ -567,13 +576,13 @@ class SampleProcessor:
                 # TODO: Needs fix
                 latent_data = np.load(str(latent_path))
                 # Correct format (C, H, W)
-                latent_data = self.ensure_chw_format(latent_data).astype(np.float32)
+                latent_data = self.ensure_chw_format(
+                    latent_data).astype(np.float32)
                 latents.append(latent_data)
             except Exception as e:
                 logging.error(f"Error loading latent {latent_path}: {e}")
                 raise
         return np.array(latents)
-    
 
     def load_labels(self, labels_dir: Path, start_index: int, num_images: int) -> np.ndarray:
         """Load batch of labels."""
@@ -590,10 +599,8 @@ class SampleProcessor:
                 raise
         return np.array(labels)
 
-
-    
     """ Utility functions """
-    
+
     def store_metadata(self, group_dir: Path, data: Dict[str, Any], start_index: int, num_samples: int) -> None:
         """Save metadata about the stored data."""
         metadata = {
@@ -614,18 +621,15 @@ class SampleProcessor:
                     try:
                         existing_metadata = json.load(f)
                     except json.JSONDecodeError:
-                        existing_metadata = [] # overwrite existing metadata
+                        existing_metadata = []  # overwrite existing metadata
                 if isinstance(existing_metadata, dict):
-                    existing_metadata = [existing_metadata] # convert to list
+                    existing_metadata = [existing_metadata]  # convert to list
                 existing_metadata.append(metadata)
                 metadata = existing_metadata
             with open(metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
         except Exception as e:
             logging.error(f"Error saving metadata: {e}")
-
-
-
 
     def get_last_image_number(self, directory: Path) -> int:
         """Get the last image number in the directory."""
@@ -639,9 +643,9 @@ class SampleProcessor:
                     continue  # skip non-numeric filenames
             return max(numbers) if numbers else 0
         except Exception as e:
-            logging.error(f"Error getting last image number from {directory}: {e}")
+            logging.error(
+                f"Error getting last image number from {directory}: {e}")
             return 0
-
 
     def create_directory(self, path: Path) -> None:
         """Create directory if it does not exist."""
@@ -649,28 +653,28 @@ class SampleProcessor:
             path.mkdir(parents=True, exist_ok=True)
             logging.info(f"Created directory {path}")
         except PermissionError as e:
-            logging.error(f"Permission denied when creating directory {path}: {e}")
+            logging.error(
+                f"Permission denied when creating directory {path}: {e}")
             raise
         except Exception as e:
             logging.error(f"Error creating directory {path}: {e}")
             raise
-    
+
     def validate_dict(self, data: Dict[str, Any]) -> Tuple[bool, str]:
         """Validate data dictionary before saving."""
         required_keys = ['image']
         for key in required_keys:
             if key not in data:
                 return False, f"Missing required key: {key}"
-                
+
         if 'intermediates' in data and 'intermediate_steps' not in data:
             return False, "intermediate_steps required when intermediates present"
-            
+
         if 'intermediate_steps' in data and 'intermediates' in data:
             if len(data['intermediate_steps']) != len(data['intermediates']):
                 return False, "Mismatch between steps and intermediates length"
-                
+
         return True, "No errors"
-    
 
 
 # ----------- Example Usage -----------
@@ -679,35 +683,41 @@ def main():
     base_data_dir = "./dataset/train-samples"
     target_data_dir = "./dataset/processed/trainset-256/"
     hdf5_dir = "./dataset/processed/trainset-256/"
-    
+
     start_file_idx = 479235  # Optional, defaults to 0
-    
-    hdf5_file_name = 'imagenet256-dataset-T000006.hdf5'  # Optional, defaults to imagenet256-testset-T%H%M%S.hdf5
-    
+
+    # Optional, defaults to imagenet256-testset-T%H%M%S.hdf5
+    hdf5_file_name = 'imagenet256-dataset-T000006.hdf5'
+
     batch_size = 32
     num_workers = 8
-    selected_timesteps  = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    selected_timesteps = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
     transform = transforms.Compose([
-        transforms.Resize(256),                
-        transforms.CenterCrop(256),            
+        transforms.Resize(256),
+        transforms.CenterCrop(256),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
-    
+
     dataset = ClassIDImageDataset(base_data_dir, transform=transform)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    dataloader = DataLoader(dataset, batch_size=batch_size,
+                            shuffle=True, num_workers=num_workers)
 
     processor = SampleProcessor(
         dataloader=dataloader,
-        source_data_dir=base_data_dir,                                  # original/raw data location
-        target_data_dir=target_data_dir,                                # where to save processed samples
-        hdf5_dir=hdf5_dir,                                              # where to save hdf5 files, defaults to target_data_dir
-        hdf5_file_name=hdf5_file_name,                                  # Optional - HDF5 file name, defaults to imagenet256-testset-T%H%M%S.hdf5
+        # original/raw data location
+        source_data_dir=base_data_dir,
+        # where to save processed samples
+        target_data_dir=target_data_dir,
+        # where to save hdf5 files, defaults to target_data_dir
+        hdf5_dir=hdf5_dir,
+        # Optional - HDF5 file name, defaults to imagenet256-testset-T%H%M%S.hdf5
+        hdf5_file_name=hdf5_file_name,
         selected_timesteps=selected_timesteps,
         start_file_idx=start_file_idx,
-        first_stage_ckpt = 'checkpoints/sd_ae.ckpt',
-        second_stage_ckpt = 'checkpoints/SiT-XL-2-256x256.pt',
-        input_size=32, # image size wxh
+        first_stage_ckpt='checkpoints/sd_ae.ckpt',
+        second_stage_ckpt='checkpoints/SiT-XL-2-256x256.pt',
+        input_size=32,  # image size wxh
         num_classes=1000,
         batch_size=batch_size,
         num_steps=100,
@@ -721,4 +731,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-# CUDA_VISIBLE_DEVICES=1 python
+# CUDA_VISIBLE_DEVICES=0 python ...

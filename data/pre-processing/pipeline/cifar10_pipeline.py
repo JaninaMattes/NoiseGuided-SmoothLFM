@@ -1,3 +1,6 @@
+from ldm.flow import FlowModel
+from ldm.models.transformer.dit import DiT_models
+from data_processing.sampler.data_handler import NumpyDataHandler, HDF5DatasetManager
 import argparse
 import os
 import sys
@@ -22,10 +25,6 @@ project_root = os.path.abspath(os.path.join(
 sys.path.append(project_root)
 
 # Load custom modules
-
-from data_processing.sampler.data_handler import NumpyDataHandler, HDF5DatasetManager
-from ldm.models.transformer.dit import DiT_models
-from ldm.flow import FlowModel
 
 
 # Set precision to high
@@ -321,4 +320,6 @@ if __name__ == "__main__":
     processer()
     print("Sample processing completed.")
     # processer.save_hdf5(args.dataset_dir, filename='imagenet256-dataset-T000003.hdf5', group_name=args.split)
-    # CUDA_VISIBLE_DEVICES=1 python '/export/home/ra93jiz/dev/Img-IDM/data_processing/sampler/sample_processor.py' --start_batch_id 1000 --end_batch_id 1800 --split validation --dataset_dir 'dataset/processed/needs-fix' --batch_size 32
+
+    # CUDA_VISIBLE_DEVICES=0 python ... <- This line is a reminder to run the script with the appropriate CUDA device.
+    # Note: The script is designed to run on a single GPU. If you want to run it on multiple GPUs, you need to modify the code to use DataParallel or DistributedDataParallel
