@@ -1,4 +1,4 @@
-# NoiseGuided-SmoothLFM
+# 🚀 NoiseGuided-SmoothLFM
 
 
 
@@ -13,7 +13,7 @@ This repository contains:
 
 
 
-Setup
+🔧  Setup
 First, download and set up the repo:
 
 git clone ...
