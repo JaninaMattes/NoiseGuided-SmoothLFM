@@ -864,6 +864,7 @@ def check_and_update_latents(existing_lat_count, latent_paths, existing_lat_file
         print("No new latent files to add.")
 
 
+
 def save_hdf5_intermediate_latents(data_dir, filename, timestep=0.5, group_name='train', timesteps=None):
     """Save only latents to HDF5 file, then retrieve for inspection."""
 
@@ -884,6 +885,12 @@ def save_hdf5_intermediate_latents(data_dir, filename, timestep=0.5, group_name=
     return imgs, labels, latents
 
 
+
+
+
+
+
+
 if __name__ == "__main__":
 
     ########################################
@@ -902,11 +909,10 @@ if __name__ == "__main__":
     ############### Filename ###############
     ########################################
 
-    # postfix = datetime.datetime.now().strftime("T%H%M%S")
-    # filename = f'imagenet256_data_set-{postfix}.hdf5'
-    # filename = "imagenet256_data.hdf5"
-    # "imagenet256_data.hdf5" / 'imagenet256_data-T200425.hdf5'
-    filename = "imagenet256_data_set-T151932_.hdf5"
+    postfix = datetime.datetime.now().strftime("T%H%M%S")
+    filename = f'imagenet256_data_set-{postfix}.hdf5'
+    filename = "imagenet256_data.hdf5"
+    "imagenet256_data.hdf5" / 'imagenet256_data-T200425.hdf5'
 
     ########################################
     ######### Saving Procedure #############
@@ -920,10 +926,14 @@ if __name__ == "__main__":
     imgs, labels, latents = save_hdf5(
         data_dir, filename, sample_timestep, group_name)   # All files
 
-    # imgs, labels, latents = save_hdf5_intermediate_latents(data_dir, filename, timestep=sample_timestep, group_name=group_name, timesteps=timesteps)      # Only some files not all
+    # imgs, labels, latents = save_hdf5_intermediate_latents(data_dir, 
+    # filename, timestep=sample_timestep, group_name=group_name, timesteps=timesteps)      # Only some files not all
 
     # Print shapes
     print(
         f"Images: {imgs.shape}, Labels: {labels.shape}, Latents: {latents.shape}")
     print(f"Images min: {imgs.min()}, max: {imgs.max()}")
     print(f"Latents min: {latents.min()}, max: {latents.max()}")
+
+
+# CUDA_VISIBLE_DEVICES=0 python ...

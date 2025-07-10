@@ -189,6 +189,8 @@ class HDF5DataHandler:
         return loader
 
 
+
+
 if __name__ == "__main__":
     # Example usage
     file_path = '/data'
@@ -208,3 +210,7 @@ if __name__ == "__main__":
     for i, data in enumerate(sample_dataset):
         # data_handler.save_to_hdf5(data)
         data_handler.save_to_numpy(data)
+
+
+
+# CUDA_VISIBLE_DEVICES=0 python ...
