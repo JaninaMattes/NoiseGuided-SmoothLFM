@@ -253,3 +253,8 @@ if __name__ == "__main__":
     logging.info(f"Total time: {total_time:.2f} seconds.")
     logging.info(
         f"Avg time per batch: {total_time / (end_batch_id - start_batch_id):.4f} seconds.")
+
+
+
+
+# CUDA_VISIBLE_DEVICES=0 python ...
