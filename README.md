@@ -23,8 +23,8 @@ It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github
 - `train.py` — Main training entry point for SiT-based models, including smoothness losses.
 - `evaluation/` — Scripts for:
   - PCA and linear probe evaluations
-  - UMAP projections
-  - Full image metric tracking (FID, precision-recall, smoothness)
+  - UMAP projections for non-linear evaluation of global structures
+  - Full image metric tracking in latent and pixel domain (FID, precision-recall, smoothness)
 - `configs/` — Example training & sampling configurations.
 - `environment.yml` — Conda environment file.
 
@@ -35,5 +35,5 @@ It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github
 Clone and enter the repository:
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-folder>
+git clone git@github.com:JaninaMattes/NoiseGuided-SmoothLFM.git
+cd NoiseGuided-SmoothLFM
