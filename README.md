@@ -1,10 +1,16 @@
 # 🚀 NoiseGuided-SmoothLFM
 
+![Smooth Interpolation Example](assets/readme/pair_04.gif)
+
 **NoiseGuided-SmoothLFM** is a framework for learning **noise-guided latent smoothness** in image generation.  
-It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github.com/joh-schb/image-ldm)) and leverages the power of 
+It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github.com/joh-schb/image-ldm)) and leverages the power of **Scalable Interpolant Transformers (SiT)** ([SiT](https://github.com/willisma/SiT)).
 
+---
 
-**Scalable Interpolant Transformers (SiT)** ([SiT](https://github.com/willisma/SiT)).
+## 🌊 Smooth Interpolations
+
+Our model learns *extremely smooth transitions* in latent space, enabling natural morphing between images — as showcased above.  
+This allows for creative interpolations and continuous edits that remain perceptually consistent.
 
 ---
 
@@ -23,8 +29,8 @@ It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github
 - `train.py` — Main training entry point for SiT-based models, including smoothness losses.
 - `evaluation/` — Scripts for:
   - PCA and linear probe evaluations
-  - UMAP projections
-  - Full image metric tracking (FID, precision-recall, smoothness)
+  - UMAP projections for non-linear evaluation of global structures
+  - Full image metric tracking in latent and pixel domain (FID, precision-recall, smoothness)
 - `configs/` — Example training & sampling configurations.
 - `environment.yml` — Conda environment file.
 
@@ -35,5 +41,5 @@ It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github
 Clone and enter the repository:
 
 ```bash
-git clone <your-repo-url>
-cd <your-repo-folder>
+git clone git@github.com:JaninaMattes/NoiseGuided-SmoothLFM.git
+cd NoiseGuided-SmoothLFM

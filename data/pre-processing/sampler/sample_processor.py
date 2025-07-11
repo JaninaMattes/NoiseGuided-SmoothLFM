@@ -350,4 +350,4 @@ if __name__ == "__main__":
     
     # Example usage:
     # processer.save_hdf5(args.dataset_dir, filename='imagenet256-dataset-T000003.hdf5', group_name=args.split)
-    # CUDA_VISIBLE_DEVICES=1 python '/export/home/ra93jiz/dev/Img-IDM/data_processing/sampler/sample_processor.py' --start_batch_id 0 --end_batch_id 1800 --split train --dataset_dir 'dataset/processed/imagenet-256' --batch_size 32
+    # CUDA_VISIBLE_DEVICES=1 python '.../data_processing/sampler/sample_processor.py' --start_batch_id 0 --end_batch_id 1800 --split train --dataset_dir 'dataset/processed/imagenet-256' --batch_size 32
