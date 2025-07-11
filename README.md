@@ -9,7 +9,7 @@ It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github
 
 ## 🌊 Smooth Interpolations
 
-Our model learns *extremely smooth transitions* in latent space, enabling natural morphing between images — as showcased above.  
+Our model learns *smooth transitions* in an auxiliary diffusion-based latent space, enabling natural morphing between images, as showcased above.  
 This allows for creative interpolations and continuous edits that remain perceptually consistent.
 
 ---
