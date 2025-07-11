@@ -1,10 +1,16 @@
 # 🚀 NoiseGuided-SmoothLFM
 
+![Smooth Interpolation Example](assets/readme/pair_04.gif)
+
 **NoiseGuided-SmoothLFM** is a framework for learning **noise-guided latent smoothness** in image generation.  
-It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github.com/joh-schb/image-ldm)) and leverages the power of 
+It builds on top of **Image Latent Diffusion Model** ([image-ldm](https://github.com/joh-schb/image-ldm)) and leverages the power of **Scalable Interpolant Transformers (SiT)** ([SiT](https://github.com/willisma/SiT)).
 
+---
 
-**Scalable Interpolant Transformers (SiT)** ([SiT](https://github.com/willisma/SiT)).
+## 🌊 Smooth Interpolations
+
+Our model learns *extremely smooth transitions* in latent space, enabling natural morphing between images — as showcased above.  
+This allows for creative interpolations and continuous edits that remain perceptually consistent.
 
 ---
 
