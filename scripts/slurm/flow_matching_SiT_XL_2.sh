@@ -17,8 +17,8 @@ echo "NODES: ${SLURM_NNODES}"
 echo "################################"
 
 # ---------------------- Env Setup
-cd /export/home/ra93jiz/dev/Img-IDM/
-source /export/home/ra93jiz/miniconda3/bin/activate
+cd /export/home/<your_id>/dev/Img-IDM/
+source /export/home/<your_id>/miniconda3/bin/activate
 conda activate ldm-env-v2
 
 # ---------------------- NCCL / CUDA settings
