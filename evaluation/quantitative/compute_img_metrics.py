@@ -1,5 +1,3 @@
-from pytorch_fid.inception import InceptionV3
-
 # Code adapted from:
 # - https://github.com/SHI-Labs/Smooth-Diffusion
 # - https://github.com/youngjung/improved-precision-and-recall-metric-pytorch/blob/master/improved_precision_recall.py#L185
@@ -7,34 +5,26 @@ from pytorch_fid.inception import InceptionV3
 
 import os, sys
 import gc
-
 from tqdm import tqdm
+import shutil
 
-import torch
-import torch.nn as nn
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 import torchvision
-import torchvision.transforms.functional as FT
+import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
 from scipy import linalg
 
 from torch.utils.data import DataLoader, Dataset
 
-from tqdm import tqdm
 import numpy as np
-from typing import Tuple
-import pandas as pd
-
+from typing import List, Tuple
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
-from typing import List, Tuple
-
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 
@@ -45,14 +35,12 @@ from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
 from pytorch_fid.inception import InceptionV3
 
-
 # Jutils 
 from jutils import denorm
 from jutils import ims_to_grid
 from jutils.vision import tensor2im
 from jutils import exists, freeze, default
 from jutils import tensor2im, ims_to_grid
-
 
 # Setup project root for import resolution
 project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
@@ -64,12 +52,21 @@ from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
 from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
 
-
-
-
 torch.set_float32_matmul_precision('high')
 
 
+
+
+
+
+############################################
+#   Utils
+############################################
+
+def clear_folder(path: Path):
+    if path.exists() and path.is_dir():
+        shutil.rmtree(path)
+        path.mkdir(parents=True, exist_ok=True)
 
 
 
@@ -127,7 +124,6 @@ class PrecisionRecallFID(nn.Module):
         # Clean up memory
         del real_feats, fake_feats, dists_real, dists_fake, dists_cross, precision_mask, recall_mask
         torch.cuda.empty_cache()
-        gc.collect()
         
         return pFID, rFID
 
@@ -137,9 +133,8 @@ class PrecisionRecallFID(nn.Module):
         dist = x_norm + y_norm - 2.0 * x @ y.t()
         return dist.clamp(min=0).sqrt()
 
-
     @torch.no_grad()
-    def _compute_fid(self, feats1, feats2, eps=1e-6):
+    def _compute_fid(self, feats1, feats2):
         mu1 = feats1.mean(dim=0)
         mu2 = feats2.mean(dim=0)
 
@@ -148,32 +143,26 @@ class PrecisionRecallFID(nn.Module):
 
         diff = mu1 - mu2
 
-        cov_prod = sigma1.cpu().numpy() @ sigma2.cpu().numpy()
-        covmean = linalg.sqrtm(cov_prod)
+        cov_prod = sigma1 @ sigma2
+        eigvals, eigvecs = torch.linalg.eigh(cov_prod)
+        covmean = eigvecs @ torch.diag(eigvals.clamp(min=0).sqrt()) @ eigvecs.T
 
-        if not np.isfinite(covmean).all():
-            offset = np.eye(sigma1.shape[0]) * eps
-            covmean = linalg.sqrtm((sigma1.cpu().numpy() + offset) @ (sigma2.cpu().numpy() + offset))
-
-        if np.iscomplexobj(covmean):
-            covmean = covmean.real
-
-        covmean = torch.from_numpy(covmean).to(sigma1.device)
-
+        # Compute final FID
         fid = diff.dot(diff) + torch.trace(sigma1 + sigma2 - 2 * covmean)
-        
-        # Cleam up memory
-        del mu1, mu2, sigma1, sigma2, diff, cov_prod, covmean
+
+        # Clean up
+        del mu1, mu2, sigma1, sigma2, diff, cov_prod, eigvals, eigvecs, covmean
         torch.cuda.empty_cache()
-        gc.collect()
         
         return fid.item()
 
+    @torch.no_grad()
     def _cov(self, feats):
-        feats_np = feats.cpu().numpy()
-        cov = np.cov(feats_np, rowvar=False)
-        return torch.from_numpy(cov).to(feats.device)
-
+        n = feats.shape[0]
+        mean = feats.mean(dim=0, keepdim=True)
+        feats_centered = feats - mean
+        cov = feats_centered.T @ feats_centered / (n - 1)
+        return cov
 
 
 
@@ -205,14 +194,9 @@ class PrecisionRecall(nn.Module):
     @torch.no_grad()
     def update(self, images, real=True):
         feats = images.to(self.device)
-
-        # Ensure images are float before flattening
         if feats.dtype == torch.uint8:
             feats = feats.float() / 255.0
-
-        feats = feats.view(feats.size(0), -1)  # flatten
-        assert feats.dtype in (torch.float32, torch.float64), f"Expected float type, got {feats.dtype}"
-
+        feats = feats.view(feats.size(0), -1)
         if real:
             self.real_feats.append(feats)
         else:
@@ -220,40 +204,35 @@ class PrecisionRecall(nn.Module):
 
     @torch.no_grad()
     def compute(self):
-        real_feats = torch.cat(self.real_feats, dim=0)
-        fake_feats = torch.cat(self.fake_feats, dim=0)
+        real_feats = torch.cat(self.real_feats, dim=0).to(self.device)
+        fake_feats = torch.cat(self.fake_feats, dim=0).to(self.device)
 
-        # Compute pairwise distances between real samples (for recall manifold)
         dists_real = self._pairwise_distances(real_feats, real_feats)
         radii_real = dists_real.topk(self.k + 1, largest=False).values[:, -1]
 
-        # Compute pairwise distances between fake samples (for precision manifold)
         dists_fake = self._pairwise_distances(fake_feats, fake_feats)
         radii_fake = dists_fake.topk(self.k + 1, largest=False).values[:, -1]
 
-        # Cross distances: fake-to-real
         dists_cross = self._pairwise_distances(fake_feats, real_feats)
+
         precision_mask = (dists_cross <= radii_real.unsqueeze(0)).any(dim=1)
         precision = precision_mask.float().mean().item()
 
-        # Cross distances: real-to-fake
-        dists_cross_T = dists_cross.t()
-        recall_mask = (dists_cross_T <= radii_fake.unsqueeze(0)).any(dim=1)
+        recall_mask = (dists_cross.t() <= radii_fake.unsqueeze(0)).any(dim=1)
         recall = recall_mask.float().mean().item()
 
-        # Clean up memory
-        del real_feats, fake_feats, dists_real, dists_fake, dists_cross, precision_mask, recall_mask
+        del real_feats, fake_feats, dists_real, dists_fake, dists_cross, radii_real, radii_fake
         torch.cuda.empty_cache()
-        gc.collect()
-        
+
         return precision, recall
 
     @torch.no_grad()
     def _pairwise_distances(self, x, y):
-        x_norm = (x ** 2).sum(dim=1).unsqueeze(1)
-        y_norm = (y ** 2).sum(dim=1).unsqueeze(0)
-        dist = x_norm + y_norm - 2.0 * x @ y.t()
+        x_norm = x.pow(2).sum(1).unsqueeze(1)
+        y_norm = y.pow(2).sum(1).unsqueeze(0)
+        dist = x_norm + y_norm - 2 * x @ y.t()
         return dist.clamp(min=0).sqrt()
+
 
     
     
@@ -315,8 +294,8 @@ class FIDMetricsTracker(nn.Module):
             for idx, (img_real, img_fake) in enumerate(zip(real_ims, fake_ims)):
                 for i in range(self.num_crops):
                     anchor = anchors[idx * self.num_crops + i]
-                    cropped_real.append(FT.crop(img_real, *anchor))
-                    cropped_fake.append(FT.crop(img_fake, *anchor))
+                    cropped_real.append(TF.crop(img_real, *anchor))
+                    cropped_fake.append(TF.crop(img_fake, *anchor))
             real_patches = torch.stack(cropped_real)
             fake_patches = torch.stack(cropped_fake)
             self.local_fid.update(real_patches, real=True)
@@ -334,7 +313,6 @@ class FIDMetricsTracker(nn.Module):
         # Clean up memory
         del real_ims, fake_ims
         torch.cuda.empty_cache()
-        gc.collect()
 
     @torch.no_grad()
     def aggregate(self):
@@ -396,7 +374,6 @@ class ImageMetricsTracker(nn.Module):
         # Clean up memory
         del pred_norm, target_norm
         torch.cuda.empty_cache()
-        gc.collect()
 
     @torch.no_grad()
     def aggregate(self):
@@ -454,7 +431,7 @@ def load_saved_samples_as_dataset(base_dir: str, batch_size: int = 8, shuffle: b
 #########################################################
 #              Sample Generation                       #
 #########################################################
-torch.no_grad()
+@torch.no_grad()
 def generate_samples(
     fm_module,
     images,
@@ -464,18 +441,15 @@ def generate_samples(
     ccfg_scale=1.0,
     num_steps=50,
     num_classes=1000,
-    device=None,
-    denorm_fn=None,  # If needed later
-    plot_samples=False,
     nrow=4,
     title="Generated Samples",
     save_path=None,
     resize_to=128,
-    use_labels=False,  # If labels are used in the model
+    use_labels=False,
+    plot_samples=False,
+    device=None,
 ):
-    device = device or fm_module.device
-
-    # Move tensors to device
+    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     images = images.to(device)
     xt_latent = xt_latent.to(device)
     
@@ -484,9 +458,8 @@ def generate_samples(
 
     with torch.no_grad():
         context = fm_module.encode_third_stage(xt_latent)
-        z = torch.randn_like(xt_latent).to(device)          # noise tensor
-
-        uc_context = torch.zeros_like(context).to(device)   # unconditional context
+        z = torch.randn_like(xt_latent).to(device)
+        uc_context = torch.zeros_like(context).to(device)
         uc_label = torch.full((xt_latent.size(0),), num_classes, device=device, dtype=torch.long)
 
         sample_kwargs = {
@@ -502,12 +475,8 @@ def generate_samples(
 
         generated = fm_module.model.generate(x=z, **sample_kwargs)
         fake_images = fm_module.decode_first_stage(generated)
-        real_images = images  # Already unnormalized
+        real_images = images
 
-    ##############################
-    # Plotting (optional)
-    ##############################
-    # Warning: Denorm is okay for visualization, but not for metrics (!)
     if plot_samples:
         real_images_ = denorm_tensor(real_images).detach().cpu()
         fake_images_ = denorm_tensor(fake_images).detach().cpu()
@@ -533,20 +502,14 @@ def generate_samples(
 
         plt.show()
         plt.close(fig)
-
         del fig, grid, fake_images_, real_images_, real_images_resized, fake_images_resized, interleaved
-        # Clear memory
         torch.cuda.empty_cache()
-        gc.collect()
 
-    ############################
-    # Clean up
-    ############################
     del images, xt_latent, context, z, uc_context, uc_label, generated
     torch.cuda.empty_cache()
-    gc.collect()
 
     return fake_images.detach().cpu(), real_images.detach().cpu()
+
 
 
 
@@ -570,6 +533,7 @@ def collect_real_and_fake_features(
     save_path=None,
     device=None,
     plot_every=1000,
+    start_idx=0, 
 ):
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     output_root = Path(output_root)
@@ -577,17 +541,26 @@ def collect_real_and_fake_features(
     output_real_dir = output_root / "gt-images"
     output_label_dir = output_root / "labels"
 
-    # Create folders
     output_fake_dir.mkdir(parents=True, exist_ok=True)
     output_real_dir.mkdir(parents=True, exist_ok=True)
     output_label_dir.mkdir(parents=True, exist_ok=True)
 
-    count = 0
-    file_idx = 0
+    # Check for existing files to resume
+    existing_files = sorted(output_fake_dir.glob("*.npy"))
+    if existing_files:
+        last_file = existing_files[-1].stem
+        assert last_file.isdigit(), f"Unexpected non-numeric filename: {last_file}"
+        start_idx = int(last_file) + 1  # Start from next index
+        count = len(existing_files)
+        file_idx = start_idx
+        print(f"[INFO] Resuming from existing samples. Found {count} samples, starting at index {file_idx}.")
+    else:
+        count = 0
+        file_idx = start_idx
 
     for batch in tqdm(data_loader, desc="Collecting and saving images"):
         if count >= max_samples:
-            print(f"[INFO] Collected {count} samples, stopping early.")
+            print(f"[INFO] Already collected {count} samples, stopping early.")
             break
 
         images = batch["image"].to(device)
@@ -610,16 +583,16 @@ def collect_real_and_fake_features(
 
         batch_size = real_imgs.size(0)
 
-        # Iterate and save one by one
         for i in range(batch_size):
-            fake_img = fake_imgs[i].cpu().numpy().astype(np.float32)  # Shape (C, H, W)
+            if count >= max_samples:
+                print(f"[INFO] Reached max_samples {max_samples}.")
+                break
+
+            fake_img = fake_imgs[i].cpu().numpy().astype(np.float32)
             real_img = real_imgs[i].cpu().numpy().astype(np.float32)
-            label = labels[i].cpu().numpy().astype(np.int64)  # single value
+            label = labels[i].cpu().numpy().astype(np.int64)
 
-            # Format filename
             filename = f"{file_idx:07d}.npy"
-
-            # Save
             np.save(output_fake_dir / filename, fake_img)
             np.save(output_real_dir / filename, real_img)
             np.save(output_label_dir / filename, label)
@@ -627,17 +600,10 @@ def collect_real_and_fake_features(
             file_idx += 1
             count += 1
 
-            if count >= max_samples:
-                print(f"[INFO] Reached max_samples {max_samples}.")
-                break
-
-        # Clean up
         del images, xt, labels, fake_imgs, real_imgs
         torch.cuda.empty_cache()
-        gc.collect()
 
-    print(f"[✓] All samples saved to: {output_root.resolve()}")
-
+    print(f"All samples saved to: {output_root.resolve()}")
 
 
 
@@ -673,7 +639,7 @@ def load_saved_samples(base_dir: str) -> List[Tuple[torch.Tensor, torch.Tensor, 
 
         samples.append((fake_tensor, real_tensor, label_int))
 
-    print(f"[✓] Loaded {len(samples)} samples from {base_dir.resolve()}")
+    print(f"Loaded {len(samples)} samples from {base_dir.resolve()}")
     return samples
 
 
@@ -689,8 +655,6 @@ def get_dataloader_by_group(data_module, group: str):
     else:
         raise ValueError(f"Unsupported group: {group}")
     
-
-
 
 
 ##################################################
@@ -716,7 +680,14 @@ def run_data_collection_and_evaluation(
     crop_size=128,
     k=3,
     device=None,
+    sample_output_root=None,
+    force_clean=False,
 ):
+    import gc
+    from pathlib import Path
+    from datetime import datetime
+    from tqdm import tqdm
+
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(2025)
 
@@ -740,20 +711,54 @@ def run_data_collection_and_evaluation(
     dataloader = get_dataloader_by_group(data, group)
 
     # Setup results directory
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    base_results_dir = Path(results_root) / project_name / model_name / timestamp
-    base_results_dir.mkdir(parents=True, exist_ok=True)
+    if sample_output_root:
+        sample_dir_base = Path(sample_output_root)
+        base_results_dir = sample_dir_base.parent
+        sample_dir_base.mkdir(parents=True, exist_ok=True)
+        print(f"[INFO] Using pre-defined sample path: {sample_dir_base}")
+    else:
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        base_results_dir = Path(results_root) / project_name / model_name / timestamp
+        base_results_dir.mkdir(parents=True, exist_ok=True)
+
     csv_path = base_results_dir / f"{model_name}_metrics.csv"
 
-    # Loop over cfg scales
-    with open(csv_path, "w") as csv_file:
-        csv_file.write("cfg_scale,ccfg_scale,gFID,lFID,pFID,rFID,SSIM,LPIPS,PSNR,MSE,MAE\n")
+    if not csv_path.exists():
+        with open(csv_path, "w") as f:
+            f.write("cfg_scale,ccfg_scale,gFID,lFID,pFID,rFID,SSIM,LPIPS,PSNR,MSE,MAE\n")
 
-        for cfg_scale, ccfg_scale in zip(cfg_scales, ccfg_scales):
-            print(f"\n[INFO] CFG={cfg_scale}, CCFG={ccfg_scale}")
+    for cfg_scale, ccfg_scale in zip(cfg_scales, ccfg_scales):
+        print(f"\n[INFO] CFG={cfg_scale}, CCFG={ccfg_scale}")
 
-            # 1️ Collect and save samples
+        if sample_output_root:
+            sample_dir = Path(sample_output_root)
+        else:
             sample_dir = base_results_dir / f"samples_cfg{cfg_scale}_ccfg{ccfg_scale}"
+            sample_dir.mkdir(parents=True, exist_ok=True)
+
+        fake_dir = sample_dir / "fake-images"
+        fake_dir.mkdir(parents=True, exist_ok=True)
+
+        if force_clean:
+            print("[INFO] force_clean=True — clearing sample directories before sampling.")
+            clear_folder(sample_dir / "fake-images")
+            clear_folder(sample_dir / "gt-images")
+            clear_folder(sample_dir / "labels")
+            start_idx = 0
+            skip_sampling = False
+        else:
+            existing_files = sorted(fake_dir.glob("*.npy"))
+            num_existing = len(existing_files)
+            if num_existing >= max_samples:
+                print(f"[INFO] Already have {num_existing} samples. Skipping sampling.")
+                start_idx = num_existing
+                skip_sampling = True
+            else:
+                print(f"[INFO] Found {num_existing} samples. Will resume to reach {max_samples}.")
+                start_idx = num_existing
+                skip_sampling = False
+
+        if not skip_sampling:
             collect_real_and_fake_features(
                 fm_module=fm_module,
                 data_loader=dataloader,
@@ -765,62 +770,114 @@ def run_data_collection_and_evaluation(
                 num_steps=num_steps,
                 num_classes=num_classes,
                 device=device,
+                start_idx=start_idx,
             )
 
-            # 2️ Load saved samples as dataset
-            sample_loader = load_saved_samples_as_dataset(sample_dir, batch_size=batch_size, shuffle=False)
+        sample_loader = load_saved_samples_as_dataset(sample_dir, batch_size=batch_size, shuffle=False)
 
-            # 3️ Evaluate using trackers
-            fid_tracker = FIDMetricsTracker(num_crops=num_crops, crop_size=crop_size, k=k, device=device)
-            img_tracker = ImageMetricsTracker(device=device)
+        fid_tracker = FIDMetricsTracker(num_crops=num_crops, crop_size=crop_size, k=k, device=device)
+        img_tracker = ImageMetricsTracker(device=device)
 
-            for batch_fake, batch_real, _ in tqdm(sample_loader, desc=f"Evaluating CFG={cfg_scale}"):
-                batch_fake = batch_fake.to(device)
-                batch_real = batch_real.to(device)
+        # Initialize accumulators
+        accum_metrics = {
+            'gfid': 0.0, 'lfid': 0.0, 'pFID': 0.0, 'rFID': 0.0,
+            'ssim': 0.0, 'lpips': 0.0, 'psnr': 0.0, 'mse': 0.0, 'mae': 0.0
+        }
+        lfid_batches = 0
+        batch_counter = 0
 
-                fid_tracker.update(batch_real, batch_fake)
-                img_tracker.update(batch_real, batch_fake)
+        print(f"[INFO] Evaluating samples in {sample_dir} with cfg_scale={cfg_scale}, ccfg_scale={ccfg_scale}")
 
-                # Memory cleanup
-                del batch_fake, batch_real
-                torch.cuda.empty_cache()
-                gc.collect()
+        for batch_fake, batch_real, _ in tqdm(sample_loader, desc=f"Evaluating CFG={cfg_scale}"):
+            batch_fake = batch_fake.to(device)
+            batch_real = batch_real.to(device)
 
+            fid_tracker.update(batch_real, batch_fake)
+            img_tracker.update(batch_real, batch_fake)
 
-            # 4️ Aggregate and write metrics
+            # Aggregate immediately
             fid_metrics = fid_tracker.aggregate()
             img_metrics = img_tracker.aggregate()
 
-            print(
-                f"[INFO] gFID: {fid_metrics['gfid']:.4f} | "
-                f"lFID: {fid_metrics['lfid'] if fid_metrics['lfid'] is not None else 'NA'} | "
-                f"pFID: {fid_metrics['pFID']:.4f} | "
-                f"rFID: {fid_metrics['rFID']:.4f} | "
-                f"SSIM: {img_metrics['ssim']:.4f} | "
-                f"LPIPS: {img_metrics['lpips']:.4f} | "
-                f"PSNR: {img_metrics['psnr']:.2f} | "
-                f"MSE: {img_metrics['mse']:.6f} | "
-                f"MAE: {img_metrics['mae']:.6f}"
-            )
+            accum_metrics['gfid'] += fid_metrics['gfid']
+            if fid_metrics['lfid'] is not None:
+                accum_metrics['lfid'] += fid_metrics['lfid']
+                lfid_batches += 1
+                
+            accum_metrics['pFID'] += fid_metrics['pFID']
+            accum_metrics['rFID'] += fid_metrics['rFID']
+            accum_metrics['ssim'] += img_metrics['ssim']
+            accum_metrics['lpips'] += img_metrics['lpips']
+            accum_metrics['psnr'] += img_metrics['psnr']
+            accum_metrics['mse'] += img_metrics['mse']
+            accum_metrics['mae'] += img_metrics['mae']
 
+            batch_counter += 1
+
+            fid_tracker.reset()
+            img_tracker.reset()
+
+            del batch_fake, batch_real
+            torch.cuda.empty_cache()
+
+            if batch_counter % 10 == 0:
+                print(f"[INFO] Processed {batch_counter} batches.")
+                print(f"[INFO] Current metrics: gFID={fid_metrics['gfid']:.4f}, "
+                      f"lFID={fid_metrics['lfid']:.4f}" if fid_metrics['lfid'] is not None else "NA" +
+                      f", pFID={fid_metrics['pFID']:.4f}, rFID={fid_metrics['rFID']:.4f}, "
+                      f"SSIM={img_metrics['ssim']:.4f}, LPIPS={img_metrics['lpips']:.4f}, "
+                      f"PSNR={img_metrics['psnr']:.2f}, MSE={img_metrics['mse']:.6f}, MAE={img_metrics['mae']:.6f}"
+                )
+
+        num_batches = batch_counter if batch_counter > 0 else 1
+
+        # Average metrics
+        fid_metrics_avg = {
+            'gfid': accum_metrics['gfid'] / num_batches,
+            'lfid': accum_metrics['lfid'] / lfid_batches if lfid_batches > 0 else None,
+            'pFID': accum_metrics['pFID'] / num_batches,
+            'rFID': accum_metrics['rFID'] / num_batches,
+        }
+        img_metrics_avg = {
+            'ssim': accum_metrics['ssim'] / num_batches,
+            'lpips': accum_metrics['lpips'] / num_batches,
+            'psnr': accum_metrics['psnr'] / num_batches,
+            'mse': accum_metrics['mse'] / num_batches,
+            'mae': accum_metrics['mae'] / num_batches,
+        }
+
+        print(f"[INFO] Final metrics for CFG={cfg_scale}, CCFG={ccfg_scale}: "
+              f"gFID={fid_metrics_avg['gfid']:.4f}, "
+              f"lFID={fid_metrics_avg['lfid']:.4f}" if fid_metrics_avg['lfid'] is not None else "NA" +
+              f", pFID={fid_metrics_avg['pFID']:.4f}, rFID={fid_metrics_avg['rFID']:.4f}, "
+              f"SSIM={img_metrics_avg['ssim']:.4f}, LPIPS={img_metrics_avg['lpips']:.4f}, "
+              f"PSNR={img_metrics_avg['psnr']:.2f}, MSE={img_metrics_avg['mse']:.6f}, MAE={img_metrics_avg['mae']:.6f}")
+
+        # Save metrics
+        with open(csv_path, "a") as csv_file:
             csv_file.write(
                 f"{cfg_scale},{ccfg_scale},"
-                f"{fid_metrics['gfid']:.6f},"
-                f"{fid_metrics['lfid'] if fid_metrics['lfid'] is not None else 'NA'},"
-                f"{fid_metrics['pFID']:.6f},"
-                f"{fid_metrics['rFID']:.6f},"
-                f"{img_metrics['ssim']:.6f},"
-                f"{img_metrics['lpips']:.6f},"
-                f"{img_metrics['psnr']:.6f},"
-                f"{img_metrics['mse']:.6f},"
-                f"{img_metrics['mae']:.6f}\n"
+                f"{fid_metrics_avg['gfid']:.4f},"
+                f"{fid_metrics_avg['lfid']:.4f}" if fid_metrics_avg['lfid'] is not None else "NA,"
+                f"{fid_metrics_avg['pFID']:.4f},{fid_metrics_avg['rFID']:.4f},"
+                f"{img_metrics_avg['ssim']:.4f},{img_metrics_avg['lpips']:.4f},"
+                f"{img_metrics_avg['psnr']:.2f},{img_metrics_avg['mse']:.6f},{img_metrics_avg['mae']:.6f}\n"
             )
             csv_file.flush()
+        print(f"[INFO] Metrics saved to {csv_path}")
 
-            # Clean up
-            del fid_tracker, img_tracker, sample_loader
-            torch.cuda.empty_cache()
-            gc.collect()
+
+        # Always clean up samples after evaluating
+        print(f"=="* 50)
+        print(f"[INFO] Cleaning up sample directories: {sample_dir}")
+        clear_folder(sample_dir / "fake-images")
+        clear_folder(sample_dir / "gt-images")
+        clear_folder(sample_dir / "labels")
+
+        # Cleanup
+        del fid_tracker, img_tracker, sample_loader
+        torch.cuda.empty_cache()
+        gc.collect()
 
     print(f"\nDone! Metrics saved to: {csv_path}")
 
@@ -843,8 +900,7 @@ if __name__ == "__main__":
     test_dataset_name   = 'imagenet256-testset-T151412'
     group               = "validation"  # or "test"
     baseline            = (source_timestep == 0.50 and target_timestep == 0.50)
-
-
+    sample_output_root  = 'results/CFM_Quantitative_Eval/Beta-VAE-0.50x1.00x_0.1b_imagenet256-dataset-T000006/2025-07-11_20-28-29/samples_cfg1.0_ccfg1.0'
     num_crops           = 2
     crop_size           = 64
     k                   = 3
@@ -880,8 +936,9 @@ if __name__ == "__main__":
     test_data_path       = './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
     data_path            = validation_data_path if group == "validation" else test_data_path
 
-    project_name         = "CFM_Quantitative_Eval_Baseline" if baseline else "CFM_Quantitative_Eval"
+    project_name         = "CFM_Image_Metrics_Quantitative_Eval_Baseline" if baseline else "CFM_Image_Metrics_Quantitative_Eval"
     model_name           = f"Beta-VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
+
 
     #####################################
     # Device + Seed Setup
@@ -891,15 +948,17 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
     #####################################
     # Evaluation Parameters
     #####################################
-    max_samples = 30000     # Maximum number of samples to collect (50k is standard practice for FID)
-    batch_size  = 24         # Batch size for evaluation (smaller, e.g., 16 or 32)
-    num_steps   = 50        # Fixed number of reverse-time steps for generation
-    num_classes = 1000
-    cfg_scales  = [1.0, 3.0] # 5.0, 7.0, 9.0
-    ccfg_scales = [1.0, 1.0] # 1.0, 1.0, 1.0
+    max_samples = 30000                         # Maximum number of samples to collect (50k is standard practice for FID)
+    batch_size  = 24                            # Batch size for evaluation (smaller, e.g., 16 or 32)
+    num_steps   = 50                            # Fixed number of reverse-time steps for generation
+    num_classes = 1000                          # Number of classes in the dataset (e.g., 1000 for ImageNet)
+    cfg_scales  = [1.0, 3.0, 5.0, 7.0, 9.0]     # Class-conditional CFG scales (1.0 for no class conditioning)
+    ccfg_scales = [1.0, 1.0, 1.0, 1.0, 1.0]     # Class-conditional CFG scales (1.0 for no class conditioning)
+    
 
     #####################################
     # Run unified collection and evaluation
@@ -922,8 +981,9 @@ if __name__ == "__main__":
         num_crops=num_crops,
         crop_size=crop_size,
         k=k,
+        sample_output_root=sample_output_root  # Add this line
     )
-    
+
     
 
 # CUDA_VISIBLE_DEVICES=2 python ...

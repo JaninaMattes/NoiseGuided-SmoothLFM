@@ -357,7 +357,7 @@ def linear_interpolation_grid_with_evaluation(
     create_video=False,
     create_grid=False,
     sharpen=True,
-    sharpen_strength=1.0,
+    sharpen_strength=0.3,
     video_fps=8,
     upscale_to=256,
     filename_suffix="interpolation",
@@ -387,7 +387,10 @@ def linear_interpolation_grid_with_evaluation(
 
         B = interp_context.shape[0]
         C, H, W = x1.size()[1:]
-        noise_x = torch.randn(B, C, H, W, device=device)
+        
+        # Generate a single, fixed noise for this interpolation trajectory
+        noise_seed = torch.randn(C, H, W, device=device)
+        noise_x = noise_seed.unsqueeze(0).repeat(B, 1, 1, 1)
 
         # Handle label logic
         if use_labels:
@@ -426,7 +429,7 @@ def linear_interpolation_grid_with_evaluation(
         
         # Update tracker if provided
         if tracker is not None:
-            tracker.update(samples.unsqueeze(0))
+            tracker.update(samples.unsqueeze(0)) # 1, T, C, H, W
             
         row_images = denorm_tensor(samples).detach().cpu()
         row_images = torch.stack([FT.resize(im, [upscale_to, upscale_to]) for im in row_images])
@@ -443,9 +446,9 @@ def linear_interpolation_grid_with_evaluation(
             frames2mp4(video_path, frames, fps=video_fps, sharpen=sharpen)
             print(f"[INFO] Saved video: {video_path}")
 
-
+        # Cleanup
+        del x1, x2, context_z1, context_z2, interp_context, noise_x, samples, row_images, full_row
         torch.cuda.empty_cache()
-        gc.collect()
 
     if create_grid:
         all_rows = torch.cat(generated_rows, dim=0)
@@ -520,7 +523,8 @@ def run_interpolation_and_evaluation(
         train=False,
         validation=(group == "validation"),
         test=(group == "test"),
-        group_name=group
+        group_name=group,
+
     )
     data.setup(stage="fit" if group == "validation" else "test")
 
@@ -569,6 +573,8 @@ def run_interpolation_and_evaluation(
             cls1_images=imgs_1,
             cls2_images=imgs_2,
             fm_module=fm_module,
+            cfg_scale=cfg_scale,
+            ccfg_scale=ccfg_scale,
             results_dir=str(interp_dir),
             num_pairs=num_pairs,
             num_interpolations=num_interpolations,
@@ -576,7 +582,7 @@ def run_interpolation_and_evaluation(
             create_video=create_video,
             create_grid=True,
             sharpen=True,
-            sharpen_strength=0.5,
+            sharpen_strength=0.2,
             video_fps=8,
             upscale_to=256,
             filename_suffix=f"{cls_a}_{cls_b}",
@@ -593,10 +599,9 @@ def run_interpolation_and_evaluation(
                 "istd": metrics["istd"]
             })
 
-        del tracker
+        del tracker, latents_1, latents_2, imgs_1, imgs_2
         torch.cuda.empty_cache()
-        gc.collect()
-
+        
     # Create DataFrame
     df = pd.DataFrame(metrics_records)
 
@@ -647,7 +652,7 @@ if __name__ == "__main__":
     samples_per_class   = 14
     num_pairs           = 12
     num_interpolations  = 20
-    cfg_scale           = 3.0
+    cfg_scale           = 4.0
     ccfg_scale          = 1.0
     
     #####################################
@@ -702,6 +707,7 @@ if __name__ == "__main__":
         "gazelle_to_impalla": [353, 352],
         "impalla_to_camel": [352, 354],
         "siamese_to_persian_cat": [284, 283],
+        "snow_leopard_to_siamese": [289, 284],
         "red_panda_to_giant_panda": [387, 388],
         "giant_panda_to_koala": [388, 105],
         "koala_to_wombat": [105, 106],
@@ -725,7 +731,8 @@ if __name__ == "__main__":
         "brown_to_icebear": [294, 296],
         "icebear_to_brownbear": [296, 294],
         "icebear_to_snow_leopard": [296, 289],
-        "gibbon_to_orangutan": [368, 365],  
+        "icebear_to_white_wolf": [296, 270],
+        "gibbon_to_orangutan": [368, 365],
         # Note: Add more class ID pairs
     }
     
@@ -738,21 +745,24 @@ if __name__ == "__main__":
 
     # Optional: Select specific pairs for evaluation
     selected_video_pairs = [
-        "trout_to_goldfish", # Test sample (just to check)
+        # "trout_to_goldfish", # Test sample (just to check)
         "admiral_to_cabbage_butterly",
         "monarch_to_admiral_butterly",
         "macaw_to_toucan",
         "macaw_to_cockatoo",
-        "lorikeet_to_peacock",
-        "penguin_to_flamingo",
-        "macaw_to_cockatoo",
+        # "lorikeet_to_peacock",
+        # "penguin_to_flamingo",
         "toucan_to_penguin",
         "grey_wolf_to_husky",
         "cockatoo_to_lorikeet",
         "flamingo_to_peacock",
-        "red_panda_to_giant_panda"s,
+        "red_panda_to_giant_panda",
         "goldenretriever_to_chowchow",
-        "chowchow_to_cockerspaniel"
+        "chowchow_to_cockerspaniel",
+        "snow_leopard_to_leopard",
+        "icebear_to_brownbear",
+        "icebear_to_snow_leopard",
+        "icebear_to_white_wolf",
         # Add more
     ]
 
@@ -782,4 +792,4 @@ if __name__ == "__main__":
 
 
 
-# CUDA_VISIBLE_DEVICES=1 python '...
+# CUDA_VISIBLE_DEVICES=1 python ...

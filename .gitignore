@@ -206,3 +206,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 data/dataset/testset-imnet256/*.hdf5
+assets/installs/
+checkpoints/
+ldm-env-v2.yml
+notebooks/
