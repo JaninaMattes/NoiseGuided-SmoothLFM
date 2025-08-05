@@ -65,8 +65,8 @@ git clone https://github.com/JaninaMattes/NoiseGuided-SmoothLFM.git
 cd NoiseGuided-SmoothLFM
 
 # Create environment
-conda create -n ldm-env-v2 python=3.12
-conda activate ldm-env-v2
+conda create -n ldm-env python=3.12
+conda activate ldm-env
 
 # Install core packages
 conda install pytorch=2.5.1 torchvision pytorch-cuda=12.4 -c pytorch -c nvidia
