@@ -23,6 +23,16 @@
 
 ---
 
+## 🧠 Framework Architecture
+
+<p align="center">
+  <img src="assets/diagrams/framework_architecture.png" alt="Framework Architecture Diagram" width="80%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
+</p>
+
+*Figure: High-level architectural overview of the NoiseGuided-SmoothLFM pipeline.*
+
+---
+
 ## ⚙️ Tech Stack & Frameworks
 
 - 💻 **PyTorch 2.5.1**
