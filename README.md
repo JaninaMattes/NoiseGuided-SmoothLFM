@@ -62,7 +62,7 @@ Our framework is lightweight, architecture-agnostic, and directly applicable to 
 
 ## 💡 Motivation
 
-The framework addresses fundamental trade-offs in generative models: **sample quality, diversity, and speed**, while introducing strong interpretability.  
+The framework addresses fundamental trade-offs in generative models: **sample quality, diversity, and speed**, while introducing a pathway to improved interpretability through an auxiliary ß-VAE encoder.  
 It leverages deterministic continuous flows rather than stochastic noise schedules, resulting in smoother and more controllable outputs.
 
 ---
