@@ -85,7 +85,7 @@ python train.py --config configs/your_config.yaml
 ---
 
 ## Rsource
-0] Dhariwal & Nichol (2021), "Diffusion Models Beat GANs on Image Synthesis."
+[0] Dhariwal & Nichol (2021), "Diffusion Models Beat GANs on Image Synthesis."
 
 [1] Ma et al. (2024), "SiT: Stochastic interpolant transport for generative modeling."
 
