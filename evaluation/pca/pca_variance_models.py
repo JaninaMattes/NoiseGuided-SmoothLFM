@@ -273,7 +273,7 @@ def train_sklearn_probe(model, X_train, y_train, X_val, y_val, max_iter=500):
     preds = model.predict(X_val)
     acc = accuracy_score(y_val, preds)
     return {
-        "ValAccuracy": acc,
+        "ValAccuracies": acc,
         "Model": model.__class__.__name__
     }
 
@@ -418,7 +418,7 @@ def evaluate_sklearn_model(model, X_val, y_val):
     y_pred = model.predict(X_val)
 
     return {
-        "ValAccuracy": accuracy_score(y_val, y_pred),
+        "ValAccuracies": accuracy_score(y_val, y_pred),
         "Precision": precision_score(y_val, y_pred, average='macro'),
         "Recall": recall_score(y_val, y_pred, average='macro'),
         "F1Score": f1_score(y_val, y_pred, average='macro'),
@@ -946,8 +946,8 @@ def run_pca_over_beta(
             "ProbeType": "Linear",
             "PCA": pca_num,
             "ValAccuracies": df_linear["Val_Accuracy"].tolist(),
-            "BestValAccuracy": float(df_linear["Val_Accuracy"].max()),
-            "MeanValAccuracy": float(df_linear["Val_Accuracy"].mean()),
+            "BestValAccuracies": float(df_linear["Val_Accuracy"].max()),
+            "MeanValAccuracies": float(df_linear["Val_Accuracy"].mean()),
             "NumEpochs": len(df_linear)
         })
 
@@ -972,8 +972,8 @@ def run_pca_over_beta(
             "ProbeType": "Two-Layer",
             "PCA": pca_num,
             "ValAccuracies": df_two["Val_Accuracy"].tolist(),
-            "BestValAccuracy": float(df_two["Val_Accuracy"].max()),
-            "MeanValAccuracy": float(df_two["Val_Accuracy"].mean()),
+            "BestValAccuracies": float(df_two["Val_Accuracy"].max()),
+            "MeanValAccuracies": float(df_two["Val_Accuracy"].mean()),
             "NumEpochs": len(df_two)
         })
 

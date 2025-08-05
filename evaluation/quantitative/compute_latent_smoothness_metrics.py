@@ -1104,7 +1104,7 @@ if __name__ == "__main__":
             checkpoint=checkpoint,
             data_path=test_data_path if group == "test" else validation_data_path,
             interpolation_dict=interpolation_dict,
-            project_name=project_name,
+            project_name=project_name / "interpolation"
             model_name=model_name,
             group=group,
             source_timestep=source_timestep,

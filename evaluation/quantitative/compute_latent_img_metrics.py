@@ -45,12 +45,15 @@ from matplotlib import pyplot as plt
 from matplotlib import rcParams
 
 
-
 # helper 
 from torchmetrics.image.fid import FrechetInceptionDistance
-from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
+from elatentlpips import ELatentLPIPS
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
+from pytorch_fid.inception import InceptionV3
+
+from torchmetrics.image.fid import FrechetInceptionDistance
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 
 import torch_fidelity
 from prdc import compute_prdc
@@ -67,11 +70,14 @@ from jutils import tensor2im, ims_to_grid
 project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
 sys.path.append(project_root)
 
-from ldm.trainer_rf_vae import TrainerModuleLatentFlow
-from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
+# Custom modules
+from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
+from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
+from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
 from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
+
 
 torch.set_float32_matmul_precision('high')
 
@@ -434,11 +440,11 @@ def run_data_collection_and_evaluation(
             elapsed_time = time.time() - start_time
             print(f"[BATCH] Time taken for generation: {elapsed_time:.2f} seconds")
 
-            img_metrics_tracker.update(gt_imgs, fake_latent_imgs)
+            img_metrics_tracker.update(gt_latent, fake_latent_imgs)
             batch_metrics = img_metrics_tracker.aggregate()
             img_metrics_tracker.reset()
 
-            count += gt_imgs.size(0)
+            count += gt_latent.size(0)  # Increment count by batch size
 
             record = {
                 "cfg_scale": cfg_scale,
@@ -524,6 +530,9 @@ if __name__ == "__main__":
     cfg_scale           = 4.0
     ccfg_scale          = 1.0
     max_samples         = 100   # 50000
+    num_steps           = 50
+    num_classes         = 1000
+    plot_every_n_batches = 100  # Plot every N batches
     
     #####################################
     # Model Paths for SiT-XL-2
@@ -568,7 +577,7 @@ if __name__ == "__main__":
     #####################################
     # Dataset & Evaluation Parameters
     #####################################
-    test_data_path               = './dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' #'./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
+    test_data_path               = './dataset/processed/testset-256/imagenet256-testset-T222343.hdf5' #'./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
     validation_data_path         = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5' # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
 
     model_configs = [
@@ -728,7 +737,7 @@ if __name__ == "__main__":
 
         run_data_collection_and_evaluation(
             checkpoint=checkpoint,
-            data_path=validation_data_path if group_name == "Beta0.1_Reconstruction" else test_data_path,
+            data_path=validation_data_path if group == "validation" else test_data_path,
             project_name=project_name,
             model_name=model_name,
             group=group,

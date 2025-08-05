@@ -801,7 +801,7 @@ def plot_probe_accuracy_grid(data_df, save_path):
     Plots a grid of boxplots for probe validation accuracy across β-values and PCA settings.
 
     Parameters:
-        data_df (pd.DataFrame): Must contain columns: ['ProbeType', 'PCA', 'Beta', 'ValAccuracy']
+        data_df (pd.DataFrame): Must contain columns: ['ProbeType', 'PCA', 'Beta', 'ValAccuracies']
         save_path (str or Path): Path to save the figure
     """
     sns.set(style="whitegrid")
@@ -827,14 +827,14 @@ def plot_probe_accuracy_grid(data_df, save_path):
         kwargs.pop("color", None)
         sns.boxplot(
             x="BetaStr",
-            y="ValAccuracy",
+            y="ValAccuracies",
             data=data,
             color="lightgray",
             fliersize=0,
             **kwargs
         )
         # Overlay red mean line
-        means = data.groupby("BetaStr")["ValAccuracy"].mean()
+        means = data.groupby("BetaStr")["ValAccuracies"].mean()
         plt.plot(range(len(means)), means.values, color="red", linewidth=2)
 
     # Map plotting function
@@ -872,8 +872,8 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
 
     # --- LEFT: Linear Probe ---
     linear_df = df[df["ProbeType"] == "Linear"]
-    sns.boxplot(data=linear_df, x="BetaStr", y="ValAccuracy", ax=axs[0], color="lightgray")
-    max_accs = linear_df.groupby("BetaStr")["ValAccuracy"].max()
+    sns.boxplot(data=linear_df, x="BetaStr", y="ValAccuracies", ax=axs[0], color="lightgray")
+    max_accs = linear_df.groupby("BetaStr")["ValAccuracies"].max()
     axs[0].plot(range(len(max_accs)), max_accs.values, color="red", label="Max Acc", marker="o")
     axs[0].set_title("Linear Probe")
     axs[0].set_xlabel("β")
@@ -882,8 +882,8 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
 
     # --- MIDDLE: Two-Layer Probe ---
     two_df = df[df["ProbeType"] == "Two-Layer"]
-    sns.boxplot(data=two_df, x="BetaStr", y="ValAccuracy", ax=axs[1], color="lightgray")
-    max_accs_two = two_df.groupby("BetaStr")["ValAccuracy"].max()
+    sns.boxplot(data=two_df, x="BetaStr", y="ValAccuracies", ax=axs[1], color="lightgray")
+    max_accs_two = two_df.groupby("BetaStr")["ValAccuracies"].max()
     axs[1].plot(range(len(max_accs_two)), max_accs_two.values, color="red", label="Max Acc", marker="o")
     axs[1].set_title("Two-Layer Probe")
     axs[1].set_xlabel("β")
@@ -892,8 +892,8 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
     # --- RIGHT: Combined Line Plot ---
     all_betas = sorted(df["Beta"].unique())
     beta_strs = [Path(b) for b in all_betas]
-    max_linear = linear_df.groupby("BetaStr")["ValAccuracy"].max()
-    max_two = two_df.groupby("BetaStr")["ValAccuracy"].max()
+    max_linear = linear_df.groupby("BetaStr")["ValAccuracies"].max()
+    max_two = two_df.groupby("BetaStr")["ValAccuracies"].max()
     axs[2].plot(beta_strs, max_linear[beta_strs], label="Linear Probe", marker="o")
     axs[2].plot(beta_strs, max_two[beta_strs], label="Two-Layer Probe", marker="s")
     axs[2].set_title("Max Accuracy Comparison")
@@ -1245,7 +1245,7 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
                     "TargetTimestep": model["TargetTimestep"],
                     "ProbeType": res["ProbeType"],
                     "PCA": res["PCA"],
-                    "ValAccuracy": acc
+                    "ValAccuracies": acc
                 })
 
     df = pd.DataFrame(flat_records)
@@ -1273,7 +1273,7 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
     })
 
     # Compute KDE-based global y-limits
-    y_vals = df["ValAccuracy"].values
+    y_vals = df["ValAccuracies"].values
     if len(y_vals) > 1:
         kde = gaussian_kde(y_vals)
         x_range = np.linspace(y_vals.min(), y_vals.max(), 500)
@@ -1294,14 +1294,14 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
         data["Beta"] = data["Beta"].astype(float)
 
         sns.violinplot(
-            data=data, x="Beta", y="ValAccuracy",
+            data=data, x="Beta", y="ValAccuracies",
             ax=ax, order=beta_order,
             inner=None, linewidth=0,
             color="#a0aab8", saturation=0.3
         )
 
         sns.boxplot(
-            data=data, x="Beta", y="ValAccuracy",
+            data=data, x="Beta", y="ValAccuracies",
             width=0.3, ax=ax, order=beta_order,
             color="white",
             fliersize=1.5, linewidth=0.7,
@@ -1312,7 +1312,7 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
         )
 
         # Medians
-        medians = data.groupby("Beta", observed=True)["ValAccuracy"].median().reindex(beta_order)
+        medians = data.groupby("Beta", observed=True)["ValAccuracies"].median().reindex(beta_order)
         x_vals = list(range(len(beta_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1364,7 +1364,7 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
                     "TargetTimestep": model["TargetTimestep"],
                     "ProbeType": res["ProbeType"],
                     "PCA": res["PCA"],
-                    "ValAccuracy": acc
+                    "ValAccuracies": acc
                 })
 
     df = pd.DataFrame(flat_records)
@@ -1390,7 +1390,7 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
     })
 
     # Create row-wise y-axis limits
-    y_limits = df.groupby("ProbeType")["ValAccuracy"].max().to_dict()
+    y_limits = df.groupby("ProbeType")["ValAccuracies"].max().to_dict()
     y_limits = {k: min(1.2, v * 1.1) for k, v in y_limits.items()}  # Add margin, clamp at 1.2
 
     # FacetGrid (don't share y!)
@@ -1410,13 +1410,13 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="Beta", y="ValAccuracy",
+            data=data, x="Beta", y="ValAccuracies",
             ax=ax, order=beta_order,
             inner=None, linewidth=0, color="#a0aab8", saturation=0.3
         )
 
         sns.boxplot(
-            data=data, x="Beta", y="ValAccuracy",
+            data=data, x="Beta", y="ValAccuracies",
             width=0.3, ax=ax, order=beta_order,
             color="white",
             fliersize=1.5, linewidth=0.7,
@@ -1426,7 +1426,7 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
             medianprops={'color': 'black', 'linewidth': 1}
         )
 
-        medians = data.groupby("Beta", observed=True)["ValAccuracy"].median().reindex(beta_order)
+        medians = data.groupby("Beta", observed=True)["ValAccuracies"].median().reindex(beta_order)
         x_vals = list(range(len(beta_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1497,7 +1497,7 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
                     "TargetTimestep": model["TargetTimestep"],
                     "ProbeType": res["ProbeType"],
                     "PCA": res["PCA"],
-                    "ValAccuracy": acc
+                    "ValAccuracies": acc
                 })
 
     df = pd.DataFrame(flat_records)
@@ -1525,7 +1525,7 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
     })
 
     # Compute KDE-based global y-limits for this probe type
-    y_vals = df["ValAccuracy"].values
+    y_vals = df["ValAccuracies"].values
     if len(y_vals) > 1:
         kde = gaussian_kde(y_vals)
         x_range = np.linspace(y_vals.min(), y_vals.max(), 500)
@@ -1553,14 +1553,14 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="PCA", y="ValAccuracy",
+            data=data, x="PCA", y="ValAccuracies",
             ax=ax, order=pca_order,
             inner=None, linewidth=0,
             color="#a0aab8", saturation=0.3
         )
 
         sns.boxplot(
-            data=data, x="PCA", y="ValAccuracy",
+            data=data, x="PCA", y="ValAccuracies",
             width=0.3, ax=ax, order=pca_order,
             color="white",
             fliersize=1.5, linewidth=0.7,
@@ -1570,7 +1570,7 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
             medianprops={'color': 'black', 'linewidth': 1}
         )
 
-        medians = data.groupby("PCA", observed=True)["ValAccuracy"].median().reindex(pca_order)
+        medians = data.groupby("PCA", observed=True)["ValAccuracies"].median().reindex(pca_order)
         x_vals = list(range(len(pca_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1613,7 +1613,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
                     "TargetTimestep": model["TargetTimestep"],
                     "ProbeType": res["ProbeType"],
                     "PCA": res["PCA"],
-                    "ValAccuracy": acc
+                    "ValAccuracies": acc
                 })
 
     df = pd.DataFrame(flat_records)
@@ -1643,8 +1643,8 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     # Calculate y-axis limits per ProbeType
     y_limits = {
         probe: (
-            df[df["ProbeType"] == probe]["ValAccuracy"].min(),
-            df[df["ProbeType"] == probe]["ValAccuracy"].max()
+            df[df["ProbeType"] == probe]["ValAccuracies"].min(),
+            df[df["ProbeType"] == probe]["ValAccuracies"].max()
         )
         for probe in probe_order
     }
@@ -1666,13 +1666,13 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="PCA", y="ValAccuracy",
+            data=data, x="PCA", y="ValAccuracies",
             ax=ax, order=pca_order,
             inner=None, linewidth=0, color="#a0aab8", saturation=0.3
         )
 
         sns.boxplot(
-            data=data, x="PCA", y="ValAccuracy",
+            data=data, x="PCA", y="ValAccuracies",
             width=0.3, ax=ax, order=pca_order,
             color="white",
             fliersize=1.5, linewidth=0.7,
@@ -1682,7 +1682,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
             medianprops={'color': 'black', 'linewidth': 1}
         )
 
-        medians = data.groupby("PCA", observed=True)["ValAccuracy"].median().reindex(pca_order)
+        medians = data.groupby("PCA", observed=True)["ValAccuracies"].median().reindex(pca_order)
         x_vals = list(range(len(pca_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
