@@ -5,7 +5,7 @@
 ![CUDA](https://img.shields.io/badge/CUDA-12.4-green?logo=nvidia)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-> **Noise-guided smooth latent flow matching for ultra-smooth, controllable image generation.**
+> **Noise-guided latent flow matching for smooth, controllable image generation through representation-learning based classifier-guidance.**
 
 <p align="center">
   <img src="assets/readme/pair_04.gif" alt="Smooth Interpolation Example" width="60%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
