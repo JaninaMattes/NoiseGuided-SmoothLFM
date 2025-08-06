@@ -1180,6 +1180,7 @@ if __name__ == "__main__":
     max_data_samples    = 100000
     batch_size          = 64
     data_path           = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5'    
+    results_path        = './results/PCA_BetaVAE_Eval'
 
 
     n_neighbors         = 50
@@ -1206,7 +1207,7 @@ if __name__ == "__main__":
     # Set base results directory with date
     # --------------------------------------
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    experiment_root = Path('./results/PCA_Quantitative_Eval') / timestamp
+    experiment_root = Path(results_path) / timestamp #'./results/PCA_Quantitative_Eval'
     experiment_root.mkdir(parents=True, exist_ok=True)
     print(f"[INFO] Results will be saved to: {experiment_root}")
 
@@ -1222,12 +1223,13 @@ if __name__ == "__main__":
         {"name": "Beta05x05x_01b",  "beta": 0.1,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt' },  # Open (Baseline)
         {"name": "Beta02x02x_01b", "beta": 0.1,  "source_ts": 0.20, "target_ts": 0.20, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt'  },
         {"name": "Beta00x00x_01b", "beta": 0.1,  "source_ts": 0.00, "target_ts": 0.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt' },
-        {"name": "Beta05x10x_01b",  "beta": 0.1,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt'},
+        {"name": "Beta05x10x_01b",  "beta": 0.1,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-08-04/manual/V2/2025-08-04/100001/checkpoints/last.ckpt'},
         {"name": "Beta04x10x_01b",  "beta": 0.1,  "source_ts": 0.40, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'},
         {"name": "Beta03x10x_01b",  "beta": 0.1,  "source_ts": 0.30, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'},
         {"name": "Beta02x10x_01b",  "beta": 0.1,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt'},
         {"name": "Beta00x10x_01b",  "beta": 0.1,  "source_ts": 0.00, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt'},
         {"name": "Beta02x10x_05b",  "beta": 0.5,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.0x-0.5b/2025-06-30/manual/V2/2025-07-03/101646/checkpoints/last.ckpt'},
+        {"name": "Beta05x10x_05b",  "beta": 0.5,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'},
         {"name": "Beta05x05x_1b",   "beta": 1.0,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt'}, # Open (Baseline)
         {"name": "Beta05x10x_1b",   "beta": 1.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'},
         {"name": "Beta02x10x_1b",   "beta": 1.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt'},

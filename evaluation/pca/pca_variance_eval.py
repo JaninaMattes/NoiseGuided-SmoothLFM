@@ -45,6 +45,8 @@ import json
 import random
 from pathlib import Path
 
+
+import json
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -535,6 +537,8 @@ def plot_umap_pca(
         title (str): Plot title
         figsize (tuple): Figure size
     """
+    set_plot_style()
+    
     if pca_latents.shape[0] > max_data_samples:
         pca_latents = pca_latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
@@ -570,6 +574,11 @@ def plot_umap_pca(
 
 
 def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None, title="2D PCA Projection", figsize=(10, 8)):
+    """ Plot a 2D PCA projection of latents, optionally colored by labels.
+    """
+    
+    set_plot_style()
+    
     if latents.shape[0] > max_data_samples:
         latents = latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
@@ -597,6 +606,12 @@ def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None
     
     
 def plot_tsne_2d(latents, labels=None, max_data_samples=10000, perplexity=30, save_to_path=None, title="t-SNE Projection", figsize=(10, 8)):
+    """ Plot a 2D t-SNE projection of latents, optionally colored by labels.
+    """
+    
+    set_plot_style()
+    
+    
     if latents.shape[0] > max_data_samples:
         latents = latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
@@ -635,6 +650,8 @@ def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=10000
         figsize_per_plot: Size per subplot
         save_to_path: If provided, saves the resulting figure
     """
+    set_plot_style()
+    
     if pca_latents.shape[0] > max_data_samples:
         pca_latents = pca_latents[:max_data_samples]
 
@@ -684,6 +701,8 @@ def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_co
         save_path (str, optional): If provided, saves the grid plot.
         max_data_samples (int): Maximum samples to plot per model.
     """
+    set_plot_style()
+    
     num_models = len(model_results)
     n_cols = 3  # You can adjust
     n_rows = int(np.ceil(num_models / n_cols))
@@ -730,66 +749,6 @@ def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_co
 
 
 
-
-def collect_latents_from_dataloader(
-    data_path,
-    batch_size,
-    source_timestep,
-    target_timestep,
-    group,
-    results_root,
-    project_path,
-    model_name,
-    beta_vae_module,
-    device=None,
-    max_samples=50000
-):
-    # Set device
-    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # Load data
-    data = HDF5DataModule(
-        hdf5_file=data_path,
-        batch_size=batch_size,
-        source_timestep=source_timestep,
-        target_timestep=target_timestep,
-        num_workers=4,
-        train=False,
-        validation=(group == "validation"),
-        test=(group == "test"),
-        group_name=group,
-    )
-    data.setup(stage="fit" if group == "validation" else "test")
-    dataloader = data.val_dataloader() if group == "validation" else data.test_dataloader()
-
-    # Results directory
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    base_results_dir = Path(results_root) / project_path / model_name / timestamp
-    base_results_dir.mkdir(parents=True, exist_ok=True)
-    print(f"[INFO] Results will be saved to: {base_results_dir}")
-
-    # Collect latents
-    with torch.no_grad():
-        all_latents, all_labels, curr_samples = [], [], 0
-        print("\n--- Collecting bottleneck latents ---")
-        for batch in tqdm(dataloader, desc="Collecting latents"):
-            if curr_samples >= max_samples:
-                break
-            
-            source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
-            encoded = beta_vae_module.model.encode(source_latents)
-            latents = encoded['latent_dist'].mode()
-            all_latents.append(latents.detach().cpu().numpy())
-
-            if 'label' in batch:
-                all_labels.append(batch['label'].detach().cpu().numpy())
-            curr_samples += latents.shape[0]
-
-    all_latents = np.vstack(all_latents)
-    all_labels = np.concatenate(all_labels, axis=0) if all_labels else None
-    print(f"[INFO] Collected latents shape: {all_latents.shape}")
-    print(f"[INFO] Collected labels shape: {all_labels.shape if all_labels is not None else 'N/A'}")
-    
-    return all_latents, all_labels
 
 
 import seaborn as sns
@@ -914,86 +873,10 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
 
 
 
+
 ######################################################################
-#                   Full PCA Evaluation Pipeline                      #
+#                   Plot Visualizations                              #
 ######################################################################
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
-
-def run_pca_for_kmeans_and_plot_scatter_grid(
-    source_timestep=0.20,
-    target_timestep=1.00,
-    beta=1.0,
-    dataset_name='imagenet256-dataset',
-    group="validation",
-    checkpoint=None,
-    data_path=None,
-    project_path=None,
-    model_name=None,
-    num_components=20,
-    max_data_samples=50000,
-    pca_latent_numbers=[2, 3, 5, 7, 10, 20],
-    k_values=[2, 3, 5, 10, 15, 20],
-    batch_size=32,
-    device=None,
-    results_root="results"
-):
-    """ Run PCA on β-VAE latents and plot K-Means clustering scatter grid."""
-
-    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    seed_everything(2025)
-    torch.cuda.empty_cache()
-    gc.collect()
-
-    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location="cpu")
-    beta_vae_module.eval().to(device)
-    freeze(beta_vae_module.model)
-
-    all_latents, all_labels = collect_latents_from_dataloader(
-        data_path,
-        batch_size,
-        source_timestep,
-        target_timestep,
-        group,
-        results_root,
-        project_path,
-        model_name,
-        beta_vae_module,
-        device=device,
-        max_samples=max_data_samples
-    )
-
-    pca = PCA(n_components=num_components)
-    pca_latents = pca.fit_transform(all_latents)
-
-    scatter_data = []
-
-    # Create a DataFrame to hold the scatter plot data
-    for pca_num in pca_latent_numbers:
-        if pca_num < 2 or pca_num > num_components:
-            continue
-
-        pca_subset = pca_latents[:, :pca_num]
-
-        for k in k_values:
-            kmeans = KMeans(n_clusters=k, n_init='auto', random_state=42)
-            clusters = kmeans.fit_predict(pca_subset)
-
-            for i in range(len(pca_subset)):
-                scatter_data.append({
-                    "x": pca_subset[i, 0],
-                    "y": pca_subset[i, 1],
-                    "PCA": pca_num,
-                    "K": k,
-                    "Cluster": clusters[i]
-                })
-
-    # After collecting data for scatter
-    df_scatter = pd.DataFrame(scatter_data)
-    plot_pca_kmeans_scatter_grid(df_scatter, project_path=project_path or "test_outputs")
-
-
-
 
 def plot_pca_kmeans_scatter_grid(df, project_path="test_outputs"):
     import matplotlib.pyplot as plt
@@ -1059,171 +942,6 @@ def plot_pca_kmeans_scatter_grid(df, project_path="test_outputs"):
     plt.close()
 
         
-        
-######################################################################
-#                   Full PCA Evaluation Pipeline                      #
-######################################################################
-
-from pathlib import Path
-import json
-import torch
-import gc
-import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
-
-def run_pca_over_beta(
-    source_timestep=0.20, 
-    target_timestep=1.00, 
-    beta=1.0, 
-    dataset_name='imagenet256-dataset', 
-    group="validation", 
-    checkpoint=None, 
-    data_path=None,           # Should be Path or str
-    project_path=None,        # Should be Path object!
-    model_name=None, 
-    num_components=20, 
-    max_data_samples=50000, 
-    max_umap_samples=20000,
-    pca_latent_numbers=[2, 3, 5, 7, 10, 20],
-    batch_size=32, 
-    epochs=500, 
-    patience=10, 
-    lr=1e-4,
-    device=None, 
-    results_root=None         # Not used for saving in this function
-):
-    # Ensure correct path types up front
-    if isinstance(data_path, str):
-        data_path = Path(data_path)
-    if isinstance(project_path, str):
-        project_path = Path(project_path)
-    if results_root is not None and isinstance(results_root, str):
-        results_root = Path(results_root)
-
-    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.manual_seed(2025)
-    torch.cuda.empty_cache()
-    gc.collect()
-
-    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location='cpu')
-    beta_vae_module.eval().to(device)
-    freeze(beta_vae_module.model)
-
-    all_latents, all_labels = collect_latents_from_dataloader(
-        data_path,
-        batch_size,
-        source_timestep,
-        target_timestep,
-        group,
-        results_root,
-        project_path,
-        model_name,
-        beta_vae_module,
-        device=device,
-        max_samples=max_data_samples
-    )
-
-    pca = PCA(n_components=num_components)
-    pca_latents = pca.fit_transform(all_latents)
-
-    unique_labels = np.unique(all_labels)
-    label_map = {int(lbl): int(idx) for idx, lbl in enumerate(sorted(unique_labels))}
-    inverse_label_map = {v: k for k, v in label_map.items()}
-    all_labels_mapped = np.vectorize(label_map.get)(all_labels)
-    num_classes = len(unique_labels)
-
-    # ---- PATHS: This is now robust and readable! ----
-    # Everything for this run/model goes in here:
-    base_results_dir = project_path / f"pca_evaluation_{model_name}"
-    base_results_dir.mkdir(parents=True, exist_ok=True)
-
-    # Save label maps
-    with (base_results_dir / "label_map.json").open("w") as f:
-        json.dump(label_map, f, indent=2)
-    with (base_results_dir / "inverse_label_map.json").open("w") as f:
-        json.dump(inverse_label_map, f, indent=2)
-
-    structured_results = {
-        "Model": model_name,
-        "Beta": beta,
-        "Source_TS": source_timestep,
-        "Target_TS": target_timestep,
-        "Results": []
-    }
-
-    for pca_num in pca_latent_numbers:
-        if pca_num > num_components:
-            continue
-
-        print(f"\n--- Evaluating PCA with {pca_num} components ---")
-        pca_latents_subset = pca_latents[:, :pca_num]
-        result_dir = base_results_dir / f"pca_{pca_num}"
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        # Split data
-        X_train, X_val, y_train, y_val = train_test_split(
-            pca_latents_subset, all_labels_mapped,
-            test_size=0.2, random_state=42, stratify=all_labels_mapped
-        )
-        train_loader = DataLoader(PCADataset(X_train, y_train), batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(PCADataset(X_val, y_val), batch_size=batch_size, shuffle=False)
-
-        print("Training Linear Probe...")
-        linear_probe = LinearProbe(hidden_size=pca_num, num_classes=num_classes)
-        df_linear = train_linear_probe(
-            linear_probe=linear_probe,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            device=device,
-            epochs=epochs,
-            patience=patience,
-            lr=lr,
-            output_csv=result_dir / "linear_probe.csv",
-            source_timestep=source_timestep,
-            target_timestep=target_timestep,
-            beta_value=beta,
-            model_name=model_name
-        )
-        structured_results["Results"].append({
-            "ProbeType": "Linear",
-            "PCA": pca_num,
-            "ValAccuracies": df_linear["Val_Accuracy"].tolist()
-        })
-
-        print("Training Two-Layer Probe...")
-        two_layer_probe = TwoLayerProbe(input_dim=pca_num, hidden_dim=128, num_classes=num_classes)
-        df_two = train_linear_probe(
-            linear_probe=two_layer_probe,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            device=device,
-            epochs=epochs,
-            patience=patience,
-            lr=lr,
-            output_csv=result_dir / "two_layer_probe.csv",
-            source_timestep=source_timestep,
-            target_timestep=target_timestep,
-            beta_value=beta,
-            model_name=model_name + "_TwoLayer"
-        )
-        structured_results["Results"].append({
-            "ProbeType": "Two-Layer",
-            "PCA": pca_num,
-            "ValAccuracies": df_two["Val_Accuracy"].tolist()
-        })
-
-        # Save PCA outputs
-        np.save(result_dir / "pca_latents.npy", pca_latents_subset)
-        np.save(result_dir / "pca_labels_mapped.npy", y_val)
-        np.save(result_dir / "pca_labels_original.npy", all_labels)
-
-    # Save all structured results at the end
-    with (base_results_dir / "structured_results.json").open("w") as f:
-        json.dump(structured_results, f, indent=2)
-
-    return structured_results
-
 
 
 
@@ -1624,22 +1342,8 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     beta_order = sorted(df["Beta"].unique())
     pca_order = sorted(df["PCA"].unique())
 
-    # Set style
-    sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
-
+    set_plot_style()
+    
     # Calculate y-axis limits per ProbeType
     y_limits = {
         probe: (
@@ -1734,6 +1438,396 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
 
 
 
+def plot_accuracy_grid_from_json(json_path, probe_filter="Linear"):
+    """
+    Loads structured PCA evaluation results, flattens them, and plots 
+    validation accuracy over epochs as a grid (Faceted by PCA x Beta).
+    """
+    # ---------------------------
+    # 1. Load JSON data
+    # ---------------------------
+    with open(json_path, "r") as f:
+        data = json.load(f)
+
+    # ---------------------------
+    # 2. Flatten records
+    # ---------------------------
+    flat_records = []
+    for model in data:
+        for res in model["Results"]:
+            if res["ProbeType"] != probe_filter:
+                continue
+            for epoch_idx, acc in enumerate(res["ValAccuracies"]):
+                flat_records.append({
+                    "Model": model["Model"],
+                    "Beta": float(model["Beta"]),
+                    "SourceTimestep": model["SourceTimestep"],
+                    "TargetTimestep": model["TargetTimestep"],
+                    "ProbeType": res["ProbeType"],
+                    "PCA": int(res["PCA"]),
+                    "Epoch": epoch_idx,
+                    "ValAccuracy": acc
+                })
+
+    df = pd.DataFrame(flat_records)
+
+    if df.empty:
+        print("[WARN] No data found for probe type:", probe_filter)
+        return
+
+    # ---------------------------
+    # 3. Normalize y-axis per row
+    # ---------------------------
+    # Get max accuracy per Beta (row) for setting y-lims
+    beta_max = df.groupby("Beta")["ValAccuracy"].max().to_dict()
+
+    # Function to use for y-limits per Facet
+    def adjust_ylim(data, color, **kwargs):
+        beta = data["Beta"].iloc[0]
+        ymax = beta_max[beta]
+        sns.lineplot(data=data, x="Epoch", y="ValAccuracy", color=color, **kwargs)
+        plt.ylim(0, ymax * 1.05)
+
+    # ---------------------------
+    # 4. Plot grid
+    # ---------------------------
+    sns.set(style="whitegrid", font_scale=0.8)
+
+    g = sns.FacetGrid(
+        df,
+        row="Beta",
+        col="PCA",
+        margin_titles=True,
+        sharey=False,
+        height=2.5,
+        aspect=1.5
+    )
+    g.map_dataframe(adjust_ylim)
+
+    g.set_axis_labels("Epoch", "Validation Accuracy")
+    g.set_titles(row_template="β = {row_name}", col_template="PCA = {col_name}")
+    g.fig.subplots_adjust(top=0.9)
+    g.fig.suptitle(f"Validation Accuracy for {probe_filter} Probes Across PCA Components", fontsize=14)
+
+    plt.show()
+
+
+
+
+
+######################################################################
+#                   Collect Latents                                  #
+######################################################################
+def collect_latents_from_dataloader(
+    data_path,
+    batch_size,
+    source_timestep,
+    target_timestep,
+    group,
+    results_root,
+    project_path,
+    model_name,
+    beta_vae_module,
+    device=None,
+    max_samples=50000
+):
+    # Set device
+    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Load data
+    data = HDF5DataModule(
+        hdf5_file=data_path,
+        batch_size=batch_size,
+        source_timestep=source_timestep,
+        target_timestep=target_timestep,
+        num_workers=4,
+        train=False,
+        validation=(group == "validation"),
+        test=(group == "test"),
+        group_name=group,
+    )
+    data.setup(stage="fit" if group == "validation" else "test")
+    dataloader = data.val_dataloader() if group == "validation" else data.test_dataloader()
+
+    # Results directory
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    base_results_dir = Path(results_root) / project_path / model_name / timestamp
+    base_results_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[INFO] Results will be saved to: {base_results_dir}")
+
+    # Collect latents
+    with torch.no_grad():
+        all_latents, all_labels, curr_samples = [], [], 0
+        print("\n--- Collecting bottleneck latents ---")
+        for batch in tqdm(dataloader, desc="Collecting latents"):
+            if curr_samples >= max_samples:
+                break
+            
+            source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
+            encoded = beta_vae_module.model.encode(source_latents)
+            latents = encoded['latent_dist'].mode()
+            all_latents.append(latents.detach().cpu().numpy())
+
+            if 'label' in batch:
+                all_labels.append(batch['label'].detach().cpu().numpy())
+            curr_samples += latents.shape[0]
+
+    all_latents = np.vstack(all_latents)
+    all_labels = np.concatenate(all_labels, axis=0) if all_labels else None
+    print(f"[INFO] Collected latents shape: {all_latents.shape}")
+    print(f"[INFO] Collected labels shape: {all_labels.shape if all_labels is not None else 'N/A'}")
+    
+    return all_latents, all_labels
+
+
+
+
+######################################################################
+#                   Full PCA Evaluation Pipeline                      #
+######################################################################
+
+from pathlib import Path
+import json
+import torch
+import gc
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
+
+def run_pca_over_beta(
+    source_timestep=0.20, 
+    target_timestep=1.00, 
+    beta=1.0, 
+    dataset_name='imagenet256-dataset', 
+    group="validation", 
+    checkpoint=None, 
+    data_path=None,           # Should be Path or str
+    project_path=None,        # Should be Path object!
+    model_name=None, 
+    num_components=20, 
+    max_data_samples=50000, 
+    max_umap_samples=20000,
+    pca_latent_numbers=[2, 3, 5, 7, 10, 20],
+    batch_size=32, 
+    epochs=500, 
+    patience=10, 
+    lr=1e-4,
+    device=None, 
+    results_root=None         # Not used for saving in this function
+):
+    # Ensure correct path types up front
+    if isinstance(data_path, str):
+        data_path = Path(data_path)
+    if isinstance(project_path, str):
+        project_path = Path(project_path)
+    if results_root is not None and isinstance(results_root, str):
+        results_root = Path(results_root)
+
+    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.manual_seed(2025)
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location='cpu')
+    beta_vae_module.eval().to(device)
+    freeze(beta_vae_module.model)
+
+    all_latents, all_labels = collect_latents_from_dataloader(
+        data_path,
+        batch_size,
+        source_timestep,
+        target_timestep,
+        group,
+        results_root,
+        project_path,
+        model_name,
+        beta_vae_module,
+        device=device,
+        max_samples=max_data_samples
+    )
+
+    pca = PCA(n_components=num_components)
+    pca_latents = pca.fit_transform(all_latents)
+
+    unique_labels = np.unique(all_labels)
+    label_map = {int(lbl): int(idx) for idx, lbl in enumerate(sorted(unique_labels))}
+    inverse_label_map = {v: k for k, v in label_map.items()}
+    all_labels_mapped = np.vectorize(label_map.get)(all_labels)
+    num_classes = len(unique_labels)
+
+    # ---- PATHS: This is now robust and readable! ----
+    # Everything for this run/model goes in here:
+    base_results_dir = project_path / f"pca_evaluation_{model_name}"
+    base_results_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save label maps
+    with (base_results_dir / "label_map.json").open("w") as f:
+        json.dump(label_map, f, indent=2)
+    with (base_results_dir / "inverse_label_map.json").open("w") as f:
+        json.dump(inverse_label_map, f, indent=2)
+
+    structured_results = {
+        "Model": model_name,
+        "Beta": beta,
+        "Source_TS": source_timestep,
+        "Target_TS": target_timestep,
+        "Results": []
+    }
+
+    for pca_num in pca_latent_numbers:
+        if pca_num > num_components:
+            continue
+
+        print(f"\n--- Evaluating PCA with {pca_num} components ---")
+        pca_latents_subset = pca_latents[:, :pca_num]
+        result_dir = base_results_dir / f"pca_{pca_num}"
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        # Split data
+        X_train, X_val, y_train, y_val = train_test_split(
+            pca_latents_subset, all_labels_mapped,
+            test_size=0.2, random_state=42, stratify=all_labels_mapped
+        )
+        train_loader = DataLoader(PCADataset(X_train, y_train), batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(PCADataset(X_val, y_val), batch_size=batch_size, shuffle=False)
+
+        print("Training Linear Probe...")
+        linear_probe = LinearProbe(hidden_size=pca_num, num_classes=num_classes)
+        df_linear = train_linear_probe(
+            linear_probe=linear_probe,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            device=device,
+            epochs=epochs,
+            patience=patience,
+            lr=lr,
+            output_csv=result_dir / "linear_probe.csv",
+            source_timestep=source_timestep,
+            target_timestep=target_timestep,
+            beta_value=beta,
+            model_name=model_name
+        )
+        structured_results["Results"].append({
+            "ProbeType": "Linear",
+            "PCA": pca_num,
+            "ValAccuracies": df_linear["Val_Accuracy"].tolist()
+        })
+
+        print("Training Two-Layer Probe...")
+        two_layer_probe = TwoLayerProbe(input_dim=pca_num, hidden_dim=128, num_classes=num_classes)
+        df_two = train_linear_probe(
+            linear_probe=two_layer_probe,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            device=device,
+            epochs=epochs,
+            patience=patience,
+            lr=lr,
+            output_csv=result_dir / "two_layer_probe.csv",
+            source_timestep=source_timestep,
+            target_timestep=target_timestep,
+            beta_value=beta,
+            model_name=model_name + "_TwoLayer"
+        )
+        structured_results["Results"].append({
+            "ProbeType": "Two-Layer",
+            "PCA": pca_num,
+            "ValAccuracies": df_two["Val_Accuracy"].tolist()
+        })
+
+        # Save PCA outputs
+        np.save(result_dir / "pca_latents.npy", pca_latents_subset)
+        np.save(result_dir / "pca_labels_mapped.npy", y_val)
+        np.save(result_dir / "pca_labels_original.npy", all_labels)
+
+    # Save all structured results at the end
+    with (base_results_dir / "structured_results.json").open("w") as f:
+        json.dump(structured_results, f, indent=2)
+
+    return structured_results
+
+
+
+
+######################################################################
+#                   Full PCA Evaluation Pipeline                      #
+######################################################################
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
+
+def run_pca_for_kmeans_and_plot_scatter_grid(
+    source_timestep=0.20,
+    target_timestep=1.00,
+    beta=1.0,
+    dataset_name='imagenet256-dataset',
+    group="validation",
+    checkpoint=None,
+    data_path=None,
+    project_path=None,
+    model_name=None,
+    num_components=20,
+    max_data_samples=50000,
+    pca_latent_numbers=[2, 3, 5, 7, 10, 20],
+    k_values=[2, 3, 5, 10, 15, 20],
+    batch_size=32,
+    device=None,
+    results_root="results"
+):
+    """ Run PCA on β-VAE latents and plot K-Means clustering scatter grid."""
+
+    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    seed_everything(2025)
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location="cpu")
+    beta_vae_module.eval().to(device)
+    freeze(beta_vae_module.model)
+
+    all_latents, all_labels = collect_latents_from_dataloader(
+        data_path,
+        batch_size,
+        source_timestep,
+        target_timestep,
+        group,
+        results_root,
+        project_path,
+        model_name,
+        beta_vae_module,
+        device=device,
+        max_samples=max_data_samples
+    )
+
+    pca = PCA(n_components=num_components)
+    pca_latents = pca.fit_transform(all_latents)
+
+    scatter_data = []
+
+    # Create a DataFrame to hold the scatter plot data
+    for pca_num in pca_latent_numbers:
+        if pca_num < 2 or pca_num > num_components:
+            continue
+
+        pca_subset = pca_latents[:, :pca_num]
+
+        for k in k_values:
+            kmeans = KMeans(n_clusters=k, n_init='auto', random_state=42)
+            clusters = kmeans.fit_predict(pca_subset)
+
+            for i in range(len(pca_subset)):
+                scatter_data.append({
+                    "x": pca_subset[i, 0],
+                    "y": pca_subset[i, 1],
+                    "PCA": pca_num,
+                    "K": k,
+                    "Cluster": clusters[i]
+                })
+
+    # After collecting data for scatter
+    df_scatter = pd.DataFrame(scatter_data)
+    plot_pca_kmeans_scatter_grid(df_scatter, project_path=project_path or "test_outputs")
+    
+    
+    
 
 
 if __name__ == "__main__":
@@ -1742,23 +1836,23 @@ if __name__ == "__main__":
     #####################################
     dataset_name        = 'imagenet256-dataset-T000006'
     group               = "validation"
-    num_components      = 50
-    max_data_samples    = 100000
+    num_components      = 5 #50
+    max_data_samples    = 50 # 100000
     batch_size          = 64
     data_path           = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5'    
-    results_path        = './results/pca_evaluation'
+    results_path        = './results/PCA_BetaVAE_Eval'
 
 
     n_neighbors         = 50
     min_dist            = 0.1
-    max_umap_samples    = 25000
+    max_umap_samples    = 50 #25000
     random_state        = 42 # state of life
     epochs              = 500
     patience            = 10
     lr                  = 1e-4
     
-    pca_latent_numbers  = [2, 5, 9, 15, 20, 30, 50]
-    k_means_n_values    = [2, 5, 9, 15, 20, 30, 50]
+    pca_latent_numbers  = [4] # [2, 5, 9, 15, 20, 30, 50]
+    k_means_n_values    = [4] #[2, 5, 9, 15, 20, 30, 50]
 
     #####################################
     # Device + Seed Setup
@@ -1768,12 +1862,11 @@ if __name__ == "__main__":
     gc.collect()
     
     
-
     # --------------------------------------
     # Set base results directory with date
     # --------------------------------------
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    experiment_root = Path('./results/pca_evaluation') / timestamp
+    experiment_root = Path(results_path) / timestamp
     experiment_root.mkdir(parents=True, exist_ok=True)
     print(f"[INFO] Results will be saved to: {experiment_root}")
 
@@ -1791,11 +1884,22 @@ if __name__ == "__main__":
         {"name": "Beta02x10x_3b",   "beta": 3.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt'},
         {"name": "Beta02x10x_5b",   "beta": 5.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'},
     ]
-
-    all_config_groups = [
-        {"group_name": "Varying_Beta_Denoising", "configs": model_configs_v0}
+    model_configs_v1 = [
+        # mixed beta = {1e-4, 0.1, 0.5, 1.0, 2.0, 3.0, 5.0}
+        {"name": "Beta05x10x_01b", "beta": 0.1,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-08-04/manual/V2/2025-08-04/100001/checkpoints/last.ckpt'},
+        {"name": "Beta05x10x_05b", "beta": 0.5,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'},
+        {"name": "Beta05x10x_1b",  "beta": 1.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'},
+        {"name": "Beta05x10x_2b",  "beta": 2.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'},
+        {"name": "Beta05x10x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'},
     ]
 
+    all_config_groups = [
+        {"group_name": "All_BetaVAE_0.2x1.0x",
+         "configs": model_configs_v0},
+        {"group_name": "All_BetaVAE_0.5x1.0x",
+         "configs": model_configs_v1},
+    ]
+    
     # --------------------------------------
     # Main loop over all config groups
     # --------------------------------------
@@ -1850,9 +1954,10 @@ if __name__ == "__main__":
             })
 
             model_results.append(structured_results)
+            
 
         # Save JSON
-        group_path = experiment_root / f"PCA_Quantitative_{group_name}"
+        group_path = experiment_root / f"{group_name}_PCA"
         group_path.mkdir(exist_ok=True, parents=True)
         out_path = group_path / "group_probe_results.json"
         with out_path.open("w") as f:
@@ -1860,7 +1965,13 @@ if __name__ == "__main__":
         print(f"[INFO] Saved results to: {out_path}")
 
         # Plotting
+        print(f"==" * 50)
         print(f"[INFO] Generating plots...")
+        plot_accuracy_grid_from_json(
+            json_path=out_path,
+            probe_filter="Linear"
+        )
+
         plot_probe_val_across_pca(
             json_path=out_path,
             project_path=group_path,
@@ -1880,6 +1991,7 @@ if __name__ == "__main__":
             project_path=group_path,
         )
         print(f"[INFO] Completed group: {group_name}\n")
+        print(f"==" * 50)s
 
     # --------------------------------------
     # K-Means PCA Scatter Grid (Fixed)
@@ -1952,7 +2064,6 @@ if __name__ == "__main__":
     #     # beta: 5.0
     #      {"name": "Beta05x05x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt' },  # Open
     # ]
-    
     
     
     # # All models with b:0.1
