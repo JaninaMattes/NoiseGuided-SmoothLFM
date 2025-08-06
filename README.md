@@ -8,7 +8,9 @@
 > **Noise-guided smooth latent flow matching for ultra-smooth, controllable image generation.**
 
 <p align="center">
-  <img src="assets/readme/pair_04.gif" alt="Smooth Interpolation Example" width="60%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
+  <img src="assets/readme/pair_04.gif" alt="Example 1" width="30%">
+  <img src="assets/readme/pair_08.gif" alt="Example 2" width="30%">
+  <img src="assets/readme/pair_03.gif" alt="Example 3" width="30%">
 </p>
 
 ---
