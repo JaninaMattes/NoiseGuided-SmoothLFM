@@ -33,9 +33,12 @@ from jutils import count_parameters, exists
 # ldm stuff
 from ldm.helpers import load_model_weights
 
-
 torch.set_float32_matmul_precision('high')
 
+
+#################################
+# Flow Matching Training Script
+#################################
 
 def check_config(cfg):
     if cfg.get("auto_requeue", False):
