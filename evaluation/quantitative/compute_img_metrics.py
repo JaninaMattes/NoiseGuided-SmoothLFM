@@ -1102,14 +1102,14 @@ if __name__ == "__main__":
         # ---------------------------
         # beta: 0.1
         # ---------------------------
-        {
-            "checkpoint": DITSXL_BETA05x10x_01b,
-            "source_timestep": 0.50,
-            "target_timestep": 1.00,
-            "beta": 0.1,
-            "group_name": "Beta0.1" 
-              #TODO:  CFG: 5, 7, 9 missing
-        },
+        # {
+        #     "checkpoint": DITSXL_BETA05x10x_01b,
+        #     "source_timestep": 0.50,
+        #     "target_timestep": 1.00,
+        #     "beta": 0.1,
+        #     "group_name": "Beta0.1" 
+        #       #TODO:  CFG: 5, 7, 9 missing
+        # },
         {
             "checkpoint": DITSXL_BETA02x10x_01b,
             "source_timestep": 0.20,
@@ -1125,13 +1125,13 @@ if __name__ == "__main__":
         #     "beta": 0.1,
         #     "group_name": "Beta0.1"
         # },        
-        # {
-        #     "checkpoint": DiTSXL_Beta05x05x_01b,
-        #     "source_timestep": 0.50,
-        #     "target_timestep": 0.50,
-        #     "beta": 0.1,
-        #     "group_name": "Beta0.1_Baseline"
-        # },
+        {
+            "checkpoint": DiTSXL_Beta05x05x_01b,
+            "source_timestep": 0.50,
+            "target_timestep": 0.50,
+            "beta": 0.1,
+            "group_name": "Beta0.1_Baseline"
+        },
         # ---------------------------
         # beta: 0.5
         # ---------------------------
@@ -1243,6 +1243,10 @@ if __name__ == "__main__":
         group_name = config["group_name"]
 
         baseline = (source_timestep == 0.50 and target_timestep == 0.50)
+        
+        if beta == 0.1 and source_timestep == 0.20 and target_timestep == 1.00:
+            cfg_scales = [3.0, 5.0, 7.0, 9.0]
+            ccfg_scales = [1.0, 1.0, 1.0, 1.0]
 
         # Construct model name and project name
         model_name = f"{group_name}_VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
