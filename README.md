@@ -41,7 +41,7 @@
 - 💻 **PyTorch 2.5.1**
 - 🔥 **Lightning 2.5.0**
 - 🌀 <a href="https://github.com/joh-schb/image-ldm" title="Built by Johannes Schusterbauer"><strong>Latent Diffusion Model (Image-LDM)</strong></a>
-- 🌊 **SiT (Scalable Interpolant Transformers)**
+- 🌊 <a href="https://github.com/willisma/SiT" title="Developed by William Peebles and collaborators"><strong>SiT (Scalable Interpolant Transformers)</strong></a>
 - 🎨 **Hydra**, **OpenCLIP**, **WandB**, TensorBoard
 - 🛠️ Extras: torchdiffeq, xformers, albumentations, UMAP
 
