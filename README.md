@@ -15,10 +15,10 @@
 </p>
 
 <p align="center">
-  <img src="assets/readme/pair_07.gif" alt="Interpolation 5" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_08.gif" alt="Interpolation 6" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_09.gif" alt="Interpolation 7" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_10.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_09.gif" alt="Interpolation 5" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_10.gif" alt="Interpolation 6" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_11.gif" alt="Interpolation 7" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_12.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
 </p>
 
 
@@ -48,8 +48,8 @@
 
 - 💻 **PyTorch 2.5.1**
 - 🔥 **Lightning 2.5.0**
-- 🌀 **Latent Diffusion Model (LDM)**
-- 🌊 **SiT (Scalable Interpolant Transformers)**
+- 🌀 <a href="https://github.com/joh-schb/image-ldm" title="Built by Johannes Schusterbauer"><strong>Latent Diffusion Model (Image-LDM)</strong></a>
+- 🌊 <a href="https://github.com/willisma/SiT" title="Developed by William Peebles and collaborators"><strong>SiT (Scalable Interpolant Transformers)</strong></a>
 - 🎨 **Hydra**, **OpenCLIP**, **WandB**, TensorBoard
 - 🛠️ Extras: torchdiffeq, xformers, albumentations, UMAP
 
