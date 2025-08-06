@@ -14,6 +14,14 @@
   <img src="assets/readme/pair_05.gif" alt="Interpolation 4" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
 </p>
 
+<p align="center">
+  <img src="assets/readme/pair_07.gif" alt="Interpolation 5" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_08.gif" alt="Interpolation 6" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_09.gif" alt="Interpolation 7" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_10.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+</p>
+
+
 ---
 
 ## ✨ Highlights
@@ -65,8 +73,7 @@ Our framework is lightweight, architecture-agnostic, and directly applicable to 
 
 ## 💡 Motivation
 
-The framework addresses fundamental trade-offs in generative models: **sample quality, diversity, and speed**, while introducing a pathway to improved interpretability through an auxiliary ß-VAE encoder.  
-It leverages deterministic continuous flows rather than stochastic noise schedules, resulting in smoother and more controllable outputs.
+This framework tackles core trade-offs in generative modeling- **sample quality, diversity, and inference speed** —while introducing a principled path to greater **interpretability and controllability** without relying on annotated datasets. It achieves this by integrating an auxiliary Bayesian β-VAE encoder and leveraging deterministic continuous flows instead of stochastic noise schedules, yielding smoother, more structured, and more controllable outputs.
 
 ---
 
