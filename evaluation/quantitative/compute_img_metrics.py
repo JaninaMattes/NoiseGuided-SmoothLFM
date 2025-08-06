@@ -69,6 +69,18 @@ torch.set_float32_matmul_precision('high')
 
 
 
+############################################
+#   Utils
+############################################
+
+def clear_folder(path: Path):
+    if path.exists() and path.is_dir():
+        shutil.rmtree(path)
+        path.mkdir(parents=True, exist_ok=True)
+
+
+
+
 ##############################################
 # Dataset to wrap loaded samples
 ##############################################
@@ -267,6 +279,7 @@ class PrecisionRecallFID(nn.Module):
             fake_features=fake_feats,
             nearest_k=k_safe
         )
+
 
     
     
