@@ -31,7 +31,7 @@ from jutils import instantiate_from_config
 from jutils import count_parameters, exists
 
 # ldm stuff
-from ldm.helpers import load_model_weights
+from ldm.utils.helpers import load_model_weights
 
 
 torch.set_float32_matmul_precision('high')

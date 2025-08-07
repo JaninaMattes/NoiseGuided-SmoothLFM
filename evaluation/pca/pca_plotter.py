@@ -73,7 +73,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__f
 sys.path.append(project_root)
 
 # Project-specific modules
-from ldm.helpers import un_normalize_ims
+from ldm.utils.helpers import un_normalize_ims
 from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
 from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
