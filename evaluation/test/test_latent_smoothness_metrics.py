@@ -33,7 +33,7 @@ from elatentlpips import ELatentLPIPS
 
 # Setup project root for import resolution
 project_root = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../")
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
 )
 sys.path.append(project_root)
 

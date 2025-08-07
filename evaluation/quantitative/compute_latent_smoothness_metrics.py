@@ -60,7 +60,7 @@ from jutils import tensor2im, ims_to_grid
 
 
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../'))
 sys.path.append(project_root)
 
 from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
