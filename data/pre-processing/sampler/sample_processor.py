@@ -5,7 +5,6 @@ from ldm.flow import FlowModel
 import datetime
 import os
 import sys
-import numpy as np
 from matplotlib import pyplot as plt
 from omegaconf import OmegaConf
 from itertools import islice
@@ -18,32 +17,33 @@ import torch
 # Load jutil modules
 from jutils.nn import AutoencoderKL
 from jutils import instantiate_from_config
-from jutils import exists, freeze, default
+from jutils import exists, freeze
 from jutils import ims_to_grid
 
-project_root = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), '../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
+)
 sys.path.append(project_root)
 
 # Load custom modules
 
 
 # Set precision to high
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
 
 
 #############################################################
 #                          Utils                           #
 #############################################################
 
+
 def img_to_grid(img, stack="row", split=4):
-    """ Convert (b, c, h, w) to (h, w, c) """
+    """Convert (b, c, h, w) to (h, w, c)"""
     if stack not in ["row", "col"]:
         raise ValueError(f"Unknown stack type {stack}")
     if split is not None and img.shape[0] % split == 0:
         splitter = dict(b1=split) if stack == "row" else dict(b2=split)
-        img = einops.rearrange(
-            img, "(b1 b2) c h w -> (b1 h) (b2 w) c", **splitter)
+        img = einops.rearrange(img, "(b1 b2) c h w -> (b1 h) (b2 w) c", **splitter)
     else:
         to = "(b h) w c" if stack == "row" else "h (b w) c"
         img = einops.rearrange(img, "b c h w -> " + to)
@@ -51,21 +51,22 @@ def img_to_grid(img, stack="row", split=4):
 
 
 def un_normalize_img(img):
-    """ Convert from [-1, 1] to [0, 255] """
+    """Convert from [-1, 1] to [0, 255]"""
     img = ((img * 127.5) + 127.5).clip(0, 255).to(torch.uint8)
     return img
 
 
 def normalize_img(img):
-    """ Convert from [0, 255] to [-1, 1] """
+    """Convert from [0, 255] to [-1, 1]"""
     img = img.to(torch.float32) / 127.5 - 1
     return img
 
 
 def show_samples(intermediates, split=4, save_to_file=None):
-    """ Show samples """
-    intermediates = dict(sorted(intermediates.items(), key=lambda x: float(
-        x[0]), reverse=True))  # Sort by timestep
+    """Show samples"""
+    intermediates = dict(
+        sorted(intermediates.items(), key=lambda x: float(x[0]), reverse=True)
+    )  # Sort by timestep
     ims = torch.stack(list(intermediates.values()), dim=1)
     ims = einops.rearrange(ims, "t b c h w -> (t b) c h w")
     ims = un_normalize_img(ims)
@@ -75,7 +76,7 @@ def show_samples(intermediates, split=4, save_to_file=None):
     plt.title(r"Forward Diffusion $x_1 \rightarrow x_0$")
     plt.axis("off")
     if save_to_file:
-        plt.savefig(save_to_file, bbox_inches='tight')
+        plt.savefig(save_to_file, bbox_inches="tight")
     plt.show()
     plt.close()
 
@@ -83,6 +84,7 @@ def show_samples(intermediates, split=4, save_to_file=None):
 #############################################################
 #                 Pipelione Latent Sampler                   #
 #############################################################
+
 
 class SampleProcessor:
     def __init__(
@@ -96,9 +98,9 @@ class SampleProcessor:
         # HDF5 directory
         hdf5_dir: str,
         # First stage   (KL Autoencoder)
-        first_stage_ckpt='checkpoints/sd_ae.ckpt',
+        first_stage_ckpt="checkpoints/sd_ae.ckpt",
         # Second stage  (LDM using Flow Matching)#
-        second_stage_ckpt='checkpoints/SiT-XL-2-256x256.pt',
+        second_stage_ckpt="checkpoints/SiT-XL-2-256x256.pt",
         # Starting batch ID
         start_batch_id: int = 0,
         # Ending batch ID
@@ -107,20 +109,20 @@ class SampleProcessor:
         input_size: int = 32,
         # Number of classes
         num_classes: int = 1000,
-        class_labels: list = None,                      # Class labels to filter
-        batch_size: int = None,                         # Batch size
-        num_steps: int = 100,                           # Number of steps
-        sample_kwargs: dict = None,                     # DDIM sampling kwargs
-        dev: torch.device = None,                       # Device to use for sampling
+        class_labels: list = None,  # Class labels to filter
+        batch_size: int = None,  # Batch size
+        num_steps: int = 100,  # Number of steps
+        sample_kwargs: dict = None,  # DDIM sampling kwargs
+        dev: torch.device = None,  # Device to use for sampling
         # Type of sampling (sample or encode)
         type: str = "train",
-        log_every: int = 1000,                                 # Log every n batches
-        filtered_loader: bool = True,                   # Use filtered loader
+        log_every: int = 1000,  # Log every n batches
+        filtered_loader: bool = True,  # Use filtered loader
     ):
-
         # Device settings
-        self.device = dev if dev else torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = (
+            dev if dev else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        )
 
         self.start_batch_id = start_batch_id
         self.end_batch_id = end_batch_id
@@ -136,19 +138,17 @@ class SampleProcessor:
         self.type = type
 
         # Sampling settings
-        y_null = torch.tensor([self.num_classes] *
-                              self.batch_size, device=self.device)
+        y_null = torch.tensor([self.num_classes] * self.batch_size, device=self.device)
         self.sample_kwargs = sample_kwargs if sample_kwargs else {}
         self.sample_kwargs.update(  # Add null
             num_steps=num_steps,
-            cfg_scale=1.0,    # unconditional sampling
+            cfg_scale=1.0,  # unconditional sampling
             uc_cond=y_null,
-            cond_key='y'
+            cond_key="y",
         )
         self.selected_timesteps = selected_timesteps
         if not self.selected_timesteps:
-            raise ValueError(
-                "No timesteps provided. Please specify --timesteps.")
+            raise ValueError("No timesteps provided. Please specify --timesteps.")
 
         # KL Autoencoder - first stage settings
         first_stage = AutoencoderKL(ckpt_path=first_stage_ckpt).to(self.device)
@@ -160,7 +160,7 @@ class SampleProcessor:
         flow_model = net = DiT_models["DiT-XL/2"](
             input_size=self.input_size,
             num_classes=self.num_classes,
-            learn_sigma=True,               # we "learn sigma" but never use it in SiT/DiT
+            learn_sigma=True,  # we "learn sigma" but never use it in SiT/DiT
             load_from_ckpt=second_stage_ckpt,
         ).to(self.device)
         flow_model = FlowModel(net, schedule="linear").to(self.device)
@@ -172,20 +172,33 @@ class SampleProcessor:
         cfg_path = dataset_cfg
         dataset_cfg = OmegaConf.load(cfg_path)
         self.datamod = instantiate_from_config(dataset_cfg)
-        assert class_labels is not None, "Please provide class labels to filter the dataset."
+        assert class_labels is not None, (
+            "Please provide class labels to filter the dataset."
+        )
 
         if filtered_loader:
             if self.type == "train":
                 self.datamod.train_dataloader = lambda: make_filtered_loader(
-                    data=self.datamod, data_cfg=self.datamod.train, class_labels=class_labels, train=True, batch_size=self.batch_size)
+                    data=self.datamod,
+                    data_cfg=self.datamod.train,
+                    class_labels=class_labels,
+                    train=True,
+                    batch_size=self.batch_size,
+                )
             elif self.type == "validation":
                 self.datamod.val_dataloader = lambda: make_filtered_loader(
-                    data=self.datamod, data_cfg=self.datamod.validation, class_labels=class_labels, train=False, batch_size=self.batch_size)
+                    data=self.datamod,
+                    data_cfg=self.datamod.validation,
+                    class_labels=class_labels,
+                    train=False,
+                    batch_size=self.batch_size,
+                )
             else:
                 raise ValueError(
-                    f"Unknown type {self.type}. Please use 'train' or 'validation'.")
+                    f"Unknown type {self.type}. Please use 'train' or 'validation'."
+                )
 
-        self.datamod.setup('fit')
+        self.datamod.setup("fit")
 
         """ Data handler """
         self.datahandler = NumpyDataHandler(base_dir=self.data_dir)
@@ -203,16 +216,22 @@ class SampleProcessor:
         return z
 
     @torch.no_grad()
-    def encode_second_stage(self, latent, y=None, return_intermediates=True, sample_kwargs=None):
-        """ Forward diffusion """
+    def encode_second_stage(
+        self, latent, y=None, return_intermediates=True, sample_kwargs=None
+    ):
+        """Forward diffusion"""
         if exists(self.second_stage):
-            xt, intermediates = self.second_stage.encode(latent, y=y, return_intermediates=return_intermediates, **(
-                sample_kwargs or {}))               # x0: noise, x: target, t: timestep
+            xt, intermediates = self.second_stage.encode(
+                latent,
+                y=y,
+                return_intermediates=return_intermediates,
+                **(sample_kwargs or {}),
+            )  # x0: noise, x: target, t: timestep
         return xt, intermediates
 
     @torch.no_grad()
     def decode_second_stage(self, z, label=None):
-        """ Euler sampling """
+        """Euler sampling"""
         if exists(self.second_stage):
             z = self.second_stage.generate(z, y=label, **self.sample_kwargs)
         return z
@@ -220,7 +239,7 @@ class SampleProcessor:
     @torch.no_grad()
     def __call__(self):
         """Generate noisy latents"""
-        if self.type == 'train':
+        if self.type == "train":
             dataloader = self.datamod.train_dataloader()
         else:
             dataloader = self.datamod.val_dataloader()
@@ -230,22 +249,27 @@ class SampleProcessor:
         print(f"Selected timesteps: {selected_timesteps}")
 
         # Get batch
-        for batch_idx, batch in enumerate(islice(dataloader, self.start_batch_id, self.end_batch_id), start=self.start_batch_id):
+        for batch_idx, batch in enumerate(
+            islice(dataloader, self.start_batch_id, self.end_batch_id),
+            start=self.start_batch_id,
+        ):
             if batch_idx >= self.end_batch_id:
                 break
 
-            x = batch['image'][:self.batch_size].to(self.device).float()
-            y = batch['label'][:self.batch_size].to(self.device).long()
+            x = batch["image"][: self.batch_size].to(self.device).float()
+            y = batch["label"][: self.batch_size].to(self.device).long()
 
             # Pipeline
             latent = self.encode_first_stage(x)
             xt, intermediates = self.encode_second_stage(
-                latent, y=y, return_intermediates=True, sample_kwargs=self.sample_kwargs)
+                latent, y=y, return_intermediates=True, sample_kwargs=self.sample_kwargs
+            )
             # Generate samples
-            intermediates = {f"{t:.1f}": intermediates.get(
-                f"{t:.1f}", None) for t in selected_timesteps}
-            intermediates = {k: v for k,
-                             v in intermediates.items() if v is not None}
+            intermediates = {
+                f"{t:.1f}": intermediates.get(f"{t:.1f}", None)
+                for t in selected_timesteps
+            }
+            intermediates = {k: v for k, v in intermediates.items() if v is not None}
 
             # Plot samples
             if batch_idx % self.log_every == 0:
@@ -254,11 +278,11 @@ class SampleProcessor:
                 # show_samples(intermediates, split=4, save_to_file=img_file)
 
             data_dict = {
-                'image': x.detach().cpu(),
-                'latent': xt.detach().cpu(),
-                'label': y.detach().cpu(),
-                'intermediate_steps': selected_timesteps,
-                'intermediates': list(intermediates.values()),
+                "image": x.detach().cpu(),
+                "latent": xt.detach().cpu(),
+                "label": y.detach().cpu(),
+                "intermediate_steps": selected_timesteps,
+                "intermediates": list(intermediates.values()),
             }
 
             # Save to Numpy
@@ -268,12 +292,12 @@ class SampleProcessor:
         # Store to HDF5
         postfix = datetime.datetime.now().strftime("T%H%M%S")
         # filename = f'imagenet256_data-{postfix}.hdf5'
-        filename = 'imagenet256-dataset-T000004.hdf5'
+        filename = "imagenet256-dataset-T000004.hdf5"
         self.save_hdf5(self.data_dir, filename=filename, group_name=self.type)
         torch.cuda.empty_cache()
 
-    def save_hdf5(self, data_dir, filename, group_name: str = 'train'):
-        """ Save to HDF5 """
+    def save_hdf5(self, data_dir, filename, group_name: str = "train"):
+        """Save to HDF5"""
         hdfhandler = HDF5DatasetManager(data_dir)
         hdfhandler.save_to_hdf5(filename=filename, group_name=group_name)
         # Plot structure
@@ -283,13 +307,12 @@ class SampleProcessor:
 
         # Load HDF5
         imgs, labels, latents = hdfhandler.retrieve_from_hdf5(
-            file_path=hdf5_file, timestep=self.selected_timesteps[
-                0], group_name=group_name, plot_samples=True
+            file_path=hdf5_file,
+            timestep=self.selected_timesteps[0],
+            group_name=group_name,
+            plot_samples=True,
         )
         return imgs, labels, latents
-
-
-
 
 
 #####################################
@@ -297,30 +320,131 @@ class SampleProcessor:
 #####################################
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Latent Sample Generator for Diffusion Model Datasets")
-    parser.add_argument('--dataset_dir', type=str,
-                        default='dataset/processed/imagenet-256')
-    parser.add_argument('--dataset_cfg', type=str,
-                        default='configs/data/imagenet256_mvl.yaml')
-    parser.add_argument('--timesteps', type=float, nargs='+',
-                        default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    parser.add_argument('--class_labels', type=int, nargs='+', default=[
-        0, 1, 84, 87, 88, 89, 90, 92, 93, 94, 95, 96, 99, 100, 105, 106, 130, 144, 145, 152,
-        153, 154, 158, 172, 176, 207, 208, 219, 231, 232, 234, 236, 237, 248, 249, 250, 251,
-        254, 258, 259, 260, 263, 264, 269, 270, 271, 277, 278, 279, 280, 282, 283, 284, 288,
-        289, 290, 291, 292, 293, 294, 295, 296, 321, 322, 323, 324, 330, 331, 332, 339, 340,
-        344, 346, 347, 348, 349, 350, 352, 353, 354, 361, 362, 365, 366, 368, 383, 387, 388,
-        954, 957
-    ])  # V2 dataset class labels
+        description="Latent Sample Generator for Diffusion Model Datasets"
+    )
+    parser.add_argument(
+        "--dataset_dir", type=str, default="dataset/processed/imagenet-256"
+    )
+    parser.add_argument(
+        "--dataset_cfg", type=str, default="configs/data/imagenet256_mvl.yaml"
+    )
+    parser.add_argument(
+        "--timesteps",
+        type=float,
+        nargs="+",
+        default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    )
+    parser.add_argument(
+        "--class_labels",
+        type=int,
+        nargs="+",
+        default=[
+            0,
+            1,
+            84,
+            87,
+            88,
+            89,
+            90,
+            92,
+            93,
+            94,
+            95,
+            96,
+            99,
+            100,
+            105,
+            106,
+            130,
+            144,
+            145,
+            152,
+            153,
+            154,
+            158,
+            172,
+            176,
+            207,
+            208,
+            219,
+            231,
+            232,
+            234,
+            236,
+            237,
+            248,
+            249,
+            250,
+            251,
+            254,
+            258,
+            259,
+            260,
+            263,
+            264,
+            269,
+            270,
+            271,
+            277,
+            278,
+            279,
+            280,
+            282,
+            283,
+            284,
+            288,
+            289,
+            290,
+            291,
+            292,
+            293,
+            294,
+            295,
+            296,
+            321,
+            322,
+            323,
+            324,
+            330,
+            331,
+            332,
+            339,
+            340,
+            344,
+            346,
+            347,
+            348,
+            349,
+            350,
+            352,
+            353,
+            354,
+            361,
+            362,
+            365,
+            366,
+            368,
+            383,
+            387,
+            388,
+            954,
+            957,
+        ],
+    )  # V2 dataset class labels
     # Batch size for sampling
-    parser.add_argument('--batch_size', type=int, default=256)
-    parser.add_argument('--start_batch_id', type=int, default=0)
-    parser.add_argument('--end_batch_id', type=int, default=10)
-    parser.add_argument('--split', type=str,
-                        choices=['train', 'validation'], default='train')
-    parser.add_argument('--hdf5_file', type=str, default=None)
-    parser.add_argument('--filtered_loader', type=bool, default=True,
-                        help="Use filtered loader to only sample specific class labels from the dataset.")
+    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--start_batch_id", type=int, default=0)
+    parser.add_argument("--end_batch_id", type=int, default=10)
+    parser.add_argument(
+        "--split", type=str, choices=["train", "validation"], default="train"
+    )
+    parser.add_argument("--hdf5_file", type=str, default=None)
+    parser.add_argument(
+        "--filtered_loader",
+        type=bool,
+        default=True,
+        help="Use filtered loader to only sample specific class labels from the dataset.",
+    )
 
     args = parser.parse_args()
 
@@ -338,16 +462,14 @@ if __name__ == "__main__":
         end_batch_id=args.end_batch_id,
         num_classes=1000,
         class_labels=class_labels,
-        batch_size=args.batch_size if args.batch_size > 0 else len(
-            class_labels),
+        batch_size=args.batch_size if args.batch_size > 0 else len(class_labels),
         log_every=5000,
         type=args.split,
         filtered_loader=args.filtered_loader,
     )
     processor()
     print("Sample processing completed.")
-    
-    
+
     # Example usage:
     # processer.save_hdf5(args.dataset_dir, filename='imagenet256-dataset-T000003.hdf5', group_name=args.split)
     # CUDA_VISIBLE_DEVICES=1 python '.../data_processing/sampler/sample_processor.py' --start_batch_id 0 --end_batch_id 1800 --split train --dataset_dir 'dataset/processed/imagenet-256' --batch_size 32

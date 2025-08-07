@@ -11,21 +11,26 @@ from transformers import CLIPTokenizer, CLIPTextModel
 # Models in ["ViT-B/32", "ViT-B/16", "ViT-L/14", "ViT-L/14@336px"]
 class ClipImageEmbedder(nn.Module):
     def __init__(
-            self,
-            model="ViT-L/14",
-            jit=False,
-            device='cuda' if torch.cuda.is_available() else 'cpu',
-            antialias=True,
-            ucg_rate=0.
+        self,
+        model="ViT-L/14",
+        jit=False,
+        device="cuda" if torch.cuda.is_available() else "cpu",
+        antialias=True,
+        ucg_rate=0.0,
     ):
         super().__init__()
         from clip import load as load_clip
+
         self.model, _ = load_clip(name=model, device=device, jit=jit)
 
         self.antialias = antialias
 
-        self.register_buffer('mean', torch.Tensor([0.48145466, 0.4578275, 0.40821073]), persistent=False)
-        self.register_buffer('std', torch.Tensor([0.26862954, 0.26130258, 0.27577711]), persistent=False)
+        self.register_buffer(
+            "mean", torch.Tensor([0.48145466, 0.4578275, 0.40821073]), persistent=False
+        )
+        self.register_buffer(
+            "std", torch.Tensor([0.26862954, 0.26130258, 0.27577711]), persistent=False
+        )
         self.ucg_rate = ucg_rate
 
         self.init_uncond()
@@ -41,20 +46,27 @@ class ClipImageEmbedder(nn.Module):
 
     def preprocess(self, x):
         # resize to 224, normalize to [0,1] and re-normalize according to clip
-        x = torch.nn.functional.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
-        assert x.min() >= -1. and x.max() <= 1.
-        x = (x + 1.) / 2.
-        x = (x - self.mean.reshape(1,-1,1,1)) / self.std.reshape(1,-1,1,1)
+        x = torch.nn.functional.interpolate(
+            x, size=(224, 224), mode="bilinear", align_corners=False
+        )
+        assert x.min() >= -1.0 and x.max() <= 1.0
+        x = (x + 1.0) / 2.0
+        x = (x - self.mean.reshape(1, -1, 1, 1)) / self.std.reshape(1, -1, 1, 1)
         return x
 
     def forward(self, x, no_dropout=False):
         # x is assumed to be in range [-1,1]
         out = self.model.encode_image(self.preprocess(x))
         out = out.to(x.dtype)
-        if self.ucg_rate > 0. and not no_dropout:
-            out = torch.bernoulli((1. - self.ucg_rate) * torch.ones(out.shape[0], device=out.device))[:, None] * out
+        if self.ucg_rate > 0.0 and not no_dropout:
+            out = (
+                torch.bernoulli(
+                    (1.0 - self.ucg_rate) * torch.ones(out.shape[0], device=out.device)
+                )[:, None]
+                * out
+            )
         return out.unsqueeze(1)
-    
+
     @torch.no_grad()
     def get_unconditional_conditioning(self, device="cuda"):
         if self.uncond is None:
@@ -64,8 +76,8 @@ class ClipImageEmbedder(nn.Module):
 
 class DummyOpenCLIPTextEmbedder(nn.Module):
     def __init__(
-            self,
-            nulltext_path="nulltext.npy",
+        self,
+        nulltext_path="nulltext.npy",
     ):
         super().__init__()
         self.arch = "ViT-H-14"
@@ -89,16 +101,28 @@ class DummyOpenCLIPTextEmbedder(nn.Module):
         device = x.device
         if self.uncond.device is not device:
             self.uncond = self.uncond.to(device)
-        
+
         return self.uncond[None, :].repeat(bs, 1, 1)
 
 
 class FrozenOpenCLIPImageEmbedder(nn.Module):
-    def __init__(self, arch="ViT-H-14", version="laion2b_s32b_b79k", device="cuda", max_length=77,
-                 freeze=True, layer="pooled", antialias=True, ucg_rate=0.):
+    def __init__(
+        self,
+        arch="ViT-H-14",
+        version="laion2b_s32b_b79k",
+        device="cuda",
+        max_length=77,
+        freeze=True,
+        layer="pooled",
+        antialias=True,
+        ucg_rate=0.0,
+    ):
         super().__init__()
-        model, _, _ = open_clip.create_model_and_transforms(arch, device=torch.device('cpu'),
-                                                            pretrained=version, )
+        model, _, _ = open_clip.create_model_and_transforms(
+            arch,
+            device=torch.device("cpu"),
+            pretrained=version,
+        )
         del model.transformer
         self.model = model
 
@@ -113,16 +137,22 @@ class FrozenOpenCLIPImageEmbedder(nn.Module):
 
         self.antialias = antialias
 
-        self.register_buffer('mean', torch.Tensor([0.48145466, 0.4578275, 0.40821073]), persistent=False)
-        self.register_buffer('std', torch.Tensor([0.26862954, 0.26130258, 0.27577711]), persistent=False)
+        self.register_buffer(
+            "mean", torch.Tensor([0.48145466, 0.4578275, 0.40821073]), persistent=False
+        )
+        self.register_buffer(
+            "std", torch.Tensor([0.26862954, 0.26130258, 0.27577711]), persistent=False
+        )
         self.ucg_rate = ucg_rate
 
     def preprocess(self, x):
         # resize to 224, normalize to [0,1] and re-normalize according to clip
-        x = torch.nn.functional.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
-        assert x.min() >= -1. and x.max() <= 1.
-        x = (x + 1.) / 2.
-        x = (x - self.mean.reshape(1,-1,1,1)) / self.std.reshape(1,-1,1,1)
+        x = torch.nn.functional.interpolate(
+            x, size=(224, 224), mode="bilinear", align_corners=False
+        )
+        assert x.min() >= -1.0 and x.max() <= 1.0
+        x = (x + 1.0) / 2.0
+        x = (x - self.mean.reshape(1, -1, 1, 1)) / self.std.reshape(1, -1, 1, 1)
         return x
 
     def freeze(self):
@@ -132,8 +162,13 @@ class FrozenOpenCLIPImageEmbedder(nn.Module):
 
     def forward(self, image, no_dropout=False):
         z = self.encode_with_vision_transformer(image)
-        if self.ucg_rate > 0. and not no_dropout:
-            z = torch.bernoulli((1. - self.ucg_rate) * torch.ones(z.shape[0], device=z.device))[:, None] * z
+        if self.ucg_rate > 0.0 and not no_dropout:
+            z = (
+                torch.bernoulli(
+                    (1.0 - self.ucg_rate) * torch.ones(z.shape[0], device=z.device)
+                )[:, None]
+                * z
+            )
         return z.unsqueeze(1)
 
     def encode_with_vision_transformer(self, img):
@@ -149,18 +184,22 @@ class FrozenOpenCLIPEmbedder(nn.Module):
     """
     Uses the OpenCLIP transformer encoder for text
     """
+
     LAYERS = ["last", "penultimate"]
+
     def __init__(
-            self,
-            arch="ViT-H-14",
-            version="laion2b_s32b_b79k",
-            max_length=77,
-            freeze=True,
-            layer="penultimate"
-        ):
+        self,
+        arch="ViT-H-14",
+        version="laion2b_s32b_b79k",
+        max_length=77,
+        freeze=True,
+        layer="penultimate",
+    ):
         super().__init__()
         assert layer in self.LAYERS
-        model, _, _ = open_clip.create_model_and_transforms(arch, device=torch.device('cpu'), pretrained=version)
+        model, _, _ = open_clip.create_model_and_transforms(
+            arch, device=torch.device("cpu"), pretrained=version
+        )
         del model.visual
         self.model = model
 
@@ -174,7 +213,7 @@ class FrozenOpenCLIPEmbedder(nn.Module):
             self.layer_idx = 1
         else:
             raise NotImplementedError()
-        
+
         self.uncond = None
 
     def freeze(self):
@@ -201,7 +240,10 @@ class FrozenOpenCLIPEmbedder(nn.Module):
         for i, r in enumerate(self.model.transformer.resblocks):
             if i == len(self.model.transformer.resblocks) - self.layer_idx:
                 break
-            if self.model.transformer.grad_checkpointing and not torch.jit.is_scripting():
+            if (
+                self.model.transformer.grad_checkpointing
+                and not torch.jit.is_scripting()
+            ):
                 x = checkpoint(r, x, attn_mask)
             else:
                 x = r(x, attn_mask=attn_mask)
@@ -209,7 +251,7 @@ class FrozenOpenCLIPEmbedder(nn.Module):
 
     def encode(self, text):
         return self(text)
-    
+
     @torch.no_grad()
     def get_unconditional_conditioning(self, device="cuda"):
         """
@@ -220,10 +262,14 @@ class FrozenOpenCLIPEmbedder(nn.Module):
         if self.uncond is None:
             self.uncond = self.encode("")
         return self.uncond.to(device)
-    
+
+
 class FrozenCLIPEmbedder(nn.Module):
     """Uses the CLIP transformer encoder for text (from Hugging Face)"""
-    def __init__(self, version="openai/clip-vit-large-patch14", device="cuda", max_length=77):
+
+    def __init__(
+        self, version="openai/clip-vit-large-patch14", device="cuda", max_length=77
+    ):
         super().__init__()
         self.tokenizer = CLIPTokenizer.from_pretrained(version)
         self.transformer = CLIPTextModel.from_pretrained(version)
@@ -240,8 +286,15 @@ class FrozenCLIPEmbedder(nn.Module):
 
     def forward(self, text):
         dev = next(self.parameters()).device
-        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
-                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
+        batch_encoding = self.tokenizer(
+            text,
+            truncation=True,
+            max_length=self.max_length,
+            return_length=True,
+            return_overflowing_tokens=False,
+            padding="max_length",
+            return_tensors="pt",
+        )
         tokens = batch_encoding["input_ids"].to(dev)
         outputs = self.transformer(input_ids=tokens)
 
@@ -250,7 +303,7 @@ class FrozenCLIPEmbedder(nn.Module):
 
     def encode(self, text):
         return self(text)
-    
+
     @torch.no_grad()
     def get_unconditional_conditioning(self, device="cuda"):
         """
@@ -266,9 +319,9 @@ class FrozenCLIPEmbedder(nn.Module):
 if __name__ == "__main__":
     # Test CLIP embedder
     clip = FrozenCLIPEmbedder()
-    clip = clip.to('cuda:0')
+    clip = clip.to("cuda:0")
     text = "A photo of a cat."
     z = clip(text)
-    print(z.shape)      # (1, 77, 1024)
+    print(z.shape)  # (1, 77, 1024)
     uc = clip.get_unconditional_conditioning()
-    print(uc.shape)     # (77, 1024)
+    print(uc.shape)  # (77, 1024)

@@ -16,7 +16,15 @@ class Annealer:
     Call `__call__(kld)` to get the annealed KLD value (scaled by the weight).
     """
 
-    def __init__(self, total_steps=10000, shape='cosine', baseline=0.0, cyclical=False, disable=False, reverse=False):
+    def __init__(
+        self,
+        total_steps=10000,
+        shape="cosine",
+        baseline=0.0,
+        cyclical=False,
+        disable=False,
+        reverse=False,
+    ):
         """
         Parameters:
             total_steps (int): Number of steps over which the primary annealing phase occurs.
@@ -32,19 +40,22 @@ class Annealer:
         self.current_step = 0
         self.reverse = reverse
 
-        if shape not in ['linear', 'cosine', 'logistic']:
+        if shape not in ["linear", "cosine", "logistic"]:
             raise ValueError(
-                f"Shape must be one of 'linear', 'cosine', or 'logistic.', got {shape}")
+                f"Shape must be one of 'linear', 'cosine', or 'logistic.', got {shape}"
+            )
         self.shape = shape
 
         if not 0 <= float(baseline) <= 1:
             raise ValueError(
-                f"Baseline must be a float between 0 and 1, got {baseline}")
+                f"Baseline must be a float between 0 and 1, got {baseline}"
+            )
         self.baseline = float(baseline)
 
         if type(total_steps) is not int or total_steps < 1:
             raise ValueError(
-                f"Argument total_steps must be an integer greater than 0, got {total_steps}")
+                f"Argument total_steps must be an integer greater than 0, got {total_steps}"
+            )
         self.total_steps = total_steps
 
         if type(cyclical) is not bool:
@@ -78,7 +89,11 @@ class Annealer:
             return  # Do not step if disabled
 
         self.current_step += 1
-        if self.cyclical and self.total_steps > 0 and self.current_step >= self.total_steps:
+        if (
+            self.cyclical
+            and self.total_steps > 0
+            and self.current_step >= self.total_steps
+        ):
             self.current_step %= self.total_steps  # Wrap around for cyclical
 
     def get_weight(self):
@@ -110,11 +125,11 @@ class Annealer:
         else:
             progress = 0.0  # Handle total_steps = 0 case, though init prevents this
 
-        if self.shape == 'linear':
+        if self.shape == "linear":
             y = progress
-        elif self.shape == 'cosine':
+        elif self.shape == "cosine":
             y = (math.cos(math.pi * (progress - 1)) + 1) / 2
-        elif self.shape == 'logistic':
+        elif self.shape == "logistic":
             logistic_input = (progress * 12) - 6
             y = expit(logistic_input)
         else:
@@ -129,12 +144,12 @@ class Annealer:
     def state_dict(self):
         """Returns the state of the annealer as a dict."""
         return {
-            'current_step': self.current_step,
+            "current_step": self.current_step,
         }
 
     def load_state_dict(self, state_dict):
         """Loads the annealer state from a dict."""
-        self.current_step = state_dict['current_step']
+        self.current_step = state_dict["current_step"]
 
 
 ################################
@@ -148,17 +163,28 @@ class BetaAnnealer:
     Manages a base Annealer internally for the shape of the annealing segments.
     """
 
-    def __init__(self, max_beta=4.0, shape='cosine', baseline=0.0, reverse=False,
-                 warmup_steps=0, warmup_value=1e-4, cooldown_steps=0, cooldown_value=None,
-                 # --- Cycle Mode Parameters ---
-                 cycle_mode='standard', num_cycles=1,  # Overall cycle control
-                 # Standard mode specific
-                 # Use total_steps as segment_duration for standard
-                 total_steps=10000, mirror=False,
-                 # Fu et al. mode specific
-                 # Use cycle_length and ramp_ratio for Fu et al.
-                 cycle_length=None, ramp_ratio=0.5
-                 ):
+    def __init__(
+        self,
+        max_beta=4.0,
+        shape="cosine",
+        baseline=0.0,
+        reverse=False,
+        warmup_steps=0,
+        warmup_value=1e-4,
+        cooldown_steps=0,
+        cooldown_value=None,
+        # --- Cycle Mode Parameters ---
+        cycle_mode="standard",
+        num_cycles=1,  # Overall cycle control
+        # Standard mode specific
+        # Use total_steps as segment_duration for standard
+        total_steps=10000,
+        mirror=False,
+        # Fu et al. mode specific
+        # Use cycle_length and ramp_ratio for Fu et al.
+        cycle_length=None,
+        ramp_ratio=0.5,
+    ):
         """
         Parameters:
             max_beta (float): The maximum beta value reached during annealing.
@@ -195,39 +221,44 @@ class BetaAnnealer:
         self.warmup_value = float(warmup_value)
 
         self.cooldown_steps = max(0, int(cooldown_steps))
-        self.cooldown_value = float(
-            cooldown_value) if cooldown_value is not None else self.warmup_value
+        self.cooldown_value = (
+            float(cooldown_value) if cooldown_value is not None else self.warmup_value
+        )
 
         self.cycle_mode = cycle_mode.lower()
-        valid_cycle_modes = ['standard', 'fu_et_al']
+        valid_cycle_modes = ["standard", "fu_et_al"]
         if self.cycle_mode not in valid_cycle_modes:
             raise ValueError(
-                f"Invalid cycle_mode '{cycle_mode}'. Must be one of {valid_cycle_modes}")
+                f"Invalid cycle_mode '{cycle_mode}'. Must be one of {valid_cycle_modes}"
+            )
 
         self.num_cycles = max(1, int(num_cycles))  # Must be at least 1 cycle
 
         # Determine cycle parameters based on mode
-        if self.cycle_mode == 'standard':
+        if self.cycle_mode == "standard":
             # 'total_steps' parameter from init is used as segment_duration
             self.segment_duration = max(1, int(total_steps))
             self.mirror = bool(mirror)
-            self.cycle_length = self.segment_duration * \
-                (2 if self.mirror else 1)  # Length of a full standard cycle
+            self.cycle_length = self.segment_duration * (
+                2 if self.mirror else 1
+            )  # Length of a full standard cycle
             # Ramp duration for the internal annealer is the segment duration
             ramp_duration_for_annealer = self.segment_duration
             # Ramp covers full segment if not mirrored
             self.ramp_ratio = 1.0 if not self.mirror else 0.5
 
-        elif self.cycle_mode == 'fu_et_al':
+        elif self.cycle_mode == "fu_et_al":
             # 'cycle_length' parameter from init is used
             if cycle_length is None or int(cycle_length) < 1:
                 raise ValueError(
-                    "cycle_length must be provided and positive for 'fu_et_al' cycle_mode.")
+                    "cycle_length must be provided and positive for 'fu_et_al' cycle_mode."
+                )
             self.cycle_length = max(1, int(cycle_length))
             self.ramp_ratio = float(ramp_ratio)
             if not 0 <= self.ramp_ratio <= 1:
                 raise ValueError(
-                    "ramp_ratio must be between 0 and 1 for 'fu_et_al' cycle_mode.")
+                    "ramp_ratio must be between 0 and 1 for 'fu_et_al' cycle_mode."
+                )
             # Ramp duration for the internal annealer is cycle_length * ramp_ratio
             # segment_duration is the ramp part
             self.segment_duration = int(self.cycle_length * self.ramp_ratio)
@@ -240,8 +271,14 @@ class BetaAnnealer:
         # It is NOT cyclical. BetaAnnealer handles the overall cycling.
         # reverse=False here means the *base* shape goes from baseline to 1.0.
         # BetaAnnealer's reverse_segment will handle reversing the final beta value range.
-        self.annealer = Annealer(total_steps=ramp_duration_for_annealer, shape=self.shape,
-                                 baseline=self.baseline, cyclical=False, disable=False, reverse=False)
+        self.annealer = Annealer(
+            total_steps=ramp_duration_for_annealer,
+            shape=self.shape,
+            baseline=self.baseline,
+            cyclical=False,
+            disable=False,
+            reverse=False,
+        )
 
         self.current_step = 0  # Total steps taken since start
 
@@ -265,7 +302,7 @@ class BetaAnnealer:
             # Step count within the current cycle
             step_in_cycle = step_in_annealing % self.cycle_length
 
-            if self.cycle_mode == 'standard':
+            if self.cycle_mode == "standard":
                 # Standard mode (up or up/down)
                 # Step within the current segment (up or down)
                 step_in_segment = step_in_cycle % self.segment_duration
@@ -277,26 +314,28 @@ class BetaAnnealer:
                     # We want the weight to go from 1.0 down to baseline.
                     # The annealer gives [baseline, 1] over 0..N-1 steps.
                     # To get [1, baseline], we map steps 0..N-1 -> N-1..0 for the annealer.
-                    annealer_step_for_segment = self.segment_duration - \
-                        1 - step_in_segment  # Maps 0..N-1 -> N-1..0
+                    annealer_step_for_segment = (
+                        self.segment_duration - 1 - step_in_segment
+                    )  # Maps 0..N-1 -> N-1..0
                 else:
                     # Up segment (always the first segment, or the only segment if not mirror)
                     # We want the weight to go from baseline to 1.0.
                     annealer_step_for_segment = step_in_segment  # Maps 0..N-1 -> 0..N-1
 
                 # Get the base weight from the internal annealer [baseline, 1.0] (since annealer.reverse is False)
-                base_weight = self.annealer.get_weight_at(
-                    annealer_step_for_segment)
+                base_weight = self.annealer.get_weight_at(annealer_step_for_segment)
 
                 # Apply BetaAnnealer's reverse_segment flag AFTER getting the base weight [baseline, 1.0] range
                 # If base_weight is 'w' in range [b, 1], its progress is (w - b) / (1 - b).
                 # The reversed value is b + (1 - b) * (1 - progress).
                 if self.reverse_segment and 1.0 - self.baseline > 1e-6:
-                    progress_in_range = (
-                        base_weight - self.baseline) / (1.0 - self.baseline)
+                    progress_in_range = (base_weight - self.baseline) / (
+                        1.0 - self.baseline
+                    )
                     reversed_progress = 1.0 - progress_in_range
-                    beta_weight = self.baseline + \
-                        (1.0 - self.baseline) * reversed_progress
+                    beta_weight = (
+                        self.baseline + (1.0 - self.baseline) * reversed_progress
+                    )
                 else:
                     # Use weight from Annealer directly [baseline, 1.0] (or [1.0, baseline] if annealer.reverse was True, but we set it False)
                     beta_weight = base_weight
@@ -304,7 +343,7 @@ class BetaAnnealer:
                 # Scale the weight [baseline, 1] or [1, baseline] by max_beta
                 beta_value = self.max_beta * beta_weight
 
-            elif self.cycle_mode == 'fu_et_al':
+            elif self.cycle_mode == "fu_et_al":
                 # Fu et al. mode (ramp-up-hold)
                 # Duration of the ramp segment (calculated in init)
                 ramp_duration = self.segment_duration
@@ -342,47 +381,49 @@ class BetaAnnealer:
     def state_dict(self):
         """Returns the state of the beta annealer as a dict."""
         return {
-            'current_step': self.current_step,
+            "current_step": self.current_step,
             # Internal annealer state is not needed as its calculation is based on current_step of BetaAnnealer
         }
 
     def load_state_dict(self, state_dict):
         """Loads the beta annealer state from a dict."""
-        self.current_step = state_dict['current_step']
+        self.current_step = state_dict["current_step"]
 
     def get_current_beta(self):
-        """ Alias for __call__ for clarity. """
+        """Alias for __call__ for clarity."""
         return self.__call__()
 
     def get_total_duration(self):
-        """ Returns the total number of steps the annealer will run through all phases. """
+        """Returns the total number of steps the annealer will run through all phases."""
         return self.total_duration_steps
 
     def get_cycle_length(self):
-        """ Returns the duration of a single annealing cycle (ramp + hold or up/down). """
+        """Returns the duration of a single annealing cycle (ramp + hold or up/down)."""
         return self.cycle_length
 
     def get_annealing_duration_per_cycle(self):
-        """ Returns the duration of the annealing part within a single cycle. """
+        """Returns the duration of the annealing part within a single cycle."""
         return self.cycle_length  # This is the definition of cycle_length now
 
     def get_ramp_duration(self):
-        """ Returns the duration of the ramp phase within a cycle. """
-        return self.segment_duration  # segment_duration is the duration of the ramp part for both modes
+        """Returns the duration of the ramp phase within a cycle."""
+        return (
+            self.segment_duration
+        )  # segment_duration is the duration of the ramp part for both modes
 
     def get_current_phase(self):
-        """ Returns the current phase name ('warmup', 'annealing', 'cooldown', 'finished'). """
+        """Returns the current phase name ('warmup', 'annealing', 'cooldown', 'finished')."""
         if self.current_step < self.warmup_end:
-            return 'warmup'
+            return "warmup"
         elif self.current_step < self.annealing_end:
-            return 'annealing'
+            return "annealing"
         elif self.current_step < self.total_duration_steps:
-            return 'cooldown'
+            return "cooldown"
         else:
-            return 'finished'  # Add a finished state after cooldown
+            return "finished"  # Add a finished state after cooldown
 
     def get_step_in_phase(self):
-        """ Returns the current step counter within the current phase. """
+        """Returns the current step counter within the current phase."""
         if self.current_step < self.warmup_end:
             return self.current_step
         elif self.current_step < self.annealing_end:
@@ -395,11 +436,10 @@ class BetaAnnealer:
 
 if __name__ == "__main__":
     import torch
-    import numpy as np
+
     # Test the Annealer class
     print("--- Testing basic Annealer (Cyclical Cosine) ---")
-    annealer = Annealer(total_steps=100, shape='cosine',
-                        baseline=0.1, cyclical=True)
+    annealer = Annealer(total_steps=100, shape="cosine", baseline=0.1, cyclical=True)
     weights = [annealer.get_weight() for _ in range(150)]
     print(weights[:110])  # Print first cycle and a bit of the second
     for i in range(150):
@@ -407,16 +447,19 @@ if __name__ == "__main__":
 
     # Test the __call__ method
     print("\n--- Testing Annealer __call__ ---")
-    annealer = Annealer(total_steps=10, shape='linear')
+    annealer = Annealer(total_steps=10, shape="linear")
     kld_value = torch.tensor([5.0])
     for i in range(12):
-        print(f"Step {i}: KLD before: {kld_value.item():.4f}, Annealed KLD: {annealer(kld_value).item():.4f}, Weight: {annealer.get_weight():.4f}")
+        print(
+            f"Step {i}: KLD before: {kld_value.item():.4f}, Annealed KLD: {annealer(kld_value).item():.4f}, Weight: {annealer.get_weight():.4f}"
+        )
         annealer.step()
 
     # Test the BetaAnnealer class with reverse=True (segment goes down)
     print("\n--- Testing BetaAnnealer (Reverse Segment, No Mirror/Warmup/Cooldown) ---")
     beta_annealer = BetaAnnealer(
-        total_steps=10, max_beta=4.0, shape='linear', baseline=0.0, reverse=True)
+        total_steps=10, max_beta=4.0, shape="linear", baseline=0.0, reverse=True
+    )
     betas = [beta_annealer() for _ in range(12)]
     print(betas)
     for i in range(12):
@@ -425,7 +468,8 @@ if __name__ == "__main__":
     # Test the BetaAnnealer class with reverse=False (segment goes up)
     print("\n--- Testing BetaAnnealer (Up Segment, No Mirror/Warmup/Cooldown) ---")
     beta_annealer = BetaAnnealer(
-        total_steps=10, max_beta=4.0, shape='linear', baseline=0.0, reverse=False)
+        total_steps=10, max_beta=4.0, shape="linear", baseline=0.0, reverse=False
+    )
     betas = [beta_annealer() for _ in range(12)]
     print(betas)
     for i in range(12):
@@ -433,13 +477,18 @@ if __name__ == "__main__":
 
     # Test BetaAnnealer with Warmup and Cooldown
     print("\n--- Testing BetaAnnealer (Warmup + Up + Cooldown) ---")
-    beta_annealer = BetaAnnealer(total_steps=10, max_beta=5.0, shape='linear',
-                                 warmup_steps=5, warmup_value=0.1,
-                                 cooldown_steps=5, cooldown_value=0.5,
-                                 baseline=0.0)  # Baseline doesn't affect beta if max_beta is used directly?
+    beta_annealer = BetaAnnealer(
+        total_steps=10,
+        max_beta=5.0,
+        shape="linear",
+        warmup_steps=5,
+        warmup_value=0.1,
+        cooldown_steps=5,
+        cooldown_value=0.5,
+        baseline=0.0,
+    )  # Baseline doesn't affect beta if max_beta is used directly?
     # Correction: Baseline affects the *shape* weight [baseline, 1]
-    betas = [beta_annealer()
-             for _ in range(beta_annealer.get_total_duration() + 2)]
+    betas = [beta_annealer() for _ in range(beta_annealer.get_total_duration() + 2)]
     print(f"Total Duration: {beta_annealer.get_total_duration()}")
     print(betas)
     for i in range(beta_annealer.get_total_duration() + 2):
@@ -447,10 +496,18 @@ if __name__ == "__main__":
 
     # Test BetaAnnealer with mirror and multiple cycles
     print("\n--- Testing BetaAnnealer (Warmup + Mirror Cycles + Cooldown) ---")
-    beta_annealer = BetaAnnealer(total_steps=10, max_beta=4.0, shape='cosine', baseline=0.1,
-                                 warmup_steps=5, warmup_value=0.05,
-                                 mirror=True, num_cycles=3,
-                                 cooldown_steps=5, cooldown_value=0.2)
+    beta_annealer = BetaAnnealer(
+        total_steps=10,
+        max_beta=4.0,
+        shape="cosine",
+        baseline=0.1,
+        warmup_steps=5,
+        warmup_value=0.05,
+        mirror=True,
+        num_cycles=3,
+        cooldown_steps=5,
+        cooldown_value=0.2,
+    )
 
     duration = beta_annealer.get_total_duration()
     print(f"Total Duration: {duration}")
@@ -461,17 +518,29 @@ if __name__ == "__main__":
 
     # Test state_dict
     print("\n--- Testing State Dict ---")
-    beta_annealer = BetaAnnealer(total_steps=10, max_beta=4.0, shape='linear',
-                                 warmup_steps=5, warmup_value=0.1,
-                                 cooldown_steps=5, cooldown_value=0.5)
+    beta_annealer = BetaAnnealer(
+        total_steps=10,
+        max_beta=4.0,
+        shape="linear",
+        warmup_steps=5,
+        warmup_value=0.1,
+        cooldown_steps=5,
+        cooldown_value=0.5,
+    )
     for _ in range(10):
         beta_annealer.step()
     state = beta_annealer.state_dict()
     print(f"State after 10 steps: {state}")
 
-    new_beta_annealer = BetaAnnealer(total_steps=10, max_beta=4.0, shape='linear',
-                                     warmup_steps=5, warmup_value=0.1,
-                                     cooldown_steps=5, cooldown_value=0.5)
+    new_beta_annealer = BetaAnnealer(
+        total_steps=10,
+        max_beta=4.0,
+        shape="linear",
+        warmup_steps=5,
+        warmup_value=0.1,
+        cooldown_steps=5,
+        cooldown_value=0.5,
+    )
     new_beta_annealer.load_state_dict(state)
 
     print(f"Value after loading state: {new_beta_annealer()}")

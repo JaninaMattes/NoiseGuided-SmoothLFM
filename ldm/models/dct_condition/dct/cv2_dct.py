@@ -1,10 +1,10 @@
 # Code adpated from:
 # - https://github.com/forever208/DCTdiff/blob/DCTdiff/datasets.py#L392
 import numpy as np
-import torchvision.transforms.functional as F
 import cv2
 
 """ Discrete Cosine Transform, Type II (a.k.a. the DCT) """
+
 
 def dct_transform(blocks):
     dct_blocks = []

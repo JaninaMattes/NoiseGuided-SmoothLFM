@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from typing import Optional
 
@@ -8,26 +7,25 @@ from diffusers.utils import BaseOutput
 
 @dataclass
 class EncoderOutput(BaseOutput):
-    f"""
+    """
     Output of AutoencoderKL encoding method.
 
     Args:
         latent_dist (`DiagonalGaussianDistribution`):
             Encoded outputs of `Encoder` represented as the mean and logvar of `DiagonalGaussianDistribution`.
             `DiagonalGaussianDistribution` allows for sampling latents from the distribution.
-    
+
     taken from: https://github.com/huggingface/diffusers/blob/main/src/diffusers/models/modeling_outputs.py#L7
     """
 
     latent_dist: "DiagonalGaussianDistribution"  # noqa: F821
-    
-    
-    
+
+
 @dataclass
 class DecoderOutput(BaseOutput):
-    f"""
+    """
     Output of the decoding method.
-    
+
     Args:
         recon_x (`torch.Tensor`): Reconstructed image of shape (B, NC, H, W).
     """
@@ -35,10 +33,9 @@ class DecoderOutput(BaseOutput):
     logvar_dec: torch.Tensor
 
 
-
 @dataclass
 class BetaVAEModelOutput(BaseOutput):
-    f"""
+    """
     The output of [`BetaVAEModel`].
 
     Args:
@@ -57,10 +54,9 @@ class BetaVAEModelOutput(BaseOutput):
     logvar_z: torch.Tensor
 
 
-
 @dataclass
 class AEModelOutput(BaseOutput):
-    f"""
+    """
     The output of [`BetaVAEModel`].
 
     Args:
@@ -75,26 +71,24 @@ class AEModelOutput(BaseOutput):
     sample: torch.Tensor
 
 
-        
 @dataclass
 class AEEncoderOutput(BaseOutput):
-    f"""
+    """
     The output of [`AEEncoder`].
     """
     z_enc: torch.Tensor
-    skips: Optional[list[torch.Tensor]] = None      # skip connections
-    
-    
+    skips: Optional[list[torch.Tensor]] = None  # skip connections
+
 
 @dataclass
 class AEDecoderOutput(BaseOutput):
-    f"""
+    """
     The output of [`AEDecoder`].
     """
     z_dec: torch.Tensor
-    noise: Optional[torch.Tensor] = None    # noise added to the latent space
-    
-    
+    noise: Optional[torch.Tensor] = None  # noise added to the latent space
+
+
 @dataclass
 class Transformer2DModelOutput(BaseOutput):
     """
@@ -107,4 +101,3 @@ class Transformer2DModelOutput(BaseOutput):
     """
 
     sample: "torch.Tensor"  # noqa: F821
-    

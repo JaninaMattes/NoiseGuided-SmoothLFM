@@ -1,5 +1,3 @@
-import os
-import sys
 
 import torch
 from torch import Tensor
@@ -11,6 +9,7 @@ from abc import abstractmethod
 
 class BaseAE(nn.Module):
     """This is a base class for Autoencoder neural networks."""
+
     def __init__(self) -> None:
         super(BaseAE, self).__init__()
 
@@ -27,10 +26,11 @@ class BaseAE(nn.Module):
     @abstractmethod
     def loss_function(self, *inputs: Any, **kwargs) -> Tensor:
         pass
-    
-    
+
+
 class BaseVAE(nn.Module):
     """This is a base class for VAE neural networks."""
+
     def __init__(self) -> None:
         super(BaseVAE, self).__init__()
 
@@ -40,7 +40,7 @@ class BaseVAE(nn.Module):
     def decode(self, input: Tensor) -> Any:
         raise NotImplementedError
 
-    def sample_prior(self, batch_size:int, current_device: int, **kwargs) -> Tensor:
+    def sample_prior(self, batch_size: int, current_device: int, **kwargs) -> Tensor:
         raise NotImplementedError
 
     def sample_posterior(self, x: Tensor, **kwargs) -> Tensor:
@@ -53,7 +53,7 @@ class BaseVAE(nn.Module):
     @abstractmethod
     def loss_function(self, *inputs: Any, **kwargs) -> Tensor:
         pass
-    
+
 
 class BaseEncoder(nn.Module):
     """This is a base class for Encoders neural networks."""

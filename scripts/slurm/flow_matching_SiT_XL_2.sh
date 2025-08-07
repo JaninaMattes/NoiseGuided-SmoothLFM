@@ -23,7 +23,7 @@ conda activate ldm-env-v2
 
 # ---------------------- NCCL / CUDA settings
 export NCCL_IB_TIMEOUT=50
-export UCX_RC_TIMEOUT=4s 
+export UCX_RC_TIMEOUT=4s
 export NCCL_IB_RETRY_CNT=10
 export NCCL_ASYNC_ERROR_HANDLING=1
 export PYTHONFAULTHANDLER=1

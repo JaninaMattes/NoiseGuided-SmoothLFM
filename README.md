@@ -117,4 +117,3 @@ python train.py --config configs/your_config.yaml
 [5] Lipman et al. (2023), "Flow Matching for Generative Modeling."
 
 [7] Albergo et al. (2023), "Stochastic Interpolants: A Unifying Framework for Flows and Diffusions."
-

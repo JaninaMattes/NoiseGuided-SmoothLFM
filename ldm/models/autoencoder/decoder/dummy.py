@@ -13,14 +13,14 @@ class DummyDecoder(nn.Module):
     def forward(self, z):
         x = self.decoder(z)
         return x
-    
+
     def initialize_weights(self):
         def _basic_init(module):
             if isinstance(module, nn.Linear):
                 torch.nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
-        
+
         self.apply(_basic_init)
 
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     Test dummy decoder
     decoder = DummyDecoder(in_channels=in_channels, latent_dim=latent_dim).to(device)
     out = decoder(z)
-    
+
     print(f"Decoder: {decoder}")
     print(f"Decoder Params: {count_trainable_parameters(decoder):,}")
     print(F"Decoder output shape: {out.shape}")

@@ -27,7 +27,7 @@ class RegisterDiT(DiT):
         self.n_registers = n_registers
         if n_registers > 0:
             self.registers = nn.Parameter(torch.randn(1, n_registers, hidden_size))
-        
+
         # manually load checkpoint after registers have been added
         if load_from_ckpt is not None:
             dev = next(self.parameters()).device
@@ -42,14 +42,14 @@ class RegisterDiT(DiT):
         y: (N,) tensor of class labels
         """
         x = self.x_embedder(x) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
-        
+
         # add register tokens
         if self.n_registers > 0:
             registers = self.registers.repeat(x.shape[0], 1, 1)
             x = torch.cat([registers, x], dim=1)
 
         t = self.t_embedder(t)                   # (N, D)
-        
+
         if self.y_embedder is not None:
             # Add a null class label for unconditional generation
             if y is None:
@@ -59,7 +59,7 @@ class RegisterDiT(DiT):
             if y.ndim > 1:
                 y = y.squeeze(1)
 
-            y = self.y_embedder(y, self.training)                   # (N, D)            
+            y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
         else:
             c = t
@@ -71,7 +71,7 @@ class RegisterDiT(DiT):
             c = t + y                                               # (N, D)
         else:
             c = t
-            
+
         for block in self.blocks:
             if self.use_checkpointing:
                 x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, c)
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     ipt = torch.randn(2, 4, 32, 32)
     t = torch.randint(0, 100, (2,))
     y = torch.randint(0, 1000, (2,))
-    
+
     """ Conditional """
     net = DiT_models['DiT-B/8'](n_registers=2)
     out = net(ipt, t, y)
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     print(f"{'Params':<10}: {sum([p.numel() for p in net.parameters() if p.requires_grad]):,}")
     print(f"{'Input':<10}: {ipt.shape}")
     print(f"{'Output':<10}: {out.shape}")
-    
+
     """ Unconditional """
     net = DiT_models['DiT-B/8'](n_registers=2, num_classes=-1)
     out = net(ipt, t)

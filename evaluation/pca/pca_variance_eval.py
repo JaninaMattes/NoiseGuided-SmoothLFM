@@ -39,7 +39,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 from sklearn.manifold import TSNE
-from scipy.stats import gaussian_kde  
+from scipy.stats import gaussian_kde
 
 import json
 import random
@@ -105,7 +105,7 @@ def find_pca_directions(module, dataloader, source_timestep=0.5, num_components=
 
     combined_latents = np.vstack(all_latents)
     print(f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}.")
-    
+
     # Sorted by vairance (highest --> lowest)
     pca = PCA(n_components=num_components)
     pca.fit(combined_latents)
@@ -198,25 +198,25 @@ class PCADataset(Dataset):
         return item
 
 
-    
+
 def create_pca_dataloader(pca_latents, labels=None, batch_size=32, shuffle=True, num_workers=4):
     """
     Create a DataLoader for PCA latents.
-    
+
     Args:
         pca_latents (np.ndarray): PCA latent vectors.
         labels (np.ndarray, optional): Corresponding labels for the latents.
         batch_size (int): Batch size for the DataLoader.
         shuffle (bool): Whether to shuffle the dataset.
         num_workers (int): Number of workers for data loading.
-        
+
     Returns:
         DataLoader: A DataLoader instance for the PCA dataset.
     """
     pca_dataset = PCADataset(pca_latents, labels)
     return DataLoader(pca_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-    
-    
+
+
 
 ############################################################################
 #                   Linear Probe for Classifier Accuracy                    #
@@ -230,7 +230,7 @@ class LinearProbe(nn.Module):
 
     def forward(self, x):
         return self.linear(x)
-    
+
     def get_output_dim(self):
         return self.output_dim
 
@@ -301,7 +301,7 @@ def train_linear_probe(
             # Extra safeguard to ensure 1D shape
             if labels.ndim > 1:
                 labels = labels.squeeze()
-                             
+
             logits = linear_probe(pca_vectors)
             loss = criterion(logits, labels)
 
@@ -335,7 +335,7 @@ def train_linear_probe(
                 # Extra safeguard to ensure 1D shape
                 if labels.ndim > 1:
                     labels = labels.squeeze()
-                
+
                 logits = linear_probe(pca_vectors)
                 loss = criterion(logits, labels)
 
@@ -361,8 +361,8 @@ def train_linear_probe(
             'Precision': precision,
             'Recall': recall,
             'Beta'
-            
-            
+
+
             : beta_value,
             'Model': model_name,
             'Source_Timestep': source_timestep,
@@ -505,9 +505,9 @@ def plot_combined_validation_curve(df_combined, save_path, source_timestep, targ
     plt.show()
     plt.close()
 
-    
-    
-    
+
+
+
 ############################################################################
 #                       Plot UMAP 2D Cluster Plot                          #
 ############################################################################
@@ -520,7 +520,7 @@ def plot_umap_pca(
     max_data_samples=100000,
     save_to_path=None,
     title="UMAP projection of PCA latents",
-    figsize=(10, 8),    
+    figsize=(10, 8),
     random_state=42 # state of life s
 ):
     """
@@ -538,7 +538,7 @@ def plot_umap_pca(
         figsize (tuple): Figure size
     """
     set_plot_style()
-    
+
     if pca_latents.shape[0] > max_data_samples:
         pca_latents = pca_latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
@@ -576,9 +576,9 @@ def plot_umap_pca(
 def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None, title="2D PCA Projection", figsize=(10, 8)):
     """ Plot a 2D PCA projection of latents, optionally colored by labels.
     """
-    
+
     set_plot_style()
-    
+
     if latents.shape[0] > max_data_samples:
         latents = latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
@@ -602,16 +602,16 @@ def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None
         print(f"[INFO] PCA plot saved to: {save_to_path}")
     plt.show()
     plt.close()
-    
-    
-    
+
+
+
 def plot_tsne_2d(latents, labels=None, max_data_samples=10000, perplexity=30, save_to_path=None, title="t-SNE Projection", figsize=(10, 8)):
     """ Plot a 2D t-SNE projection of latents, optionally colored by labels.
     """
-    
+
     set_plot_style()
-    
-    
+
+
     if latents.shape[0] > max_data_samples:
         latents = latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
@@ -642,7 +642,7 @@ def plot_tsne_2d(latents, labels=None, max_data_samples=10000, perplexity=30, sa
 def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=100000, figsize_per_plot=(5, 5), save_to_path=None):
     """
     Plot k-Means clustering results over PCA-reduced latents (assumed to be already PCA'd).
-    
+
     Args:
         pca_latents: Already PCA-reduced latents (e.g., shape [N, D])
         k_values: List of k values to try for k-means
@@ -651,7 +651,7 @@ def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=10000
         save_to_path: If provided, saves the resulting figure
     """
     set_plot_style()
-    
+
     if pca_latents.shape[0] > max_data_samples:
         pca_latents = pca_latents[:max_data_samples]
 
@@ -688,8 +688,8 @@ def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=10000
     plt.show()
     plt.close()
 
-    
-    
+
+
 
 def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_components=2, save_path=None, max_data_samples=50000, random_state=None):
     """
@@ -702,7 +702,7 @@ def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_co
         max_data_samples (int): Maximum samples to plot per model.
     """
     set_plot_style()
-    
+
     num_models = len(model_results)
     n_cols = 3  # You can adjust
     n_rows = int(np.ceil(num_models / n_cols))
@@ -941,7 +941,7 @@ def plot_pca_kmeans_scatter_grid(df, project_path="test_outputs"):
     plt.show()
     plt.close()
 
-        
+
 
 
 
@@ -1056,9 +1056,9 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
     plt.show()
     plt.close()
 
-    
-    
-    
+
+
+
 
 def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
     import json
@@ -1343,7 +1343,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     pca_order = sorted(df["PCA"].unique())
 
     set_plot_style()
-    
+
     # Calculate y-axis limits per ProbeType
     y_limits = {
         probe: (
@@ -1440,7 +1440,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
 
 def plot_accuracy_grid_from_json(json_path, probe_filter="Linear"):
     """
-    Loads structured PCA evaluation results, flattens them, and plots 
+    Loads structured PCA evaluation results, flattens them, and plots
     validation accuracy over epochs as a grid (Faceted by PCA x Beta).
     """
     # ---------------------------
@@ -1561,7 +1561,7 @@ def collect_latents_from_dataloader(
         for batch in tqdm(dataloader, desc="Collecting latents"):
             if curr_samples >= max_samples:
                 break
-            
+
             source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
             encoded = beta_vae_module.model.encode(source_latents)
             latents = encoded['latent_dist'].mode()
@@ -1575,7 +1575,7 @@ def collect_latents_from_dataloader(
     all_labels = np.concatenate(all_labels, axis=0) if all_labels else None
     print(f"[INFO] Collected latents shape: {all_latents.shape}")
     print(f"[INFO] Collected labels shape: {all_labels.shape if all_labels is not None else 'N/A'}")
-    
+
     return all_latents, all_labels
 
 
@@ -1594,24 +1594,24 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 
 def run_pca_over_beta(
-    source_timestep=0.20, 
-    target_timestep=1.00, 
-    beta=1.0, 
-    dataset_name='imagenet256-dataset', 
-    group="validation", 
-    checkpoint=None, 
+    source_timestep=0.20,
+    target_timestep=1.00,
+    beta=1.0,
+    dataset_name='imagenet256-dataset',
+    group="validation",
+    checkpoint=None,
     data_path=None,           # Should be Path or str
     project_path=None,        # Should be Path object!
-    model_name=None, 
-    num_components=20, 
-    max_data_samples=50000, 
+    model_name=None,
+    num_components=20,
+    max_data_samples=50000,
     max_umap_samples=20000,
     pca_latent_numbers=[2, 3, 5, 7, 10, 20],
-    batch_size=32, 
-    epochs=500, 
-    patience=10, 
+    batch_size=32,
+    epochs=500,
+    patience=10,
     lr=1e-4,
-    device=None, 
+    device=None,
     results_root=None         # Not used for saving in this function
 ):
     # Ensure correct path types up front
@@ -1825,9 +1825,9 @@ def run_pca_for_kmeans_and_plot_scatter_grid(
     # After collecting data for scatter
     df_scatter = pd.DataFrame(scatter_data)
     plot_pca_kmeans_scatter_grid(df_scatter, project_path=project_path or "test_outputs")
-    
-    
-    
+
+
+
 
 
 if __name__ == "__main__":
@@ -1839,7 +1839,7 @@ if __name__ == "__main__":
     num_components      = 5 #50
     max_data_samples    = 50 # 100000
     batch_size          = 64
-    data_path           = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5'    
+    data_path           = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5'
     results_path        = './results/PCA_BetaVAE_Eval'
 
 
@@ -1850,7 +1850,7 @@ if __name__ == "__main__":
     epochs              = 500
     patience            = 10
     lr                  = 1e-4
-    
+
     pca_latent_numbers  = [4] # [2, 5, 9, 15, 20, 30, 50]
     k_means_n_values    = [4] #[2, 5, 9, 15, 20, 30, 50]
 
@@ -1860,8 +1860,8 @@ if __name__ == "__main__":
     seed_everything(2025)
     torch.cuda.empty_cache()
     gc.collect()
-    
-    
+
+
     # --------------------------------------
     # Set base results directory with date
     # --------------------------------------
@@ -1873,7 +1873,7 @@ if __name__ == "__main__":
     # --------------------------------------
     # Model Configurations
     # --------------------------------------
-    
+
     model_configs_v0 = [
         # mixed beta = {1e-4, 0.1, 0.5, 1.0, 2.0, 3.0, 5.0}
         {"name": "Beta02x10x_1e4b", "beta": 1e-4, "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'},
@@ -1899,7 +1899,7 @@ if __name__ == "__main__":
         {"group_name": "All_BetaVAE_0.5x1.0x",
          "configs": model_configs_v1},
     ]
-    
+
     # --------------------------------------
     # Main loop over all config groups
     # --------------------------------------
@@ -1930,7 +1930,7 @@ if __name__ == "__main__":
                 beta=beta,
                 pca_latent_numbers=pca_latent_numbers,
                 dataset_name=dataset_name,
-                group=group, 
+                group=group,
                 checkpoint=checkpoint,
                 data_path=Path(data_path),
                 project_path=model_path,
@@ -1954,7 +1954,7 @@ if __name__ == "__main__":
             })
 
             model_results.append(structured_results)
-            
+
 
         # Save JSON
         group_path = experiment_root / f"{group_name}_PCA"
@@ -2022,7 +2022,7 @@ if __name__ == "__main__":
                 target_timestep=target_ts,
                 beta=beta,
                 dataset_name=dataset_name,
-                group=group, 
+                group=group,
                 checkpoint=checkpoint,
                 data_path=Path(data_path),
                 project_path=project_path,
@@ -2037,7 +2037,7 @@ if __name__ == "__main__":
 
 
 
-    # CUDA_VISIBLE_DEVICES=2 python ... 
+    # CUDA_VISIBLE_DEVICES=2 python ...
 
 
 
@@ -2046,11 +2046,11 @@ if __name__ == "__main__":
 
 
     # -------------------------------------------------------
-    # B: Reconstruction + Varying ß-Parameter 
+    # B: Reconstruction + Varying ß-Parameter
     # All models under Denoising Objective
     # -------------------------------------------------------
-    
-    
+
+
 
     # # All models under Reconstruction Objective
     # # -------------------------------------------------------
@@ -2064,8 +2064,8 @@ if __name__ == "__main__":
     #     # beta: 5.0
     #      {"name": "Beta05x05x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt' },  # Open
     # ]
-    
-    
+
+
     # # All models with b:0.1
     # model_configs_v2 = [
     #     # beta: 0.1
@@ -2084,7 +2084,7 @@ if __name__ == "__main__":
     #     {"name": "Beta05x10x_1b",   "beta": 1.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'},
     #     {"name": "Beta02x10x_1b",   "beta": 1.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt'},
     # ]
-    
+
     # # All models with b:5.0
     # model_configs_v4 = [
     #     # beta: 5.0
@@ -2092,7 +2092,7 @@ if __name__ == "__main__":
     #     {"name": "Beta05x10x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'},
     #     {"name": "Beta02x10x_5b",  "beta": 5.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'},
     # ]
-    
+
     # # All models with fixed beta:0.1
     # model_configs_v5 = [
     #     # Self-reconstruction tasks
@@ -2100,11 +2100,11 @@ if __name__ == "__main__":
     #     {"name": "Beta02x02x_01b",  "beta": 0.1,  "source_ts": 0.20, "target_ts": 0.20, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt' },
     #     {"name": "Beta00x00x_01b",  "beta": 0.1,  "source_ts": 0.00, "target_ts": 0.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt' },
     # ]
-    
+
     # # All baseline models with different betas
     # model_configs_v6 = [
     #     # comparison of all baseline models with source: 0.5 -> target 0.5
-    #     {"name": "Beta05x05x_01b",  "beta": 0.1,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt' },  # Open (Baseline)        
+    #     {"name": "Beta05x05x_01b",  "beta": 0.1,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt' },  # Open (Baseline)
     #     {"name": "Beta05x05x_1b",   "beta": 1.0,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt'}, # Open (Baseline)
     #     {"name": "Beta05x05x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt'}, # Open (Baseline)
     # ]

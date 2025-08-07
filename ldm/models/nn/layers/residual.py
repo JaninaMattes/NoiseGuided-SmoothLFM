@@ -29,6 +29,7 @@ class ResBlock(TimestepBlock):
         convolution instead of a smaller 1x1 convolution to change the
         channels in the skip connection.
     """
+
     def __init__(
         self,
         channels,
@@ -62,9 +63,7 @@ class ResBlock(TimestepBlock):
             nn.GroupNorm(32, self.out_channels),
             nn.SiLU(),
             nn.Dropout(p=dropout),
-            zero_module(
-                nn.Conv2d(self.out_channels, self.out_channels, 3, padding=1)
-            ),
+            zero_module(nn.Conv2d(self.out_channels, self.out_channels, 3, padding=1)),
         )
 
         if self.out_channels == channels:
@@ -103,7 +102,7 @@ if __name__ == "__main__":
     model = ResBlock(
         channels=32,
         emb_channels=32,
-        dropout=0.,
+        dropout=0.0,
         out_channels=None,
         use_conv=False,
         use_scale_shift_norm=False,

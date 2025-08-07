@@ -1,4 +1,3 @@
-
 # Code adapted from:
 # - https://github.com/SHI-Labs/Smooth-Diffusion
 # - https://github.com/NVlabs/stylegan/blob/master/metrics/perceptual_path_length.py
@@ -6,37 +5,26 @@
 # - https://github.com/NVlabs/stylegan2-ada-pytorch/tree/main/metrics
 # - https://github.com/clovaai/generative-evaluation-prdc/blob/master/README.md
 
-import os, sys
-import gc
+import os
+import sys
 
-from tqdm import tqdm
-
-import torch
-import torch.nn as nn
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 from lightning import seed_everything
-import torchvision
 import torchvision.transforms.functional as TF
 import torchvision.transforms as transforms
 from torchvision.utils import make_grid
 
-from datetime import datetime
-from pathlib import Path
-from collections import defaultdict
-from typing import List, Tuple
 
 import numpy as np
 
 
-from scipy import linalg
 from matplotlib import pyplot as plt
-from matplotlib import rcParams
 
-# helper 
+# helper
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
@@ -45,31 +33,24 @@ from pytorch_fid.inception import InceptionV3
 
 
 from prdc import compute_prdc
-from pytorch_fid.inception import InceptionV3
 
 
-# Jutils 
-from jutils import denorm
-from jutils import ims_to_grid
-from jutils.vision import tensor2im
-from jutils import exists, freeze, default
-from jutils import tensor2im, ims_to_grid
-
+# Jutils
 
 
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../")
+)
 sys.path.append(project_root)
 
-from ldm.trainer_rf_vae import TrainerModuleLatentFlow
-from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
-
+from data_processing.tools.norm import (
+    denorm_metrics_tensor,
+)  # denorm tensor -- just for plotting
 
 
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
 
 
 ############################################
@@ -79,7 +60,9 @@ class PrecisionRecallFID(nn.Module):
     def __init__(self, k=3, device=None):
         super().__init__()
         self.k = k
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[2048]
         self.inception = InceptionV3([block_idx]).to(self.device).eval()
         self.real_feats = []
@@ -128,16 +111,14 @@ class PrecisionRecallFID(nn.Module):
         fake_feats = torch.cat(self.fake_feats, dim=0).cpu().numpy()
 
         metrics = compute_prdc(
-            real_features=real_feats,
-            fake_features=fake_feats,
-            nearest_k=self.k
+            real_features=real_feats, fake_features=fake_feats, nearest_k=self.k
         )
 
         return metrics
 
     def _pairwise(self, x, y):
-        x_norm = (x ** 2).sum(dim=1).unsqueeze(1)
-        y_norm = (y ** 2).sum(dim=1).unsqueeze(0)
+        x_norm = (x**2).sum(dim=1).unsqueeze(1)
+        y_norm = (y**2).sum(dim=1).unsqueeze(0)
         dist = x_norm + y_norm - 2.0 * x @ y.t()
         return dist.clamp(min=0).sqrt()
 
@@ -167,9 +148,6 @@ class PrecisionRecallFID(nn.Module):
         return cov
 
 
-
-
-
 ############################################
 # Precision & Recall class using InceptionV3
 ############################################
@@ -179,14 +157,17 @@ class PrecisionRecall(nn.Module):
         + Computes k-nearest neighbor distances.
         + Estimates precision (fraction of fake images inside real manifold).
         + Estimates recall (fraction of real images inside fake manifold).
-    
+
         https://arxiv.org/abs/1904.06991
         https://github.com/NVlabs/stylegan2-ada-pytorch/tree/main/metrics
     """
+
     def __init__(self, k=3, device=None):
         super().__init__()
         self.k = k
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.real_feats = []
         self.fake_feats = []
 
@@ -224,7 +205,15 @@ class PrecisionRecall(nn.Module):
         recall_mask = (dists_cross.t() <= radii_fake.unsqueeze(0)).any(dim=1)
         recall = recall_mask.float().mean().item()
 
-        del real_feats, fake_feats, dists_real, dists_fake, dists_cross, radii_real, radii_fake
+        del (
+            real_feats,
+            fake_feats,
+            dists_real,
+            dists_fake,
+            dists_cross,
+            radii_real,
+            radii_fake,
+        )
         torch.cuda.empty_cache()
 
         return precision, recall
@@ -237,27 +226,28 @@ class PrecisionRecall(nn.Module):
         return dist.clamp(min=0).sqrt()
 
 
-    
-    
-    
 ############################################
 # Image metrics tracker with pFID / rFID
 ############################################
 class FIDMetricsTracker(nn.Module):
     def __init__(self, num_crops=4, crop_size=128, k=3, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.k = k
 
         self.global_fid = FrechetInceptionDistance(
             feature=2048,
             reset_real_features=True,
             normalize=False,
-            sync_on_compute=True
+            sync_on_compute=True,
         ).to(self.device)
 
         self.prec_recall = PrecisionRecall(k=k, device=self.device).to(self.device)
-        self.prec_recall_fid = PrecisionRecallFID(k=k, device=self.device).to(self.device)
+        self.prec_recall_fid = PrecisionRecallFID(k=k, device=self.device).to(
+            self.device
+        )
 
         self.patch_fid = num_crops > 0
         if self.patch_fid:
@@ -266,7 +256,7 @@ class FIDMetricsTracker(nn.Module):
                 feature=2048,
                 reset_real_features=True,
                 normalize=False,
-                sync_on_compute=True
+                sync_on_compute=True,
             ).to(self.device)
 
         self.num_crops = num_crops
@@ -281,19 +271,26 @@ class FIDMetricsTracker(nn.Module):
         self.prec_recall_fid.fake_feats = []
         if self.patch_fid:
             self.local_fid.reset()
-            
+
     @torch.no_grad()
     def update(self, target, pred):
-
         # Convert to [0, 255] uint8 for FID and PR metrics
-        real_ims = denorm_metrics_tensor(target, target_range=(0, 255), dtype='int').to(self.device)
-        fake_ims = denorm_metrics_tensor(pred, target_range=(0, 255), dtype='int').to(self.device)
+        real_ims = denorm_metrics_tensor(target, target_range=(0, 255), dtype="int").to(
+            self.device
+        )
+        fake_ims = denorm_metrics_tensor(pred, target_range=(0, 255), dtype="int").to(
+            self.device
+        )
 
         # Patch-wise FID
         if self.patch_fid:
             cropped_real, cropped_fake, anchors = [], [], []
             for i in range(real_ims.shape[0] * self.num_crops):
-                anchors.append(transforms.RandomCrop.get_params(real_ims[0], output_size=(self.crop_size, self.crop_size)))
+                anchors.append(
+                    transforms.RandomCrop.get_params(
+                        real_ims[0], output_size=(self.crop_size, self.crop_size)
+                    )
+                )
             for idx, (img_real, img_fake) in enumerate(zip(real_ims, fake_ims)):
                 for i in range(self.num_crops):
                     anchor = anchors[idx * self.num_crops + i]
@@ -334,12 +331,11 @@ class FIDMetricsTracker(nn.Module):
             recall=max(recall_val, 0.0),
             pFID=max(pFID_val, 0.0),
             rFID=max(rFID_val, 0.0),
-            prdc_precision=prdc['precision'],
-            prdc_recall=prdc['recall'],
-            prdc_density=prdc['density'],
-            prdc_coverage=prdc['coverage'],
+            prdc_precision=prdc["precision"],
+            prdc_recall=prdc["recall"],
+            prdc_density=prdc["density"],
+            prdc_coverage=prdc["coverage"],
         )
-
 
 
 ############################################
@@ -348,13 +344,15 @@ class FIDMetricsTracker(nn.Module):
 class ImageMetricsTracker(nn.Module):
     def __init__(self, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         self.ssim = SSIM(data_range=1.0).to(self.device)
         self.psnr = PSNR(data_range=1.0).to(self.device)
         self.mse = nn.MSELoss()
 
-        self.lpips = LPIPS(net_type='vgg').to(self.device)
+        self.lpips = LPIPS(net_type="vgg").to(self.device)
         self.lpips.eval()
 
         self.reset()
@@ -368,24 +366,35 @@ class ImageMetricsTracker(nn.Module):
 
     @torch.no_grad()
     def update(self, target, pred):
-        assert pred.shape == target.shape, f"Shape mismatch: {pred.shape} vs {target.shape}"
+        assert pred.shape == target.shape, (
+            f"Shape mismatch: {pred.shape} vs {target.shape}"
+        )
 
         # Normalize pred and target for pixel metrics [0, 1]
-        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype='float').to(self.device)
-        target_norm = denorm_metrics_tensor(target, target_range=(0, 1), dtype='float').to(self.device)
+        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype="float").to(
+            self.device
+        )
+        target_norm = denorm_metrics_tensor(
+            target, target_range=(0, 1), dtype="float"
+        ).to(self.device)
 
         self.ssims.append(self.ssim(pred_norm, target_norm).detach().cpu())
         self.psnrs.append(self.psnr(pred_norm, target_norm).detach().cpu())
-        self.mses.append(torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]).detach().cpu())
-        self.maes.append(torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]).detach().cpu())
-        self.lpips_scores.append(self.lpips(pred_norm * 2 - 1, target_norm * 2 - 1).detach().cpu()) # Expect input in [-1, 1] for LPIPS
-        
+        self.mses.append(
+            torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]).detach().cpu()
+        )
+        self.maes.append(
+            torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]).detach().cpu()
+        )
+        self.lpips_scores.append(
+            self.lpips(pred_norm * 2 - 1, target_norm * 2 - 1).detach().cpu()
+        )  # Expect input in [-1, 1] for LPIPS
+
         # Clean up memory
         del pred_norm, target_norm
         torch.cuda.empty_cache()
 
     def aggregate(self):
-        
         return dict(
             ssim=torch.stack(self.ssims).mean().item(),
             psnr=torch.stack(self.psnrs).mean().item(),
@@ -395,11 +404,12 @@ class ImageMetricsTracker(nn.Module):
         )
 
 
-
 class CombinedMetricsTracker(nn.Module):
     def __init__(self, device=None, **fid_kwargs):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.fid_tracker = FIDMetricsTracker(device=self.device, **fid_kwargs)
         self.image_tracker = ImageMetricsTracker(device=self.device)
 
@@ -419,8 +429,6 @@ class CombinedMetricsTracker(nn.Module):
         return {**metrics_fid, **metrics_img}
 
 
-
-
 ############################################
 # Test functions
 ############################################
@@ -431,16 +439,17 @@ def show_images(tensor_batch, title=""):
     plt.title(title)
     plt.axis("off")
     plt.show()
-    
-    
+
+
 def plot_dist_hist(dist, title="Cross distances"):
     dists_flat = dist.cpu().flatten().numpy()
-    plt.hist(dists_flat, bins=50, color='skyblue', alpha=0.7)
+    plt.hist(dists_flat, bins=50, color="skyblue", alpha=0.7)
     plt.title(title)
     plt.xlabel("L2 distance")
     plt.ylabel("Frequency")
     plt.grid(True)
     plt.show()
+
 
 ############################################
 # Standalone PRDC Test (with NumPy)
@@ -448,19 +457,20 @@ def plot_dist_hist(dist, title="Cross distances"):
 def test_prdc_standalone():
     print("\n[Standalone PRDC NumPy Test]")
     from prdc import compute_prdc
-    import numpy as np
 
     num_real_samples = num_fake_samples = 10000
     feature_dim = 1000
     nearest_k = 5
 
-    real_features = np.random.normal(loc=0.0, scale=1.0, size=(num_real_samples, feature_dim))
-    fake_features = np.random.normal(loc=0.0, scale=1.0, size=(num_fake_samples, feature_dim))
+    real_features = np.random.normal(
+        loc=0.0, scale=1.0, size=(num_real_samples, feature_dim)
+    )
+    fake_features = np.random.normal(
+        loc=0.0, scale=1.0, size=(num_fake_samples, feature_dim)
+    )
 
     prdc_metrics = compute_prdc(
-        real_features=real_features,
-        fake_features=fake_features,
-        nearest_k=nearest_k
+        real_features=real_features, fake_features=fake_features, nearest_k=nearest_k
     )
 
     for key, val in prdc_metrics.items():
@@ -473,7 +483,7 @@ def test_prdc_standalone():
 ############################################
 def test_fid_metrics_tracker():
     print("Running ImageMetricsTracker Test Suite...")
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tracker = FIDMetricsTracker(num_crops=2, crop_size=64, device=device)
     tracker.reset()
@@ -489,11 +499,21 @@ def test_fid_metrics_tracker():
         for k, v in results.items():
             print(f"{k:>18}: {v:.4f}")
         if expect_low:
-            assert results["pFID"] < 1.0 and results["rFID"] < 1.0, "Expected low pFID/rFID"
-        assert all(k in results for k in [
-            "gfid", "pFID", "rFID",
-            "prdc_precision", "prdc_recall", "prdc_density", "prdc_coverage",
-        ]), "Missing keys in metrics output"
+            assert results["pFID"] < 1.0 and results["rFID"] < 1.0, (
+                "Expected low pFID/rFID"
+            )
+        assert all(
+            k in results
+            for k in [
+                "gfid",
+                "pFID",
+                "rFID",
+                "prdc_precision",
+                "prdc_recall",
+                "prdc_density",
+                "prdc_coverage",
+            ]
+        ), "Missing keys in metrics output"
 
     # Identical images
     run_case("Identical", imgs_clean, imgs_clean.clone(), expect_low=True)
@@ -507,7 +527,9 @@ def test_fid_metrics_tracker():
     run_case("Random", imgs_clean, imgs_random)
 
     # Shifted
-    imgs_shifted = TF.affine(imgs_clean, angle=0, translate=[10, 10], scale=1.0, shear=[0, 0])
+    imgs_shifted = TF.affine(
+        imgs_clean, angle=0, translate=[10, 10], scale=1.0, shear=[0, 0]
+    )
     run_case("Shifted", imgs_clean, imgs_shifted)
 
     # Jittered
@@ -541,7 +563,9 @@ def test_image_metrics_tracker():
         assert all(k in results for k in required_keys), "Missing metrics!"
 
         if expect_low_lpips:
-            assert results["lpips"] < 0.1, f"Expected low LPIPS but got {results['lpips']:.4f}"
+            assert results["lpips"] < 0.1, (
+                f"Expected low LPIPS but got {results['lpips']:.4f}"
+            )
 
     # 1. Identical images (perfect metrics)
     run_case("Identical", imgs_clean, imgs_clean.clone(), expect_low_lpips=True)
@@ -555,7 +579,9 @@ def test_image_metrics_tracker():
     run_case("Random", imgs_clean, imgs_random)
 
     # 4. Shifted images
-    imgs_shifted = TF.affine(imgs_clean, angle=0, translate=[15, 15], scale=1.0, shear=[0, 0])
+    imgs_shifted = TF.affine(
+        imgs_clean, angle=0, translate=[15, 15], scale=1.0, shear=[0, 0]
+    )
     run_case("Shifted", imgs_clean, imgs_shifted)
 
     # 5. Color jittered images
@@ -565,8 +591,7 @@ def test_image_metrics_tracker():
 
     print("\nAll ImageMetricsTracker tests passed successfully.")
 
-    
-    
+
 ############################################
 # Main Execution
 ############################################

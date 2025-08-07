@@ -7,20 +7,22 @@ import cv2
 #            DCT-extraction          #
 ######################################
 
+
 # Code taken from Torch-DCT Repo
 # https://github.com/zh217/torch-dct/blob/master/torch_dct/_dct.py#L12
-# 
-# 
+#
+#
 def dct_fft_impl(v):
     return torch.view_as_real(torch.fft.fft(v, dim=1))
+
 
 def idct_irfft_impl(V):
     return torch.fft.irfft(torch.view_as_complex(V), n=V.shape[1], dim=1)
 
 
 """ Discrete Cosine Transform, Type II (a.k.a. the DCT) """
-    
-    
+
+
 def idct(X, norm=None):
     """
     The inverse to DCT-II, which is a scaled Discrete Cosine Transform, Type III
@@ -40,11 +42,15 @@ def idct(X, norm=None):
 
     X_v = X.contiguous().view(-1, x_shape[-1]) / 2
 
-    if norm == 'ortho':
+    if norm == "ortho":
         X_v[:, 0] *= np.sqrt(N) * 2
         X_v[:, 1:] *= np.sqrt(N / 2) * 2
 
-    k = torch.arange(x_shape[-1], dtype=X.dtype, device=X.device)[None, :] * np.pi / (2 * N)
+    k = (
+        torch.arange(x_shape[-1], dtype=X.dtype, device=X.device)[None, :]
+        * np.pi
+        / (2 * N)
+    )
     W_r = torch.cos(k)
     W_i = torch.sin(k)
 
@@ -58,8 +64,8 @@ def idct(X, norm=None):
 
     v = idct_irfft_impl(V)
     x = v.new_zeros(v.shape)
-    x[:, ::2] += v[:, :N - (N // 2)]
-    x[:, 1::2] += v.flip([1])[:, :N // 2]
+    x[:, ::2] += v[:, : N - (N // 2)]
+    x[:, 1::2] += v.flip([1])[:, : N // 2]
 
     return x.view(*x_shape)
 
@@ -83,13 +89,13 @@ def dct(x, norm=None):
 
     Vc = dct_fft_impl(v)
 
-    k = - torch.arange(N, dtype=x.dtype, device=x.device)[None, :] * np.pi / (2 * N)
+    k = -torch.arange(N, dtype=x.dtype, device=x.device)[None, :] * np.pi / (2 * N)
     W_r = torch.cos(k)
     W_i = torch.sin(k)
 
     V = Vc[:, :, 0] * W_r - Vc[:, :, 1] * W_i
 
-    if norm == 'ortho':
+    if norm == "ortho":
         V[:, 0] /= np.sqrt(N) * 2
         V[:, 1:] /= np.sqrt(N / 2) * 2
 
@@ -110,7 +116,7 @@ def dct_2d(x, norm=None):
     :return: the DCT-II of the signal over the last 2 dimensions
     """
     X1 = dct(x, norm=norm)
-    X2 = dct(X1.transpose(-1, -2), norm=norm)    
+    X2 = dct(X1.transpose(-1, -2), norm=norm)
     return X2.transpose(-1, -2)
 
 
@@ -130,7 +136,6 @@ def idct_2d(X, norm=None):
     x1 = idct(X, norm=norm)
     x2 = idct(x1.transpose(-1, -2), norm=norm)
     return x2.transpose(-1, -2)
-
 
 
 def split_low_high_dct(x, low_ratio=0.25, norm=None):
@@ -169,16 +174,16 @@ def split_low_high_dct(x, low_ratio=0.25, norm=None):
 
     elif len(x.shape) == 2:  # When the input is a 1D vector (B, 1024)
         B, D = x.shape
-        side_len = int(D ** 0.5)
+        side_len = int(D**0.5)
         if side_len * side_len != D:
             raise ValueError(f"Vector length {D} cannot be reshaped into a square.")
-        
-        x_reshaped = x.view(B, 1, side_len, side_len) 
-        
-        # Apply the 2D DCT as before
-        low_freq, high_freq = split_low_high_dct(x_reshaped, low_ratio, norm) 
 
-        # Flatten the result back to a 1D vector 
+        x_reshaped = x.view(B, 1, side_len, side_len)
+
+        # Apply the 2D DCT as before
+        low_freq, high_freq = split_low_high_dct(x_reshaped, low_ratio, norm)
+
+        # Flatten the result back to a 1D vector
         low_freq = low_freq.reshape(B, -1)  # Flatten to (B, 1024)
         high_freq = high_freq.reshape(B, -1)  # Flatten to (B, 1024)
 
@@ -188,12 +193,10 @@ def split_low_high_dct(x, low_ratio=0.25, norm=None):
     return low_freq, high_freq
 
 
-
-
-
 ######################################
 #            DCT-extraction          #
 ######################################
+
 
 def dct_transform(blocks):
     dct_blocks = []
@@ -202,6 +205,7 @@ def dct_transform(blocks):
         dct_block = cv2.dct(block)
         dct_blocks.append(dct_block)
     return np.array(dct_blocks)
+
 
 def idct_transform(blocks):
     idct_blocks = []
@@ -212,66 +216,79 @@ def idct_transform(blocks):
     return np.array(idct_blocks)
 
 
-
-
 ######################################
 #            DCT-extraction          #
 ######################################
 
 """ High-frequency extraction using DCT """
+
+
 def extract_high_frequencies_cv2(x, block_size=8, high_freqs=8):
     B, C, H, W = x.shape
     high_freqs_output = torch.zeros_like(x)
-    
+
     for b in range(B):
         for c in range(C):
             img = x[b, c].cpu().numpy()
-            blocks = [img[i:i+block_size, j:j+block_size] for i in range(0, H, block_size) for j in range(0, W, block_size)]
+            blocks = [
+                img[i : i + block_size, j : j + block_size]
+                for i in range(0, H, block_size)
+                for j in range(0, W, block_size)
+            ]
             dct_blocks = dct_transform(blocks)
-            
+
             for i in range(len(dct_blocks)):
                 block = dct_blocks[i]
                 block[0:high_freqs, 0:high_freqs] = 0
                 dct_blocks[i] = block
-            
+
             idct_blocks = idct_transform(dct_blocks)
             reconstructed_img = np.zeros_like(img)
             idx = 0
             for i in range(0, H, block_size):
                 for j in range(0, W, block_size):
-                    reconstructed_img[i:i+block_size, j:j+block_size] = idct_blocks[idx]
+                    reconstructed_img[i : i + block_size, j : j + block_size] = (
+                        idct_blocks[idx]
+                    )
                     idx += 1
-            
+
             high_freqs_output[b, c] = torch.tensor(reconstructed_img).float()
-    
+
     return high_freqs_output
 
 
-
 """ Low-frequency extraction using DCT """
+
+
 def extract_low_frequencies_cv2(x, block_size=8, low_freqs=8):
     B, C, H, W = x.shape
     low_freqs_output = torch.zeros_like(x)
-    
+
     for b in range(B):
         for c in range(C):
             img = x[b, c].cpu().numpy()
-            blocks = [img[i:i+block_size, j:j+block_size] for i in range(0, H, block_size) for j in range(0, W, block_size)]
+            blocks = [
+                img[i : i + block_size, j : j + block_size]
+                for i in range(0, H, block_size)
+                for j in range(0, W, block_size)
+            ]
             dct_blocks = dct_transform(blocks)
-            
+
             for i in range(len(dct_blocks)):
                 block = dct_blocks[i]
                 block[low_freqs:, low_freqs:] = 0
                 dct_blocks[i] = block
-            
+
             idct_blocks = idct_transform(dct_blocks)
             reconstructed_img = np.zeros_like(img)
             idx = 0
             for i in range(0, H, block_size):
                 for j in range(0, W, block_size):
-                    reconstructed_img[i:i+block_size, j:j+block_size] = idct_blocks[idx]
+                    reconstructed_img[i : i + block_size, j : j + block_size] = (
+                        idct_blocks[idx]
+                    )
                     idx += 1
-            
+
             low_freqs_output[b, c] = torch.tensor(reconstructed_img).float()
-    
+
     return low_freqs_output

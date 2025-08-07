@@ -1,10 +1,11 @@
 # Code adapted from:
 # - https://github.com/huggingface/pytorch-image-models/blob/main/timm/layers/mlp.py
 #
-""" MLP module w/ dropout and configurable activation layer
+"""MLP module w/ dropout and configurable activation layer
 
 Hacked together by / Copyright 2020 Ross Wightman
 """
+
 from functools import partial
 
 from torch import nn as nn
@@ -14,20 +15,21 @@ from .helpers import to_2tuple
 
 
 class Mlp(nn.Module):
-    """ MLP as used in Vision Transformer, MLP-Mixer and related networks
+    """MLP as used in Vision Transformer, MLP-Mixer and related networks
 
     NOTE: When use_conv=True, expects 2D NCHW tensors, otherwise N*C expected.
     """
+
     def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.GELU,
-            norm_layer=None,
-            bias=True,
-            drop=0.,
-            use_conv=False,
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        norm_layer=None,
+        bias=True,
+        drop=0.0,
+        use_conv=False,
     ):
         super().__init__()
         out_features = out_features or in_features
@@ -39,7 +41,9 @@ class Mlp(nn.Module):
         self.fc1 = linear_layer(in_features, hidden_features, bias=bias[0])
         self.act = act_layer()
         self.drop1 = nn.Dropout(drop_probs[0])
-        self.norm = norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        self.norm = (
+            norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        )
         self.fc2 = linear_layer(hidden_features, out_features, bias=bias[1])
         self.drop2 = nn.Dropout(drop_probs[1])
 
@@ -54,22 +58,23 @@ class Mlp(nn.Module):
 
 
 class GluMlp(nn.Module):
-    """ MLP w/ GLU style gating
+    """MLP w/ GLU style gating
     See: https://arxiv.org/abs/1612.08083, https://arxiv.org/abs/2002.05202
 
     NOTE: When use_conv=True, expects 2D NCHW tensors, otherwise N*C expected.
     """
+
     def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.Sigmoid,
-            norm_layer=None,
-            bias=True,
-            drop=0.,
-            use_conv=False,
-            gate_last=True,
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.Sigmoid,
+        norm_layer=None,
+        bias=True,
+        drop=0.0,
+        use_conv=False,
+        gate_last=True,
     ):
         super().__init__()
         out_features = out_features or in_features
@@ -84,15 +89,19 @@ class GluMlp(nn.Module):
         self.fc1 = linear_layer(in_features, hidden_features, bias=bias[0])
         self.act = act_layer()
         self.drop1 = nn.Dropout(drop_probs[0])
-        self.norm = norm_layer(hidden_features // 2) if norm_layer is not None else nn.Identity()
+        self.norm = (
+            norm_layer(hidden_features // 2)
+            if norm_layer is not None
+            else nn.Identity()
+        )
         self.fc2 = linear_layer(hidden_features // 2, out_features, bias=bias[1])
         self.drop2 = nn.Dropout(drop_probs[1])
 
     def init_weights(self):
         # override init of fc1 w/ gate portion set to weight near zero, bias=1
         if self.fc1.bias is not None:
-            nn.init.ones_(self.fc1.bias[self.fc1.bias.shape[0] // 2:])
-        nn.init.normal_(self.fc1.weight[self.fc1.weight.shape[0] // 2:], std=1e-6)
+            nn.init.ones_(self.fc1.bias[self.fc1.bias.shape[0] // 2 :])
+        nn.init.normal_(self.fc1.weight[self.fc1.weight.shape[0] // 2 :], std=1e-6)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -109,19 +118,20 @@ SwiGLUPacked = partial(GluMlp, act_layer=nn.SiLU, gate_last=False)
 
 
 class SwiGLU(nn.Module):
-    """ SwiGLU
+    """SwiGLU
     NOTE: GluMLP above can implement SwiGLU, but this impl has split fc1 and
     better matches some other common impl which makes mapping checkpoints simpler.
     """
+
     def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.SiLU,
-            norm_layer=None,
-            bias=True,
-            drop=0.,
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.SiLU,
+        norm_layer=None,
+        bias=True,
+        drop=0.0,
     ):
         super().__init__()
         out_features = out_features or in_features
@@ -133,7 +143,9 @@ class SwiGLU(nn.Module):
         self.fc1_x = nn.Linear(in_features, hidden_features, bias=bias[0])
         self.act = act_layer()
         self.drop1 = nn.Dropout(drop_probs[0])
-        self.norm = norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        self.norm = (
+            norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        )
         self.fc2 = nn.Linear(hidden_features, out_features, bias=bias[1])
         self.drop2 = nn.Dropout(drop_probs[1])
 
@@ -155,18 +167,18 @@ class SwiGLU(nn.Module):
 
 
 class GatedMlp(nn.Module):
-    """ MLP as used in gMLP
-    """
+    """MLP as used in gMLP"""
+
     def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.GELU,
-            norm_layer=None,
-            gate_layer=None,
-            bias=True,
-            drop=0.,
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        norm_layer=None,
+        gate_layer=None,
+        bias=True,
+        drop=0.0,
     ):
         super().__init__()
         out_features = out_features or in_features
@@ -180,10 +192,14 @@ class GatedMlp(nn.Module):
         if gate_layer is not None:
             assert hidden_features % 2 == 0
             self.gate = gate_layer(hidden_features)
-            hidden_features = hidden_features // 2  # FIXME base reduction on gate property?
+            hidden_features = (
+                hidden_features // 2
+            )  # FIXME base reduction on gate property?
         else:
             self.gate = nn.Identity()
-        self.norm = norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        self.norm = (
+            norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        )
         self.fc2 = nn.Linear(hidden_features, out_features, bias=bias[1])
         self.drop2 = nn.Dropout(drop_probs[1])
 
@@ -199,17 +215,17 @@ class GatedMlp(nn.Module):
 
 
 class ConvMlp(nn.Module):
-    """ MLP using 1x1 convs that keeps spatial dims (for 2D NCHW tensors)
-    """
+    """MLP using 1x1 convs that keeps spatial dims (for 2D NCHW tensors)"""
+
     def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.ReLU,
-            norm_layer=None,
-            bias=True,
-            drop=0.,
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.ReLU,
+        norm_layer=None,
+        bias=True,
+        drop=0.0,
     ):
         super().__init__()
         out_features = out_features or in_features
@@ -232,19 +248,20 @@ class ConvMlp(nn.Module):
 
 
 class GlobalResponseNormMlp(nn.Module):
-    """ MLP w/ Global Response Norm (see grn.py), nn.Linear or 1x1 Conv2d
+    """MLP w/ Global Response Norm (see grn.py), nn.Linear or 1x1 Conv2d
 
     NOTE: Intended for '2D' NCHW (use_conv=True) or NHWC (use_conv=False, channels-last) tensor layouts
     """
+
     def __init__(
-            self,
-            in_features,
-            hidden_features=None,
-            out_features=None,
-            act_layer=nn.GELU,
-            bias=True,
-            drop=0.,
-            use_conv=False,
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        bias=True,
+        drop=0.0,
+        use_conv=False,
     ):
         super().__init__()
         out_features = out_features or in_features

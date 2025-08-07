@@ -6,12 +6,13 @@
 # Code adapted from:
 # - https://github.com/joh-schb/image-ldm/blob/main/ldm/flow.py
 # - https://github.com/CompVis/fm-boosting/blob/main/fmboost/flow.py
-# 
-""" Adapted from
+#
+"""Adapted from
 - https://github.com/atong01/conditional-flow-matching
 - https://github.com/willisma/SiT
 Thanks for open-sourcing! :)
 """
+
 import math
 import torch
 import einops
@@ -20,8 +21,6 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch import Tensor
 from typing import Any, Dict, List, Optional, Union
-from functools import partial
-from torchdiffeq import odeint
 
 from jutils import instantiate_from_config
 
@@ -41,28 +40,39 @@ def pad_v_like_x(v_, x_):
     return v_.reshape(-1, *([1] * (x_.ndim - 1)))
 
 
-def forward_with_cfg(x, t, model, cfg_scale=1.0, uc_cond=None, cond_key="y", context_key="context", **model_kwargs):
-    """ Function to include sampling with Classifier-Free Guidance (CFG) """
-    
-    if cfg_scale == 1.0:                                # without CFG
+def forward_with_cfg(
+    x,
+    t,
+    model,
+    cfg_scale=1.0,
+    uc_cond=None,
+    cond_key="y",
+    context_key="context",
+    **model_kwargs,
+):
+    """Function to include sampling with Classifier-Free Guidance (CFG)"""
+
+    if cfg_scale == 1.0:  # without CFG
         model_output = model(x, t, **model_kwargs)
 
-    else:                                               # with CFG
-        assert cond_key in model_kwargs, f"Condition key '{cond_key}' for CFG not found in model_kwargs"
+    else:  # with CFG
+        assert cond_key in model_kwargs, (
+            f"Condition key '{cond_key}' for CFG not found in model_kwargs"
+        )
         assert uc_cond is not None, "Unconditional condition not provided for CFG"
         kwargs = model_kwargs.copy()
         c = kwargs[cond_key]
         x_in = torch.cat([x] * 2)
         t_in = torch.cat([t] * 2)
         if uc_cond.shape[0] == 1:
-            uc_cond = einops.repeat(uc_cond, '1 ... -> bs ...', bs=x.shape[0])
-        
+            uc_cond = einops.repeat(uc_cond, "1 ... -> bs ...", bs=x.shape[0])
+
         c_in = torch.cat([uc_cond, c])
         kwargs[cond_key] = c_in
         if context_key in kwargs and kwargs[context_key] is not None:
             context = kwargs[context_key]
             kwargs[context_key] = torch.cat([context] * 2, dim=0)
-        
+
         model_uc, model_c = model(x_in, t_in, **kwargs).chunk(2)
         model_output = model_uc + cfg_scale * (model_c - model_uc)
 
@@ -75,13 +85,13 @@ def forward_with_cfg(x, t, model, cfg_scale=1.0, uc_cond=None, cond_key="y", con
 class LinearSchedule:
     def alpha_t(self, t):
         return t
-    
+
     def alpha_dt_t(self, t):
         return 1
-    
+
     def sigma_t(self, t):
         return 1 - t
-    
+
     def sigma_dt_t(self, t):
         return -1
 
@@ -89,25 +99,25 @@ class LinearSchedule:
 
     def compute_alpha_t(self, t):
         return self.alpha_t(t), self.alpha_dt_t(t)
-    
+
     def compute_sigma_t(self, t):
         """Compute the noise coefficient along the path"""
         return self.sigma_t(t), self.sigma_dt_t(t)
-    
+
     def compute_d_alpha_alpha_ratio_t(self, t):
         """Compute the ratio between d_alpha and alpha"""
         return 1 / t
-    
+
     def compute_drift(self, x, t):
-        """We always output sde according to score parametrization; """
+        """We always output sde according to score parametrization;"""
         t = pad_v_like_x(t, x)
         alpha_ratio = self.compute_d_alpha_alpha_ratio_t(t)
         sigma_t, d_sigma_t = self.compute_sigma_t(t)
         drift = alpha_ratio * x
-        diffusion = alpha_ratio * (sigma_t ** 2) - sigma_t * d_sigma_t
+        diffusion = alpha_ratio * (sigma_t**2) - sigma_t * d_sigma_t
 
         return -drift, diffusion
-    
+
     def compute_diffusion(self, x, t, form="constant", norm=1.0):
         """Compute the diffusion term of the SDE
         Args:
@@ -126,11 +136,13 @@ class LinearSchedule:
             "increasing-decreasing": norm * torch.sin(np.pi * t) ** 2,
         }
 
-        try: diffusion = choices[form]
-        except KeyError: raise NotImplementedError(f"Diffusion form {form} not implemented")
-        
+        try:
+            diffusion = choices[form]
+        except KeyError:
+            raise NotImplementedError(f"Diffusion form {form} not implemented")
+
         return diffusion
-    
+
     def get_score_from_velocity(self, velocity, x, t):
         """Wrapper function: transfrom velocity prediction model to score
         Args:
@@ -146,7 +158,7 @@ class LinearSchedule:
         var = sigma_t**2 - reverse_alpha_ratio * d_sigma_t * sigma_t
         score = (reverse_alpha_ratio * velocity - mean) / var
         return score
-    
+
     def get_noise_from_velocity(self, velocity, x, t):
         """Wrapper function: transfrom velocity prediction model to denoiser
         Args:
@@ -174,25 +186,25 @@ class LinearSchedule:
         drift, var = self.compute_drift(x, t)
         velocity = var * score - drift
         return velocity
-    
+
 
 class GVPSchedule(LinearSchedule):
     def alpha_t(self, t):
         return torch.sin(t * math.pi / 2)
-    
+
     def alpha_dt_t(self, t):
         return 0.5 * math.pi * torch.cos(t * math.pi / 2)
-    
+
     def sigma_t(self, t):
         return torch.cos(t * math.pi / 2)
-    
+
     def sigma_dt_t(self, t):
-        return - 0.5 * math.pi * torch.sin(t * math.pi / 2)
-    
+        return -0.5 * math.pi * torch.sin(t * math.pi / 2)
+
     def compute_d_alpha_alpha_ratio_t(self, t):
         """Special purposed function for computing numerical stabled d_alpha_t / alpha_t"""
         return np.pi / (2 * torch.tan(t * np.pi / 2))
-    
+
 
 """ Timestep Sampler """
 
@@ -207,8 +219,10 @@ class LogitNormalSampler:
         self.loc = loc
         self.scale = scale
 
-    def __call__(self, n, device='cpu', dtype=torch.float32):
-        return torch.sigmoid(self.loc + self.scale * torch.randn(n)).to(device).to(dtype)
+    def __call__(self, n, device="cpu", dtype=torch.float32):
+        return (
+            torch.sigmoid(self.loc + self.scale * torch.randn(n)).to(device).to(dtype)
+        )
 
 
 """ Flow Model """
@@ -216,15 +230,15 @@ class LogitNormalSampler:
 
 class FlowModel(nn.Module):
     def __init__(
-            self,
-            net_cfg: Union[dict, nn.Module],
-            schedule: str = "linear",
-            sigma_min: float = 0.0,
-            timestep_sampler: dict = None,
-        ):
+        self,
+        net_cfg: Union[dict, nn.Module],
+        schedule: str = "linear",
+        sigma_min: float = 0.0,
+        timestep_sampler: dict = None,
+    ):
         """
         Flow Matching, Stochastic Interpolants, or Rectified Flow model. :)
-        
+
         Args:
             net: Neural network that takes in x and t and outputs the vector
                 field at that point in time and space with the same shape as x.
@@ -234,7 +248,7 @@ class FlowModel(nn.Module):
                 Gaussian distribution around the mean of the probability
                 path N(t * x1 + (1 - t) * x0, sigma), as used in [1].
             timestep_sampler: dict, configuration for the training timestep sampler.
-        
+
         References:
             [1] Lipman et al. (2023). Flow Matching for Generative Modeling.
             [2] Tong et al. (2023). Improving and generalizing flow-based
@@ -256,31 +270,40 @@ class FlowModel(nn.Module):
             self.schedule = GVPSchedule()
         else:
             raise NotImplementedError(f"Schedule {schedule} not implemented.")
-        
+
         if timestep_sampler is not None:
             self.t_sampler = instantiate_from_config(timestep_sampler)
         else:
-            self.t_sampler = torch.rand             # default: uniform U(0, 1)
+            self.t_sampler = torch.rand  # default: uniform U(0, 1)
 
-    def forward(self, x: Tensor, t: Tensor, cfg_scale=1.0, uc_cond=None, cond_key="y", **kwargs):
+    def forward(
+        self, x: Tensor, t: Tensor, cfg_scale=1.0, uc_cond=None, cond_key="y", **kwargs
+    ):
         if t.numel() == 1:
             t = t.expand(x.size(0))
         # _pred = self.net(x=x, t=t, **kwargs)
-        _pred = forward_with_cfg(x, t, self.net, cfg_scale=cfg_scale, uc_cond=uc_cond, cond_key=cond_key, **kwargs)
+        _pred = forward_with_cfg(
+            x,
+            t,
+            self.net,
+            cfg_scale=cfg_scale,
+            uc_cond=uc_cond,
+            cond_key=cond_key,
+            **kwargs,
+        )
         return _pred
-    
-    
+
     def get_indices(self, t: List[float], t_delta: float) -> List[int]:
-        """ Get specific indices based on t_delta for evenly spaced t."""
+        """Get specific indices based on t_delta for evenly spaced t."""
         num_steps = len(t)
-        step_size = int(num_steps * t_delta) 
+        step_size = int(num_steps * t_delta)
 
         selected_indices = [i for i in range(-1, num_steps - 1, step_size)]
         selected_indices = sorted(set(selected_indices))
         return selected_indices
-    
-    
-    def get_schedule(self,
+
+    def get_schedule(
+        self,
         x: Tensor,
         num_steps: int,
         image_seq_len: int,
@@ -289,9 +312,8 @@ class FlowModel(nn.Module):
         base_shift: float = 0.5,
         max_shift: float = 1.15,
         shift: bool = False,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> List[float]:
-
         t = torch.linspace(t_start, t_end, num_steps, dtype=x.dtype).to(x.device)
         t = 1 - t if reverse else t
 
@@ -300,16 +322,15 @@ class FlowModel(nn.Module):
             # estimate mu based on linear estimation between two points
             mu = self.get_lin_function(y1=base_shift, y2=max_shift)(image_seq_len)
             t = self.time_shift(mu, 1.0, t)
-        
+
         return t
-    
 
     def encode_legacy(
         self,
         xt: Tensor,
         t_start: float = 0,
-        t_end: float=1,
-        t_delta: float = 1.,
+        t_end: float = 1,
+        t_delta: float = 1.0,
         ddim_steps: int = 100,
         n_intermediates: int = 0,
         image_seq_len: int = 64,
@@ -317,11 +338,11 @@ class FlowModel(nn.Module):
         shift: bool = False,
         single_step: bool = False,
         sample_kwargs: Optional[Dict[str, Any]] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Encode with classifier-free guidance support and flexible configuration.
-    
+
         Args:
             x: Input tensor to encode
             sample_kwargs: Dictionary containing sampling parameters including:
@@ -341,7 +362,15 @@ class FlowModel(nn.Module):
         cfg_scale = sample_kwargs.get("cfg_scale", 4.0)
 
         # Define schedule
-        t = self.get_schedule(xt, ddim_steps, image_seq_len, t_start=t_start, t_end=t_end, shift=shift, reverse=reverse)
+        t = self.get_schedule(
+            xt,
+            ddim_steps,
+            image_seq_len,
+            t_start=t_start,
+            t_end=t_end,
+            shift=shift,
+            reverse=reverse,
+        )
         if return_intermediates:
             save_indices = self.get_indices(t, t_delta=t_delta)
         else:
@@ -354,21 +383,29 @@ class FlowModel(nn.Module):
                 y = torch.full((xt.shape[0],), y, dtype=torch.long, device=xt.device)
             elif isinstance(y, Tensor) and y.dim() == 0:
                 y = y.expand(xt.shape[0])
-            
+
             # Null labels for unconditional conditioning
             y_null = sample_kwargs.get("uc_cond", torch.full_like(y, 1000))
-        
+
         last_timestep = None
-        for i, (t_curr, t_prev) in enumerate(tqdm(zip(t[:-1], t[1:]), total=ddim_steps)):
+        for i, (t_curr, t_prev) in enumerate(
+            tqdm(zip(t[:-1], t[1:]), total=ddim_steps)
+        ):
             t_vec = torch.full((xt.shape[0],), t_curr, dtype=xt.dtype, device=xt.device)
 
             if y is not None:
-                cond_pred = self.net(x=xt, t=t_vec, **{**kwargs, sample_kwargs.get("cond_key", "y"): y})
-                uncond_pred = self.net(x=xt, t=t_vec, **{**kwargs, sample_kwargs.get("cond_key", "y"): y_null})
+                cond_pred = self.net(
+                    x=xt, t=t_vec, **{**kwargs, sample_kwargs.get("cond_key", "y"): y}
+                )
+                uncond_pred = self.net(
+                    x=xt,
+                    t=t_vec,
+                    **{**kwargs, sample_kwargs.get("cond_key", "y"): y_null},
+                )
                 pred = uncond_pred + cfg_scale * (cond_pred - uncond_pred)
             else:
                 pred = self.net(x=xt, t=t_vec, **kwargs)
-            
+
             dt = t_prev - t_curr
             xt = xt + dt * pred
 
@@ -377,21 +414,34 @@ class FlowModel(nn.Module):
                 inter_steps.append(t_curr)
 
             last_timestep = t_curr
-            
+
             if single_step:
                 break
-        
-        out = {'x_encoded': xt.cpu(), 'intermediate_steps': inter_steps, 'last_timestep': last_timestep}
+
+        out = {
+            "x_encoded": xt.cpu(),
+            "intermediate_steps": inter_steps,
+            "last_timestep": last_timestep,
+        }
         if return_intermediates:
-            out.update({'intermediates': intermediates})
+            out.update({"intermediates": intermediates})
 
         return out
-    
-    
-    
-    def encode(self, x: Tensor, search_key: float, t_start: float = 0, t_end: float = 1, num_steps: int = 50, reverse=True, return_intermediates=False, progress=True, **kwargs):
-        """ Encoding process. With Euler sampling from x1 to x0 in num_steps.
-        
+
+    def encode(
+        self,
+        x: Tensor,
+        search_key: float,
+        t_start: float = 0,
+        t_end: float = 1,
+        num_steps: int = 50,
+        reverse=True,
+        return_intermediates=False,
+        progress=True,
+        **kwargs,
+    ):
+        """Encoding process. With Euler sampling from x1 to x0 in num_steps.
+
         Args:
             x: source minibatch (bs, *dim)
             num_steps: int, number of steps to take
@@ -405,29 +455,42 @@ class FlowModel(nn.Module):
         timesteps = torch.linspace(t_start, t_end, num_steps + 1)
         if reverse:
             timesteps = 1 - timesteps
-        
+
         xt = x
         intermediates = dict()
-        for t_curr, t_next in tqdm(zip(timesteps[:-1], timesteps[1:]), disable=not progress, total=len(timesteps)-1):
+        for t_curr, t_next in tqdm(
+            zip(timesteps[:-1], timesteps[1:]),
+            disable=not progress,
+            total=len(timesteps) - 1,
+        ):
             t = torch.ones((bs,), dtype=x.dtype, device=dev) * t_curr
             pred = self.forward(xt, t, **kwargs)
 
             dt = t_next - t_curr
             xt = xt + dt * pred
 
-            if return_intermediates: 
+            if return_intermediates:
                 key = f"{t_curr.item():.4}"
                 intermediates[key] = xt
                 if f"{search_key:.4}" == key:
                     break
-            
+
         return xt, intermediates
-        
-        
-        
-    def decode(self, x: Tensor, search_key: float = 1.0, t_start: float = 0, t_end: float = 1, num_steps: int = 50, reverse=False, return_intermediates=False, progress=True, **kwargs):
+
+    def decode(
+        self,
+        x: Tensor,
+        search_key: float = 1.0,
+        t_start: float = 0,
+        t_end: float = 1,
+        num_steps: int = 50,
+        reverse=False,
+        return_intermediates=False,
+        progress=True,
+        **kwargs,
+    ):
         """Decoding process. With Euler sampling from x0 to x1 in num_steps.
-        
+
         Args:
             x: source minibatch (bs, *dim)
             num_steps: int, number of steps to take
@@ -441,26 +504,37 @@ class FlowModel(nn.Module):
         timesteps = torch.linspace(t_start, t_end, num_steps + 1)
         if reverse:
             timesteps = 1 - timesteps
-        
+
         xt = x
         intermediates = dict()
-        for t_curr, t_next in tqdm(zip(timesteps[:-1], timesteps[1:]), disable=not progress, total=len(timesteps)-1):
+        for t_curr, t_next in tqdm(
+            zip(timesteps[:-1], timesteps[1:]),
+            disable=not progress,
+            total=len(timesteps) - 1,
+        ):
             t = torch.ones((bs,), dtype=x.dtype, device=dev) * t_curr
             pred = self.forward(xt, t, **kwargs)
 
             dt = t_next - t_curr
             xt = xt + dt * pred
 
-            if return_intermediates: 
+            if return_intermediates:
                 key = f"{t_curr.item():.4}"
                 intermediates[key] = xt
                 if f"{search_key:.4}" == key:
                     break
 
         return xt, intermediates
-        
 
-    def generate(self, x: Tensor, num_steps: int = 50, reverse=False, return_intermediates=False, progress=True, **kwargs):
+    def generate(
+        self,
+        x: Tensor,
+        num_steps: int = 50,
+        reverse=False,
+        return_intermediates=False,
+        progress=True,
+        **kwargs,
+    ):
         """
         Classic Euler sampling from x0 to x1 in num_steps.
 
@@ -481,26 +555,30 @@ class FlowModel(nn.Module):
 
         xt = x
         intermediates = [xt]
-        for t_curr, t_next in tqdm(zip(timesteps[:-1], timesteps[1:]), disable=not progress, total=len(timesteps)-1):
+        for t_curr, t_next in tqdm(
+            zip(timesteps[:-1], timesteps[1:]),
+            disable=not progress,
+            total=len(timesteps) - 1,
+        ):
             t = torch.ones((bs,), dtype=x.dtype, device=dev) * t_curr
             pred = self.forward(xt, t, **kwargs)
 
             dt = t_next - t_curr
             xt = xt + dt * pred
 
-            if return_intermediates: intermediates.append(xt)
+            if return_intermediates:
+                intermediates.append(xt)
 
         if return_intermediates:
             return torch.stack(intermediates, 0)
         return xt
 
-
-
     """ Training Helpers """
+
     def sample_xt(self, x0: Tensor, x1: Tensor, t: float):
-        """ Sample from the time-dependent density p_t
-            xt ~ N(alpha_t * x1 + sigma_t * x0, sigma_min * I),
-            according to Eq. (1) in [3] and for the linear schedule Eq. (14) in [2].
+        """Sample from the time-dependent density p_t
+        xt ~ N(alpha_t * x1 + sigma_t * x0, sigma_min * I),
+        according to Eq. (1) in [3] and for the linear schedule Eq. (14) in [2].
         """
         bs, dev = x0.shape[0], x0.device
         t = torch.full((bs,), t, dtype=x0.dtype, device=dev)
@@ -511,9 +589,7 @@ class FlowModel(nn.Module):
         if self.sigma_min > 0:
             xt += self.sigma_min * torch.randn_like(xt)
         return xt
-    
-    
-    
+
     """ Training """
 
     def compute_xt(self, x0: Tensor, x1: Tensor, t: Tensor):
@@ -555,7 +631,6 @@ class FlowModel(nn.Module):
         sigma_dt_t = self.schedule.sigma_dt_t(t)
         return alpha_dt_t * x1 + sigma_dt_t * x0
 
-
     def training_losses(self, x1: Tensor, x0: Tensor = None, **cond_kwargs):
         """
         Args:
@@ -569,7 +644,8 @@ class FlowModel(nn.Module):
         Returns:
             loss: scalar, the training loss for the flow model
         """
-        if x0 is None: x0 = torch.randn_like(x1)
+        if x0 is None:
+            x0 = torch.randn_like(x1)
         t = self.t_sampler(x1.shape[0], device=x1.device, dtype=x1.dtype)
 
         xt = self.compute_xt(x0=x0, x1=x1, t=t)
@@ -578,18 +654,19 @@ class FlowModel(nn.Module):
 
         return (vt - ut).square().mean()
 
-
-        
-    def validation_losses(self, x1: Tensor, x0: Tensor = None, num_segments: int = 8, **cond_kwargs):
+    def validation_losses(
+        self, x1: Tensor, x0: Tensor = None, num_segments: int = 8, **cond_kwargs
+    ):
         """
         SD3 & Meta Movie Gen show that val loss correlates well with human quality. They
         compute the loss in equidistant segments in (0, 1) to reduce variance and average
         them afterwards. Default number of segments: 8 (Esser et al., page 21, ICML 2024).
         """
-        if x0 is None: x0 = torch.randn_like(x1)
+        if x0 is None:
+            x0 = torch.randn_like(x1)
 
         assert num_segments > 0, "Number of segments must be greater than 0"
-        ts = torch.linspace(0, 1, num_segments+1)[:-1] + 1/(2*num_segments)
+        ts = torch.linspace(0, 1, num_segments + 1)[:-1] + 1 / (2 * num_segments)
         losses_per_segment = []
         for t in ts:
             t = torch.ones(x1.shape[0], device=x1.device) * t
@@ -597,6 +674,6 @@ class FlowModel(nn.Module):
             ut = self.compute_ut(x0=x0, x1=x1, t=t)
             vt = self.forward(x=xt, t=t, **cond_kwargs)
             losses_per_segment.append((vt - ut).square().mean())
-        
+
         losses_per_segment = torch.stack(losses_per_segment)
         return losses_per_segment.mean(), losses_per_segment

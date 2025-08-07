@@ -16,6 +16,7 @@ import torch.nn as nn
 
 """ Dropout """
 
+
 class PatchDropout(nn.Module):
     """
     https://arxiv.org/abs/2212.00794 and https://arxiv.org/pdf/2208.07220
@@ -23,37 +24,47 @@ class PatchDropout(nn.Module):
     GitHubg Hugging Face
     https://github.com/huggingface/pytorch-image-models/blob/main/timm/layers/patch_dropout.py#L7
     """
+
     return_indices: torch.jit.Final[bool]
 
     def __init__(
-            self,
-            prob: float = 0.5,
-            num_prefix_tokens: int = 1,
-            ordered: bool = False,
-            return_indices: bool = False,
+        self,
+        prob: float = 0.5,
+        num_prefix_tokens: int = 1,
+        ordered: bool = False,
+        return_indices: bool = False,
     ):
         super().__init__()
-        assert 0 <= prob < 1.
+        assert 0 <= prob < 1.0
         self.prob = prob
-        self.num_prefix_tokens = num_prefix_tokens  # exclude CLS token (or other prefix tokens)
+        self.num_prefix_tokens = (
+            num_prefix_tokens  # exclude CLS token (or other prefix tokens)
+        )
         self.ordered = ordered
         self.return_indices = return_indices
 
-    def forward(self, x) -> Union[torch.Tensor, Tuple[torch.Tensor, Optional[torch.Tensor]]]:
-        if not self.training or self.prob == 0.:
+    def forward(
+        self, x
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Optional[torch.Tensor]]]:
+        if not self.training or self.prob == 0.0:
             if self.return_indices:
                 return x, None
             return x
 
         if self.num_prefix_tokens:
-            prefix_tokens, x = x[:, :self.num_prefix_tokens], x[:, self.num_prefix_tokens:]
+            prefix_tokens, x = (
+                x[:, : self.num_prefix_tokens],
+                x[:, self.num_prefix_tokens :],
+            )
         else:
             prefix_tokens = None
 
         B = x.shape[0]
         L = x.shape[1]
-        num_keep = max(1, int(L * (1. - self.prob)))
-        keep_indices = torch.argsort(torch.randn(B, L, device=x.device), dim=-1)[:, :num_keep]
+        num_keep = max(1, int(L * (1.0 - self.prob)))
+        keep_indices = torch.argsort(torch.randn(B, L, device=x.device), dim=-1)[
+            :, :num_keep
+        ]
         if self.ordered:
             # NOTE does not need to maintain patch order in typical transformer use,
             # but possibly useful for debug / visualization
@@ -66,11 +77,11 @@ class PatchDropout(nn.Module):
         if self.return_indices:
             return x, keep_indices
         return x
-    
-
 
 
 """ Embeddings """
+
+
 # --------------------------------------------------------
 # 2D sine-cosine position embedding
 # References:
@@ -91,7 +102,9 @@ def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=
     grid = grid.reshape([2, 1, grid_size, grid_size])
     pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
     if cls_token and extra_tokens > 0:
-        pos_embed = np.concatenate([np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0)
+        pos_embed = np.concatenate(
+            [np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0
+        )
     return pos_embed
 
 
@@ -102,8 +115,9 @@ def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
     emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
     emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
 
-    emb = np.concatenate([emb_h, emb_w], axis=1) # (H*W, D)
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
     return emb
+
 
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     """
@@ -113,14 +127,14 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     """
     assert embed_dim % 2 == 0
     omega = np.arange(embed_dim // 2, dtype=np.float32)
-    omega /= embed_dim / 2.
-    omega = 1. / 10000**omega  # (D/2,)
+    omega /= embed_dim / 2.0
+    omega = 1.0 / 10000**omega  # (D/2,)
 
     pos = pos.reshape(-1)  # (M,)
-    out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
+    out = np.einsum("m,d->md", pos, omega)  # (M, D/2), outer product
 
-    emb_sin = np.sin(out) # (M, D/2)
-    emb_cos = np.cos(out) # (M, D/2)
+    emb_sin = np.sin(out)  # (M, D/2)
+    emb_cos = np.cos(out)  # (M, D/2)
 
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb

@@ -7,9 +7,9 @@ defaults:
   - experiment: null    # must be last in defaults list as it can override all others
 
   # disable hydra logging
-  - override hydra/hydra_logging: disabled  
-  - override hydra/job_logging: disabled 
-  
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
 # ----------------------------------------
 name: debug/your_exp
 
@@ -54,7 +54,7 @@ trainer_module:
     first_stage_cfg: ${oc.select:autoencoder, null}
     num_classes: ${oc.select:model.params.net_cfg.params.num_classes, -1}
     lr_scheduler_cfg: ${oc.select:lr_scheduler, null}
-  
+
 trainer_params:
   max_steps: -1
   max_epochs: -1

@@ -1,22 +1,20 @@
-
 # Code taken from Torch-DCT Repo
 # https://github.com/zh217/torch-dct/blob/master/torch_dct/_dct.py#L12
 import numpy as np
 import torch
-import torch.nn as nn
-
 
 
 def dct_fft_impl(v):
     return torch.view_as_real(torch.fft.fft(v, dim=1))
+
 
 def idct_irfft_impl(V):
     return torch.fft.irfft(torch.view_as_complex(V), n=V.shape[1], dim=1)
 
 
 """ Discrete Cosine Transform, Type II (a.k.a. the DCT) """
-    
-    
+
+
 def idct(X, norm=None):
     """
     The inverse to DCT-II, which is a scaled Discrete Cosine Transform, Type III
@@ -36,11 +34,15 @@ def idct(X, norm=None):
 
     X_v = X.contiguous().view(-1, x_shape[-1]) / 2
 
-    if norm == 'ortho':
+    if norm == "ortho":
         X_v[:, 0] *= np.sqrt(N) * 2
         X_v[:, 1:] *= np.sqrt(N / 2) * 2
 
-    k = torch.arange(x_shape[-1], dtype=X.dtype, device=X.device)[None, :] * np.pi / (2 * N)
+    k = (
+        torch.arange(x_shape[-1], dtype=X.dtype, device=X.device)[None, :]
+        * np.pi
+        / (2 * N)
+    )
     W_r = torch.cos(k)
     W_i = torch.sin(k)
 
@@ -54,8 +56,8 @@ def idct(X, norm=None):
 
     v = idct_irfft_impl(V)
     x = v.new_zeros(v.shape)
-    x[:, ::2] += v[:, :N - (N // 2)]
-    x[:, 1::2] += v.flip([1])[:, :N // 2]
+    x[:, ::2] += v[:, : N - (N // 2)]
+    x[:, 1::2] += v.flip([1])[:, : N // 2]
 
     return x.view(*x_shape)
 
@@ -79,13 +81,13 @@ def dct(x, norm=None):
 
     Vc = dct_fft_impl(v)
 
-    k = - torch.arange(N, dtype=x.dtype, device=x.device)[None, :] * np.pi / (2 * N)
+    k = -torch.arange(N, dtype=x.dtype, device=x.device)[None, :] * np.pi / (2 * N)
     W_r = torch.cos(k)
     W_i = torch.sin(k)
 
     V = Vc[:, :, 0] * W_r - Vc[:, :, 1] * W_i
 
-    if norm == 'ortho':
+    if norm == "ortho":
         V[:, 0] /= np.sqrt(N) * 2
         V[:, 1:] /= np.sqrt(N / 2) * 2
 
@@ -106,7 +108,7 @@ def dct_2d(x, norm=None):
     :return: the DCT-II of the signal over the last 2 dimensions
     """
     X1 = dct(x, norm=norm)
-    X2 = dct(X1.transpose(-1, -2), norm=norm)    
+    X2 = dct(X1.transpose(-1, -2), norm=norm)
     return X2.transpose(-1, -2)
 
 

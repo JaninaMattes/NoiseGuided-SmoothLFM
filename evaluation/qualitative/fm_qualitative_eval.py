@@ -1,5 +1,5 @@
-import os, sys
-import random
+import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from matplotlib import pyplot as plt, rcParams
@@ -7,7 +7,6 @@ from matplotlib import pyplot as plt, rcParams
 
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-
 
 
 import gc
@@ -22,25 +21,20 @@ from lightning import seed_everything
 from tqdm import tqdm
 import numpy as np
 
-from jutils import denorm
-from jutils import ims_to_grid
-from jutils.vision import tensor2im
-from jutils import exists, freeze, default
-from jutils import tensor2im, ims_to_grid
+from jutils import freeze
 
 
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
+)
 sys.path.append(project_root)
 
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
+from data_processing.tools.norm import denorm_tensor
 from ldm.trainer_rf_vae import TrainerModuleLatentFlow
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
-torch.set_float32_matmul_precision('high')
-
-
-
+torch.set_float32_matmul_precision("high")
 
 
 #########################################################
@@ -50,15 +44,18 @@ class SmoothnessMetricsTracker(nn.Module):
     """
     Calculates an adapted smoothness metrics PPL (Perceptual Path Length) and ISTD (Interpolation Smoothness STD).
     Based on StyleGAN (Karras et al.) and Smooth Diffusion.
-    
+
     Based on:
     [0] PPL: "Analyzing and Improving the Image Quality of StyleGAN" (Karras et al., 2020)
     [1] Smooth Diffusion: "Crafting Smooth Latent Spaces in Diffusion Models" (Guo et al., 2024)
     """
+
     def __init__(self, device=None, normalize_step=True):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.lpips = LPIPS(net_type='vgg').to(self.device)
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self.lpips = LPIPS(net_type="vgg").to(self.device)
         self.lpips.eval()
         self.normalize_step = normalize_step
         self.reset()
@@ -69,7 +66,9 @@ class SmoothnessMetricsTracker(nn.Module):
 
     @torch.no_grad()
     def update(self, interpolated_imgs_batch):
-        assert interpolated_imgs_batch.dim() == 5, f"Expected 5D tensor, got {interpolated_imgs_batch.dim()}D"
+        assert interpolated_imgs_batch.dim() == 5, (
+            f"Expected 5D tensor, got {interpolated_imgs_batch.dim()}D"
+        )
         B, T, C, H, W = interpolated_imgs_batch.shape
         assert T > 1, "Each sequence must contain at least 2 images."
 
@@ -79,7 +78,9 @@ class SmoothnessMetricsTracker(nn.Module):
             min_per_seq = interpolated_imgs_batch.amin(dim=(2, 3, 4), keepdim=True)
             max_per_seq = interpolated_imgs_batch.amax(dim=(2, 3, 4), keepdim=True)
             denom = (max_per_seq - min_per_seq).clamp(min=1e-5)
-            interpolated_imgs_batch = 2 * (interpolated_imgs_batch - min_per_seq) / denom - 1
+            interpolated_imgs_batch = (
+                2 * (interpolated_imgs_batch - min_per_seq) / denom - 1
+            )
 
         batch = interpolated_imgs_batch.to(self.device)
         epsilon = 1.0 / (T - 1) if self.normalize_step else 1.0
@@ -89,8 +90,10 @@ class SmoothnessMetricsTracker(nn.Module):
             dists = []
 
             for t in range(T - 1):
-                d = self.lpips(sequence[t].unsqueeze(0), sequence[t + 1].unsqueeze(0)).item()
-                dists.append((d ** 2) / (epsilon ** 2))
+                d = self.lpips(
+                    sequence[t].unsqueeze(0), sequence[t + 1].unsqueeze(0)
+                ).item()
+                dists.append((d**2) / (epsilon**2))
 
             if not dists:
                 print("[WARN] No valid LPIPS distances computed.")
@@ -105,17 +108,12 @@ class SmoothnessMetricsTracker(nn.Module):
     def aggregate(self):
         if not self.ppls:
             print("Warning: No data in tracker. Call update() before aggregate().")
-            return {'ppl': float('nan'), 'istd': float('nan')}
+            return {"ppl": float("nan"), "istd": float("nan")}
 
         mean_ppl = np.mean(self.ppls)
         mean_istd = np.mean(self.istds)
 
-        return {'ppl': mean_ppl, 'istd': mean_istd}
-
-
-
-
-
+        return {"ppl": mean_ppl, "istd": mean_istd}
 
 
 #########################################################
@@ -137,7 +135,7 @@ def generate_cfg_matrix(
     title=None,
     random_sample=False,
     gt_border=8,  # Padding on the right side of the GT image
-    upscale_to=128
+    upscale_to=128,
 ):
     device = device or fm_module.device
 
@@ -168,12 +166,14 @@ def generate_cfg_matrix(
             # denorm is okay for visualization, but not for metrics
             gt_img = denorm_tensor(images[0].unsqueeze(0))[0].detach().cpu()
             gt_img = TF.resize(gt_img, [upscale_to, upscale_to])
-            gt_img = F.pad(gt_img, pad=[0, gt_border, 0, 0], mode='constant', value=0)
+            gt_img = F.pad(gt_img, pad=[0, gt_border, 0, 0], mode="constant", value=0)
             row_imgs.append(gt_img.unsqueeze(0))  # Shape: [1, C, H, W]
 
         for cfg_scale in cfg_scales:
             z = torch.randn_like(xt_latent).to(device)
-            context_cond = context if cfg_scale > 0 else None # Context condition is None if cfg_scale is 0
+            context_cond = (
+                context if cfg_scale > 0 else None
+            )  # Context condition is None if cfg_scale is 0
 
             sample_kwargs = {
                 "num_steps": num_steps,
@@ -191,36 +191,43 @@ def generate_cfg_matrix(
                 decoded = fm_module.decode_first_stage(gen)
                 # denorm is okay for visualization, but not for metrics
                 decoded = denorm_tensor(decoded).detach().cpu()
-                decoded = torch.stack([TF.resize(im, [upscale_to, final_width]) for im in decoded])
+                decoded = torch.stack(
+                    [TF.resize(im, [upscale_to, final_width]) for im in decoded]
+                )
                 row_imgs.append(decoded[0].unsqueeze(0))  # Shape: [1, C, H, W]
-        
+
         # Stack all images in the row
         grid_rows.append(torch.cat(row_imgs, dim=0))  # [1 + len(cfg_scales), C, H, W]
 
     # Stack all rows vertically
     full_grid = torch.cat(grid_rows, dim=0)  # [rows * (1+cfg), C, H, W]
 
-
     # Create the grid image
     grid_img = make_grid(full_grid, nrow=len(cfg_scales) + 1, padding=0)
-    rcParams.update({'font.size': 14, 'font.family': 'DejaVu Sans'})
+    rcParams.update({"font.size": 14, "font.family": "DejaVu Sans"})
     fig, ax = plt.subplots(figsize=(grid_img.shape[2] / 40, grid_img.shape[1] / 40))
     ax.imshow(grid_img.permute(1, 2, 0).numpy())
-    ax.axis('off')
+    ax.axis("off")
     ax.set_title(title or "CFG (X) x CCFG (Y) Guidance Matrix", fontsize=16)
 
     # X-axis labels: one for GT + one for each CFG scale
-    ax.set_xticks([
-        i * (grid_img.shape[2] // (len(cfg_scales) + 1)) + (grid_img.shape[2] // (2 * (len(cfg_scales) + 1)))
-        for i in range(len(cfg_scales) + 1)
-    ])
+    ax.set_xticks(
+        [
+            i * (grid_img.shape[2] // (len(cfg_scales) + 1))
+            + (grid_img.shape[2] // (2 * (len(cfg_scales) + 1)))
+            for i in range(len(cfg_scales) + 1)
+        ]
+    )
     ax.set_xticklabels(["GT"] + [f"CFG: {s}" for s in cfg_scales], fontsize=12)
 
     # Y-axis labels: one for each CCFG scale
-    ax.set_yticks([
-        i * (grid_img.shape[1] // len(ccfg_scales)) + (grid_img.shape[1] // (2 * len(ccfg_scales)))
-        for i in range(len(ccfg_scales))
-    ])
+    ax.set_yticks(
+        [
+            i * (grid_img.shape[1] // len(ccfg_scales))
+            + (grid_img.shape[1] // (2 * len(ccfg_scales)))
+            for i in range(len(ccfg_scales))
+        ]
+    )
     ax.set_yticklabels([f"CCFG: {s}" for s in ccfg_scales], fontsize=12)
 
     ax.set_xlabel("Context CFG Scale", fontsize=12)
@@ -228,16 +235,14 @@ def generate_cfg_matrix(
 
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, bbox_inches='tight', dpi=500)
+        plt.savefig(save_path, bbox_inches="tight", dpi=500)
         print(f"[INFO] Saved CFG/CCFG matrix to: {save_path}")
 
     plt.show()
     plt.close(fig)
     torch.cuda.empty_cache()
     gc.collect()
-    
-    
-    
+
 
 #########################################################
 #                    Interpolation                      #
@@ -249,51 +254,51 @@ def interpolate_vectors(z1, z2, alpha_vals, mode="linear", dot_threshold=0.9995)
     Returns a tensor of shape (B, D) where B = len(alpha_vals).
     """
     if mode == "linear":
-        return torch.stack([
-            (1 - alpha) * z1 + alpha * z2 for alpha in alpha_vals
-        ])
+        return torch.stack([(1 - alpha) * z1 + alpha * z2 for alpha in alpha_vals])
     elif mode == "slerp":
         z1_norm = z1 / z1.norm()
         z2_norm = z2 / z2.norm()
         dot = torch.dot(z1_norm, z2_norm).clamp(-1.0, 1.0)
 
         if torch.abs(dot) > dot_threshold:
-            return torch.stack([
-                torch.lerp(z1, z2, alpha) for alpha in alpha_vals
-            ])
+            return torch.stack([torch.lerp(z1, z2, alpha) for alpha in alpha_vals])
         else:
             omega = torch.acos(dot)
             sin_omega = torch.sin(omega)
-            return torch.stack([
-                torch.sin((1.0 - alpha) * omega) / sin_omega * z1_norm +
-                torch.sin(alpha * omega) / sin_omega * z2_norm
-                for alpha in alpha_vals
-            ])
+            return torch.stack(
+                [
+                    torch.sin((1.0 - alpha) * omega) / sin_omega * z1_norm
+                    + torch.sin(alpha * omega) / sin_omega * z2_norm
+                    for alpha in alpha_vals
+                ]
+            )
     else:
         raise ValueError(f"Unknown interpolation mode: {mode}")
-    
-    
-    
+
+
 @torch.no_grad()
 def linear_interpolation_grid_with_anchors(
-    cls1_latents, cls2_latents,
-    cls1_images, cls2_images,
-    cls1_label, cls2_label,
+    cls1_latents,
+    cls2_latents,
+    cls1_images,
+    cls2_images,
+    cls1_label,
+    cls2_label,
     fm_module,
     results_dir,
     num_pairs=6,
     num_interpolations=24,
     cfg_scale=2.0,
-    ccfg_scale=1.0, 
+    ccfg_scale=1.0,
     sample_kwargs=None,
     cond_keys=("context",),
     title=None,
     filename_suffix="interp_with_anchors",
     use_labels=False,
     num_classes=1000,
-    gt_border=0, # No 
+    gt_border=0,  # No
     device=None,
-    interp_type='linear', # linear or slerp
+    interp_type="linear",  # linear or slerp
     upscale_to=128,
 ):
     device = device or fm_module.device
@@ -304,16 +309,21 @@ def linear_interpolation_grid_with_anchors(
 
     with torch.no_grad():
         for i in range(num_pairs):
-            
             # Step 1: Labels (Optional)
             if use_labels:
                 half = num_interpolations // 2
-                row_labels = torch.cat([
-                    torch.full((half,), cls1_label, dtype=torch.long),
-                    torch.full((num_interpolations - half,), cls2_label, dtype=torch.long)
-                ])
+                row_labels = torch.cat(
+                    [
+                        torch.full((half,), cls1_label, dtype=torch.long),
+                        torch.full(
+                            (num_interpolations - half,), cls2_label, dtype=torch.long
+                        ),
+                    ]
+                )
                 labels = row_labels.to(device)
-                print(f"[INFO] Pair {i}: Using labels for interpolation: {cls1_label} -> {cls2_label}")
+                print(
+                    f"[INFO] Pair {i}: Using labels for interpolation: {cls1_label} -> {cls2_label}"
+                )
             else:
                 labels = None
                 print(f"[INFO] Pair {i}: Using no labels for interpolation.")
@@ -321,20 +331,27 @@ def linear_interpolation_grid_with_anchors(
             # Step 2: Encoding & Interpolation in ß-VAE latent space
             x1 = cls1_latents[i].unsqueeze(0)  # DDIM xt - Shape: [1, D]
             x2 = cls2_latents[i].unsqueeze(0)  # DDIM xt - Shape: [1, D]
-            context_z1 = fm_module.encode_third_stage(x1).to(torch.float32) # ß-VAE zt (1, 1024)
-            context_z2 = fm_module.encode_third_stage(x2).to(torch.float32) # ß-VAE zt (1, 1024)
+            context_z1 = fm_module.encode_third_stage(x1).to(
+                torch.float32
+            )  # ß-VAE zt (1, 1024)
+            context_z2 = fm_module.encode_third_stage(x2).to(
+                torch.float32
+            )  # ß-VAE zt (1, 1024)
             context_z1 = context_z1.squeeze(0)  # Now (1024,)
             context_z2 = context_z2.squeeze(0)  # Now (1024,)
-                        
+
             interp_context = interpolate_vectors(
                 context_z1, context_z2, alpha_lin_space, mode=interp_type
             ).to(device)
-        
-            # Step 3: Generate images    
+
+            # Step 3: Generate images
             uc_cond_context = torch.zeros_like(interp_context)
             uc_cond = (
-                torch.full((context.size(0),), num_classes, device=device, dtype=torch.long)
-                if labels is not None else None
+                torch.full(
+                    (context.size(0),), num_classes, device=device, dtype=torch.long
+                )
+                if labels is not None
+                else None
             )
 
             B = interp_context.size(0)  # B: Number of interpolation steps
@@ -356,23 +373,39 @@ def linear_interpolation_grid_with_anchors(
 
             # denorm the samples images
             row_images = denorm_tensor(samples).detach().cpu()
-            row_images = torch.stack([TF.resize(im, [upscale_to, upscale_to]) for im in row_images])
+            row_images = torch.stack(
+                [TF.resize(im, [upscale_to, upscale_to]) for im in row_images]
+            )
 
             start_img = denorm_tensor(cls1_images[i].unsqueeze(0))[0].detach().cpu()
             start_img = TF.resize(start_img, [upscale_to, upscale_to])
             end_img = denorm_tensor(cls2_images[i].unsqueeze(0))[0].detach().cpu()
             end_img = TF.resize(end_img, [upscale_to, upscale_to])
 
-            start_img_padded = F.pad(start_img, pad=[0, gt_border, 0, 0], mode='constant', value=0)
-            end_img_padded = F.pad(end_img, pad=[gt_border, 0, 0, 0], mode='constant', value=0)
+            start_img_padded = F.pad(
+                start_img, pad=[0, gt_border, 0, 0], mode="constant", value=0
+            )
+            end_img_padded = F.pad(
+                end_img, pad=[gt_border, 0, 0, 0], mode="constant", value=0
+            )
 
             left_pad = gt_border // 2
             right_pad = gt_border - left_pad
-            row_images_padded = torch.stack([
-                F.pad(im, pad=[left_pad, right_pad, 0, 0], mode='constant', value=0) for im in row_images
-            ])
+            row_images_padded = torch.stack(
+                [
+                    F.pad(im, pad=[left_pad, right_pad, 0, 0], mode="constant", value=0)
+                    for im in row_images
+                ]
+            )
 
-            full_row = torch.cat([start_img_padded.unsqueeze(0), row_images_padded, end_img_padded.unsqueeze(0)], dim=0)
+            full_row = torch.cat(
+                [
+                    start_img_padded.unsqueeze(0),
+                    row_images_padded,
+                    end_img_padded.unsqueeze(0),
+                ],
+                dim=0,
+            )
             samples_rows.append(full_row)
 
             del interp_context, row_images, row_images_padded
@@ -384,7 +417,7 @@ def linear_interpolation_grid_with_anchors(
     grid = torchvision.utils.make_grid(all_rows, nrow=nrow, padding=0)
     grid_np = grid.permute(1, 2, 0).numpy()
 
-    rcParams.update({'font.size': 14, 'font.family': 'DejaVu Sans'})
+    rcParams.update({"font.size": 14, "font.family": "DejaVu Sans"})
 
     cell_width = grid_np.shape[1] / nrow
     cell_height = grid_np.shape[0] / num_pairs
@@ -393,31 +426,33 @@ def linear_interpolation_grid_with_anchors(
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.imshow(grid_np)
-    ax.axis('off')
+    ax.axis("off")
 
     # === Draw only 2 vertical lines ===
-    ax.axvline(x=cell_width, color='black', linewidth=6)  # After Real A
-    ax.axvline(x=(nrow - 1) * cell_width, color='black', linewidth=6)  # Before Real B
+    ax.axvline(x=cell_width, color="black", linewidth=6)  # After Real A
+    ax.axvline(x=(nrow - 1) * cell_width, color="black", linewidth=6)  # Before Real B
 
     # Set X ticks
     xtick_positions = [(i + 0.5) * cell_width for i in range(nrow)]
-    xtick_labels = ['Real A'] + [f'{alpha:.2f}' for alpha in alpha_lin_space] + ['Real B']
+    xtick_labels = (
+        ["Real A"] + [f"{alpha:.2f}" for alpha in alpha_lin_space] + ["Real B"]
+    )
     ax.set_xticks(xtick_positions)
     ax.set_xticklabels(xtick_labels, fontsize=8, rotation=45)
 
     # Set Y ticks
     ytick_positions = [(i + 0.5) * cell_height for i in range(num_pairs)]
     ax.set_yticks(ytick_positions)
-    ax.set_yticklabels([f'Pair {i}' for i in range(num_pairs)], fontsize=10)
+    ax.set_yticklabels([f"Pair {i}" for i in range(num_pairs)], fontsize=10)
 
     # Title and save
     if title is None:
-        title = f"Latent Interpolation with Anchors\n"
+        title = "Latent Interpolation with Anchors\n"
     plt.title(title, fontsize=14)
 
-    output_path = os.path.join(results_dir, f'interpolation_{filename_suffix}.png')
+    output_path = os.path.join(results_dir, f"interpolation_{filename_suffix}.png")
     plt.tight_layout()
-    plt.savefig(output_path, bbox_inches='tight', dpi=500)
+    plt.savefig(output_path, bbox_inches="tight", dpi=500)
     print(f"[INFO] Saved interpolation grid with anchors to: {output_path}")
     plt.show()
     plt.close(fig)
@@ -427,26 +462,23 @@ def linear_interpolation_grid_with_anchors(
     gc.collect()
 
 
-
-
-
 ##########################################################################
 #           Step 1: Find Directions with linear PCA                      #
 ##########################################################################
 @torch.no_grad()
 def traverse_latents_pca(
-    module, 
-    sample, 
+    module,
+    sample,
     images,  # ← now correctly used
     pca_directions,
     cfg_scale=1.0,
     ccfg_scale=1.0,
-    w=128, 
-    value_range=(-6, 6), 
+    w=128,
+    value_range=(-6, 6),
     n_steps=10,
-    device=None, 
-    results_dir='results',
-    labels=None, 
+    device=None,
+    results_dir="results",
+    labels=None,
     context_dim=1024,
     num_directions_to_traverse=7,
     sample_kwargs=None,
@@ -454,18 +486,20 @@ def traverse_latents_pca(
     upscale_to=128,
 ):
     os.makedirs(results_dir, exist_ok=True)
-    device = device or (module.device if hasattr(module, 'device') else 'cpu')
+    device = device or (module.device if hasattr(module, "device") else "cpu")
 
     x_vals = torch.linspace(*value_range, n_steps, device=device)
     y_vals_indices = torch.arange(num_directions_to_traverse, device=device)
 
     batch_size = 1
     img_h, img_w = upscale_to, upscale_to
-    img_grid = np.zeros((num_directions_to_traverse * img_h, (n_steps + 1) * img_w, 3), dtype=np.uint8)
+    img_grid = np.zeros(
+        (num_directions_to_traverse * img_h, (n_steps + 1) * img_w, 3), dtype=np.uint8
+    )
 
     z = torch.randn_like(sample).to(device)
     encoded = module.third_stage.encode(sample.to(device))
-    base_latent = encoded['latent_dist'].sample()[0:1]  # (1, D)
+    base_latent = encoded["latent_dist"].sample()[0:1]  # (1, D)
 
     pca_tensor = torch.from_numpy(pca_directions).float().to(device)
     uc_cond_context = torch.zeros((batch_size, context_dim), device=device)
@@ -477,7 +511,9 @@ def traverse_latents_pca(
         label = labels[i].item()
         class_cond = torch.full((batch_size,), label, dtype=torch.long, device=device)
         num_classes = sample_kwargs.get("num_classes", 1000)
-        uc_cond = torch.full((batch_size,), num_classes, dtype=torch.long, device=device)
+        uc_cond = torch.full(
+            (batch_size,), num_classes, dtype=torch.long, device=device
+        )
     else:
         class_cond = None
         uc_cond = None
@@ -489,24 +525,28 @@ def traverse_latents_pca(
         gt_img = denorm_tensor(images)[0].detach().cpu()
         gt_img = TF.resize(gt_img, [img_h, img_w])
         gt_img_np = gt_img.permute(1, 2, 0).numpy()
-        gt_img_np = (gt_img_np - gt_img_np.min()) / (gt_img_np.max() - gt_img_np.min() + 1e-6)
+        gt_img_np = (gt_img_np - gt_img_np.min()) / (
+            gt_img_np.max() - gt_img_np.min() + 1e-6
+        )
         gt_img_np = (gt_img_np * 255).astype(np.uint8)
-        img_grid[i * img_h:(i + 1) * img_h, 0:img_w] = gt_img_np
+        img_grid[i * img_h : (i + 1) * img_h, 0:img_w] = gt_img_np
 
         for j, x in enumerate(x_vals):
             lat_mod = base_latent + x * direction
             context = lat_mod
 
-            sample_kwargs.update({
-                "cfg_scale": cfg_scale,
-                "ccfg_scale": ccfg_scale,
-                "context": context,
-                "uc_cond_context": uc_cond_context,
-                "y": class_cond,
-                "uc_cond": uc_cond,
-                "num_steps": sample_kwargs.get("num_steps", 50),
-                "progress": False
-            })
+            sample_kwargs.update(
+                {
+                    "cfg_scale": cfg_scale,
+                    "ccfg_scale": ccfg_scale,
+                    "context": context,
+                    "uc_cond_context": uc_cond_context,
+                    "y": class_cond,
+                    "uc_cond": uc_cond,
+                    "num_steps": sample_kwargs.get("num_steps", 50),
+                    "progress": False,
+                }
+            )
 
             samples = module.model.generate(x=z, **sample_kwargs)
             samples = module.decode_first_stage(samples)
@@ -518,7 +558,9 @@ def traverse_latents_pca(
             img = (img - img.min()) / (img.max() - img.min() + 1e-6)
             img = (img * 255).astype(np.uint8)
 
-            img_grid[i * img_h:(i + 1) * img_h, (j + 1) * img_w:(j + 2) * img_w] = img
+            img_grid[i * img_h : (i + 1) * img_h, (j + 1) * img_w : (j + 2) * img_w] = (
+                img
+            )
 
     fig_width = (img_w * (n_steps + 1)) / 100
     fig_height = (img_h * num_directions_to_traverse) / 100
@@ -528,16 +570,18 @@ def traverse_latents_pca(
     ax.set_xticks(np.arange(img_w / 2, img_grid.shape[1], img_w))
     ax.set_xticklabels(["GT"] + [f"{x:.1f}" for x in x_vals.cpu().numpy()])
     ax.set_yticks(np.arange(img_h / 2, img_grid.shape[0], img_h))
-    ax.set_yticklabels([f"PC {i+1}" for i in y_vals_indices.cpu().numpy()])
+    ax.set_yticklabels([f"PC {i + 1}" for i in y_vals_indices.cpu().numpy()])
     ax.set_xlabel("Traversal Value")
     ax.set_ylabel("Principal Component Direction")
 
     # Bold vertical line after GT column
-    ax.axvline(x=img_w - 1, color='black', linewidth=6)
+    ax.axvline(x=img_w - 1, color="black", linewidth=6)
     ax.axis("off")
 
-    output_path = os.path.join(results_dir, f"latent_traversal_pca_{num_directions_to_traverse}_dirs.png")
-    plt.savefig(output_path, bbox_inches='tight', dpi=300)
+    output_path = os.path.join(
+        results_dir, f"latent_traversal_pca_{num_directions_to_traverse}_dirs.png"
+    )
+    plt.savefig(output_path, bbox_inches="tight", dpi=300)
     print(f"[INFO] Saved PCA traversal grid to {output_path}")
     plt.show()
     plt.close(fig)
@@ -546,31 +590,29 @@ def traverse_latents_pca(
     gc.collect()
 
 
-
-
 ########################################
 ########################################
 ########################################
 @torch.no_grad()
 def traverse_latents(
-    module, 
-    sample, 
+    module,
+    sample,
     images,
     cfg_scale=3.0,
     ccfg_scale=1.0,
     w=128,
     batch_size=1,
-    start_dim=0, 
+    start_dim=0,
     end_dim=7,
-    value_range=(-4.5, 4.5), 
+    value_range=(-4.5, 4.5),
     n_steps=10,
-    context_dim=1024, 
+    context_dim=1024,
     device=None,
-    results_dir='results', 
+    results_dir="results",
     labels=None,
     sample_kwargs=None,
     use_labels=False,
-    upscale_to=128
+    upscale_to=128,
 ):
     os.makedirs(results_dir, exist_ok=True)
     device = device or module.device
@@ -587,7 +629,7 @@ def traverse_latents(
     # Handle sample shape
     if sample.dim() == 4:
         idx = torch.randint(0, sample.size(0), (1,)).item()
-        sample = sample[idx:idx+1]
+        sample = sample[idx : idx + 1]
         real_img = images[idx]
     else:
         sample = sample.unsqueeze(0)
@@ -605,7 +647,9 @@ def traverse_latents(
         label = labels[idx]
         class_cond = torch.full((batch_size,), label, dtype=torch.long, device=device)
         num_classes = sample_kwargs.get("num_classes", 1000)
-        uc_cond = torch.full((batch_size,), num_classes, dtype=torch.long, device=device)
+        uc_cond = torch.full(
+            (batch_size,), num_classes, dtype=torch.long, device=device
+        )
     else:
         class_cond = None
         uc_cond = None
@@ -615,27 +659,29 @@ def traverse_latents(
 
     # Encode latent
     encoded = module.third_stage.encode(sample.to(device))
-    base_latents = encoded['latent_dist'].sample()[0:1]
+    base_latents = encoded["latent_dist"].sample()[0:1]
 
     for i, dim in enumerate(y_vals):
         # Insert GT image in column 0
-        img_grid[i * img_h:(i + 1) * img_h, 0:img_w] = real_img
+        img_grid[i * img_h : (i + 1) * img_h, 0:img_w] = real_img
 
         for j, x in enumerate(x_vals):
             lat_mod = base_latents.clone()
             lat_mod[0, dim] += x
 
             context = lat_mod
-            sample_kwargs.update({
-                "cfg_scale": cfg_scale,
-                "ccfg_scale": ccfg_scale,
-                "context": context,
-                "uc_cond_context": uc_cond_context,
-                "y": class_cond,
-                "uc_cond": uc_cond,
-                "num_steps": sample_kwargs.get("num_steps", 50),
-                "progress": False
-            })
+            sample_kwargs.update(
+                {
+                    "cfg_scale": cfg_scale,
+                    "ccfg_scale": ccfg_scale,
+                    "context": context,
+                    "uc_cond_context": uc_cond_context,
+                    "y": class_cond,
+                    "uc_cond": uc_cond,
+                    "num_steps": sample_kwargs.get("num_steps", 50),
+                    "progress": False,
+                }
+            )
 
             samples = module.model.generate(x=z, **sample_kwargs)
             samples = module.decode_first_stage(samples.to(device))
@@ -648,7 +694,7 @@ def traverse_latents(
             img = (img * 255).astype(np.uint8)
 
             grid_x = (j + 1) * img_w  # offset by 1 for GT column
-            img_grid[i * img_h:(i + 1) * img_h, grid_x:grid_x + img_w] = img
+            img_grid[i * img_h : (i + 1) * img_h, grid_x : grid_x + img_w] = img
 
     # Plotting
     fig_width = (img_w * num_cols) / 100
@@ -658,7 +704,7 @@ def traverse_latents(
     ax.imshow(img_grid)
 
     # Bold separator after GT image
-    ax.axvline(x=img_w - 1, color='black', linewidth=6)
+    ax.axvline(x=img_w - 1, color="black", linewidth=6)
 
     # Axis labels
     ax.set_xticks(np.arange(img_w / 2, img_grid.shape[1], img_w))
@@ -669,8 +715,10 @@ def traverse_latents(
     ax.set_ylabel("Latent Dimensions")
     ax.axis("off")
 
-    output_path = os.path.join(results_dir, f"latent_traversal_{start_dim}_{end_dim}.png")
-    plt.savefig(output_path, bbox_inches='tight', dpi=300)
+    output_path = os.path.join(
+        results_dir, f"latent_traversal_{start_dim}_{end_dim}.png"
+    )
+    plt.savefig(output_path, bbox_inches="tight", dpi=300)
     print(f"[INFO] Saved latent traversal grid to: {output_path}")
     plt.show()
     plt.close(fig)
@@ -679,31 +727,32 @@ def traverse_latents(
     gc.collect()
 
 
-
-
-
-
-
-
 ##########################################################################
 #                   Find Directions with PCA                             #
 ##########################################################################
 
+
 @torch.no_grad()
-def find_pca_directions(module, dataloader, source_timestep=0.5, num_components=10, device=None):
-    device = device or (module.device if hasattr(module, 'device') else 'cpu')
+def find_pca_directions(
+    module, dataloader, source_timestep=0.5, num_components=10, device=None
+):
+    device = device or (module.device if hasattr(module, "device") else "cpu")
     print(f"[INFO] Collecting latents for PCA on device: {device}")
 
     all_latents = []
     for batch in tqdm(dataloader, desc="Evaluating", unit="batch"):
-        source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
+        source_latents = batch[f"latents_{source_timestep:.2f}"].to(
+            device, non_blocking=True
+        )
         encoded = module.third_stage.encode(source_latents)
-        latents = encoded['latent_dist'].mode()
+        latents = encoded["latent_dist"].mode()
         all_latents.append(latents.cpu().numpy())
 
     combined_latents = np.vstack(all_latents)
-    print(f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}.")
-    
+    print(
+        f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}."
+    )
+
     # Sorted by vairance (highest --> lowest)
     pca = PCA(n_components=num_components)
     pca.fit(combined_latents)
@@ -714,13 +763,15 @@ def find_pca_directions(module, dataloader, source_timestep=0.5, num_components=
     return pca.components_, pca.explained_variance_ratio_
 
 
-
 ##########################################################################
 #                   Find Directions with K-Means                         #
 ##########################################################################
 
+
 @torch.no_grad()
-def find_kmeans_directions(module, dataloader, source_timestep=0.5, n_clusters=8, n_directions=7, device=None):
+def find_kmeans_directions(
+    module, dataloader, source_timestep=0.5, n_clusters=8, n_directions=7, device=None
+):
     """
     Collects latent vectors, performs K-Means clustering, and computes directions
     between cluster centroids.
@@ -736,30 +787,39 @@ def find_kmeans_directions(module, dataloader, source_timestep=0.5, n_clusters=8
     Returns:
         np.ndarray: An array of direction vectors.
     """
-    device = device or (module.device if hasattr(module, 'device') else 'cpu')
+    device = device or (module.device if hasattr(module, "device") else "cpu")
     print(f"[INFO] Collecting latents for K-Means on device: {device}")
 
     all_latents = []
     # Collect a sufficient number of latents for stable clustering
-    num_samples_to_collect = n_clusters * 1000 
-    
-    with tqdm(total=num_samples_to_collect, desc="Collecting Latents", unit=" sample") as pbar:
+    num_samples_to_collect = n_clusters * 1000
+
+    with tqdm(
+        total=num_samples_to_collect, desc="Collecting Latents", unit=" sample"
+    ) as pbar:
         for batch in dataloader:
-            if len(all_latents) * batch[f'latents_{source_timestep:.2f}'].shape[0] >= num_samples_to_collect:
+            if (
+                len(all_latents) * batch[f"latents_{source_timestep:.2f}"].shape[0]
+                >= num_samples_to_collect
+            ):
                 break
-            source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
+            source_latents = batch[f"latents_{source_timestep:.2f}"].to(
+                device, non_blocking=True
+            )
             encoded = module.third_stage.encode(source_latents)
             # Use the mode for a deterministic latent representation
-            latents = encoded['latent_dist'].mode()
+            latents = encoded["latent_dist"].mode()
             all_latents.append(latents.cpu().numpy())
             pbar.update(latents.shape[0])
 
     combined_latents = np.vstack(all_latents)
-    print(f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}.")
+    print(
+        f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}."
+    )
 
     # Perform K-Means clustering
     print(f"[INFO] Performing K-Means clustering with k={n_clusters}...")
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init="auto")
     kmeans.fit(combined_latents)
     centroids = kmeans.cluster_centers_
     print("[INFO] K-Means clustering complete.")
@@ -767,14 +827,18 @@ def find_kmeans_directions(module, dataloader, source_timestep=0.5, n_clusters=8
     # Compute directions between centroids. A common approach is to find vectors
     # from a reference centroid (e.g., the first one) to all others.
     if n_directions >= n_clusters:
-        print(f"[WARNING] Requested {n_directions} directions, but only {n_clusters - 1} can be computed from {n_clusters} centroids. Clipping.")
+        print(
+            f"[WARNING] Requested {n_directions} directions, but only {n_clusters - 1} can be computed from {n_clusters} centroids. Clipping."
+        )
         n_directions = n_clusters - 1
-        
+
     reference_centroid = centroids[0]
     direction_vectors = []
     for i in range(1, n_clusters):
         direction = centroids[i] - reference_centroid
-        direction_vectors.append(direction / np.linalg.norm(direction)) # Normalize the direction
+        direction_vectors.append(
+            direction / np.linalg.norm(direction)
+        )  # Normalize the direction
 
     # Select the top n_directions
     directions_to_return = np.array(direction_vectors[:n_directions])
@@ -795,7 +859,7 @@ def traverse_latents_kmeans(
     value_range=(-10, 10),
     n_steps=10,
     device=None,
-    results_dir='results',
+    results_dir="results",
     labels=None,
     context_dim=1024,
     num_directions_to_traverse=7,
@@ -808,7 +872,7 @@ def traverse_latents_kmeans(
     and a bold vertical separator after it.
     """
     os.makedirs(results_dir, exist_ok=True)
-    device = device or (module.device if hasattr(module, 'device') else 'cpu')
+    device = device or (module.device if hasattr(module, "device") else "cpu")
 
     x_vals = torch.linspace(*value_range, n_steps, device=device)
     y_vals_indices = torch.arange(num_directions_to_traverse, device=device)
@@ -816,12 +880,14 @@ def traverse_latents_kmeans(
     batch_size = 1
     img_h, img_w = upscale_to, upscale_to
     num_cols = n_steps + 1  # +1 for GT image
-    img_grid = np.zeros((num_directions_to_traverse * img_h, num_cols * img_w, 3), dtype=np.uint8)
+    img_grid = np.zeros(
+        (num_directions_to_traverse * img_h, num_cols * img_w, 3), dtype=np.uint8
+    )
 
     # Select one sample and its GT image
     if sample.dim() == 4:
         idx = torch.randint(0, sample.size(0), (1,)).item()
-        sample = sample[idx:idx+1]
+        sample = sample[idx : idx + 1]
         real_img = images[idx]
     else:
         sample = sample.unsqueeze(0)
@@ -835,7 +901,7 @@ def traverse_latents_kmeans(
 
     z = torch.randn_like(sample).to(device)
     encoded = module.third_stage.encode(sample.to(device))
-    base_latent = encoded['latent_dist'].mode()[0:1]
+    base_latent = encoded["latent_dist"].mode()[0:1]
 
     kmeans_tensor = torch.from_numpy(kmeans_directions).float().to(device)
     uc_cond_context = torch.zeros((batch_size, context_dim), device=device)
@@ -845,7 +911,9 @@ def traverse_latents_kmeans(
         label = labels[idx].item()
         class_cond = torch.full((batch_size,), label, dtype=torch.long, device=device)
         num_classes = sample_kwargs.get("num_classes", 1000)
-        uc_cond = torch.full((batch_size,), num_classes, dtype=torch.long, device=device)
+        uc_cond = torch.full(
+            (batch_size,), num_classes, dtype=torch.long, device=device
+        )
     else:
         class_cond = None
         uc_cond = None
@@ -854,20 +922,22 @@ def traverse_latents_kmeans(
         direction = kmeans_tensor[kmeans_idx].unsqueeze(0)
 
         # Place GT image
-        img_grid[i * img_h:(i + 1) * img_h, 0:img_w] = real_img
+        img_grid[i * img_h : (i + 1) * img_h, 0:img_w] = real_img
 
         for j, x in enumerate(x_vals):
             lat_mod = base_latent + x * direction
             context = lat_mod
 
-            sample_kwargs.update({
-                "cfg_scale": cfg_scale,
-                "ccfg_scale": ccfg_scale,
-                "context": context,
-                "uc_cond_context": uc_cond_context,
-                "y": class_cond,
-                "uc_cond": uc_cond,
-            })
+            sample_kwargs.update(
+                {
+                    "cfg_scale": cfg_scale,
+                    "ccfg_scale": ccfg_scale,
+                    "context": context,
+                    "uc_cond_context": uc_cond_context,
+                    "y": class_cond,
+                    "uc_cond": uc_cond,
+                }
+            )
             sample_kwargs.setdefault("num_steps", 50)
             sample_kwargs.setdefault("progress", False)
 
@@ -882,7 +952,7 @@ def traverse_latents_kmeans(
             img = (img * 255).astype(np.uint8)
 
             grid_x = (j + 1) * img_w  # Offset by +1 for GT
-            img_grid[i * img_h:(i + 1) * img_h, grid_x:grid_x + img_w] = img
+            img_grid[i * img_h : (i + 1) * img_h, grid_x : grid_x + img_w] = img
 
     # Plot with GT separator
     fig_width = (img_w * num_cols) / 100
@@ -892,19 +962,21 @@ def traverse_latents_kmeans(
     ax.imshow(img_grid)
 
     # Bold vertical line after GT column
-    ax.axvline(x=img_w - 1, color='black', linewidth=6)
+    ax.axvline(x=img_w - 1, color="black", linewidth=6)
 
     # Axis ticks
     ax.set_xticks(np.arange(img_w / 2, img_grid.shape[1], img_w))
     ax.set_xticklabels(["GT"] + [f"{x:.1f}" for x in x_vals.cpu().numpy()])
     ax.set_yticks(np.arange(img_h / 2, img_grid.shape[0], img_h))
-    ax.set_yticklabels([f"KMeans {i+1}" for i in y_vals_indices.cpu().numpy()])
+    ax.set_yticklabels([f"KMeans {i + 1}" for i in y_vals_indices.cpu().numpy()])
     ax.set_xlabel("Traversal Value")
     ax.set_ylabel("K-Means Direction")
     ax.axis("off")
 
-    output_path = os.path.join(results_dir, f"latent_traversal_kmeans_{num_directions_to_traverse}_dirs.png")
-    plt.savefig(output_path, bbox_inches='tight', dpi=300)
+    output_path = os.path.join(
+        results_dir, f"latent_traversal_kmeans_{num_directions_to_traverse}_dirs.png"
+    )
+    plt.savefig(output_path, bbox_inches="tight", dpi=300)
     print(f"[INFO] Saved K-Means traversal grid to {output_path}")
     plt.show()
     plt.close(fig)
@@ -913,11 +985,11 @@ def traverse_latents_kmeans(
     gc.collect()
 
 
-
 #########################################################
 #          Generate a Batch of Quality Samples         #
 #########################################################
 import math
+
 
 def generate_samples(
     fm_module,
@@ -933,7 +1005,7 @@ def generate_samples(
     title="Generated Samples",
     save_path=None,
     device=None,
-    batch_size_limit=16  # Limit batch size for model
+    batch_size_limit=16,  # Limit batch size for model
 ):
     device = device or fm_module.device
     images = images.to(device)
@@ -962,10 +1034,16 @@ def generate_samples(
             context = fm_module.encode_third_stage(x_chunk.to(device)).to(torch.float32)
 
             z_single = torch.randn_like(x_chunk[0]).to(device)
-            z = z_single.unsqueeze(0).expand(x_chunk.size(0), *z_single.shape).contiguous()
+            z = (
+                z_single.unsqueeze(0)
+                .expand(x_chunk.size(0), *z_single.shape)
+                .contiguous()
+            )
 
             uc_context = torch.zeros_like(context)
-            uc_label = torch.full((x_chunk.size(0),), num_classes, device=device, dtype=torch.long)
+            uc_label = torch.full(
+                (x_chunk.size(0),), num_classes, device=device, dtype=torch.long
+            )
 
             sample_kwargs = {
                 "num_steps": num_steps,
@@ -985,8 +1063,12 @@ def generate_samples(
             real_images = denorm_tensor(img_chunk).detach().cpu()
 
             if upscale_to:
-                real_images = torch.stack([TF.resize(im, [upscale_to, upscale_to]) for im in real_images])
-                fake_images = torch.stack([TF.resize(im, [upscale_to, upscale_to]) for im in fake_images])
+                real_images = torch.stack(
+                    [TF.resize(im, [upscale_to, upscale_to]) for im in real_images]
+                )
+                fake_images = torch.stack(
+                    [TF.resize(im, [upscale_to, upscale_to]) for im in fake_images]
+                )
 
             all_real.extend(real_images)
             all_fake.extend(fake_images)
@@ -1001,15 +1083,15 @@ def generate_samples(
 
     grid = make_grid(torch.stack(interleaved), nrow=nrow, padding=0)
 
-    rcParams.update({'font.size': 12, 'font.family': 'DejaVu Sans'})
+    rcParams.update({"font.size": 12, "font.family": "DejaVu Sans"})
     fig, ax = plt.subplots(figsize=(grid.shape[2] / 50, grid.shape[1] / 50))
     ax.imshow(grid.permute(1, 2, 0).numpy())
-    ax.axis('off')
+    ax.axis("off")
     ax.set_title(title, fontsize=14)
 
     if save_path:
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        plt.savefig(save_path, bbox_inches='tight', dpi=500)
+        plt.savefig(save_path, bbox_inches="tight", dpi=500)
         print(f"[INFO] Saved reconstructed grid to: {save_path}")
 
     plt.show()
@@ -1018,14 +1100,12 @@ def generate_samples(
     gc.collect()
 
 
-
-
-
 #########################################################
 #           Collect samples from the dataset            #
 #########################################################
 from collections import defaultdict
 from typing import List, Tuple
+
 
 @torch.no_grad()
 def collect_samples(
@@ -1033,7 +1113,7 @@ def collect_samples(
     class_labels: List[int],
     source_timestep: float,
     samples_per_class: int = 10,
-    group_name='validation'
+    group_name="validation",
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Collects a fixed number of samples per class from a validation dataloader.
@@ -1041,19 +1121,19 @@ def collect_samples(
     """
     collected_latents = defaultdict(list)
     collected_images = defaultdict(list)
-    
+
     # Dataloader
-    if group_name == 'validation':
+    if group_name == "validation":
         val_loader = data.val_dataloader()
     else:
         val_loader = data.test_dataloader()
-        
-    latent_key = f'latents_{source_timestep:.2f}'
+
+    latent_key = f"latents_{source_timestep:.2f}"
 
     for batch_idx, batch in enumerate(val_loader):
         latents = batch[latent_key].detach().cpu()
-        labels = batch['label'].view(-1).detach().cpu()
-        images = batch['image'].detach().cpu()
+        labels = batch["label"].view(-1).detach().cpu()
+        images = batch["image"].detach().cpu()
 
         for label in class_labels:
             needed = samples_per_class - len(collected_latents[label])
@@ -1069,8 +1149,12 @@ def collect_samples(
                 collected_latents[label].extend(selected_latents[:to_take])
                 collected_images[label].extend(selected_images[:to_take])
 
-        if all(len(collected_latents[label]) >= samples_per_class for label in class_labels):
-            print(f"[INFO] Collected enough samples for all classes after {batch_idx + 1} batches.")
+        if all(
+            len(collected_latents[label]) >= samples_per_class for label in class_labels
+        ):
+            print(
+                f"[INFO] Collected enough samples for all classes after {batch_idx + 1} batches."
+            )
             break
 
     all_latents, all_labels, all_images = [], [], []
@@ -1079,7 +1163,9 @@ def collect_samples(
         images_list = collected_images[label]
 
         if len(latents_list) < samples_per_class:
-            raise ValueError(f"Not enough samples collected for class {label}: got {len(latents_list)}")
+            raise ValueError(
+                f"Not enough samples collected for class {label}: got {len(latents_list)}"
+            )
 
         stacked_latents = torch.stack(latents_list[:samples_per_class], dim=0)
         stacked_images = torch.stack(images_list[:samples_per_class], dim=0)
@@ -1092,9 +1178,8 @@ def collect_samples(
     return (
         torch.cat(all_latents, dim=0),
         torch.cat(all_labels, dim=0),
-        torch.cat(all_images, dim=0)
+        torch.cat(all_images, dim=0),
     )
-
 
 
 def get_dataloader_by_group(data_module, group: str):
@@ -1106,7 +1191,6 @@ def get_dataloader_by_group(data_module, group: str):
         raise ValueError(f"Unsupported group: {group}")
 
 
-    
 def run_eval(
     checkpoint,
     data_path,
@@ -1124,17 +1208,23 @@ def run_eval(
     cfg_scale=3.0,
     ccfg_scale=1.0,
     batch_size=32,
-    max_samples=32,    
+    max_samples=32,
     device=None,
 ):
-    device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        device
+        if device
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
 
     torch.manual_seed(2025)
     torch.cuda.empty_cache()
     gc.collect()
 
     # Load model
-    fm_module = TrainerModuleLatentFlow.load_from_checkpoint(checkpoint, map_location='cpu')
+    fm_module = TrainerModuleLatentFlow.load_from_checkpoint(
+        checkpoint, map_location="cpu"
+    )
     fm_module.eval()
     freeze(fm_module.model)
     fm_module.to(device)
@@ -1149,16 +1239,14 @@ def run_eval(
         train=False,
         validation=(group == "validation"),
         test=(group == "test"),
-        group_name=group
+        group_name=group,
     )
     data.setup(stage="fit" if group == "validation" else "test")
 
     # Setup results directory
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     base_results_dir = Path(results_root) / project_name / model_name / timestamp
     base_results_dir.mkdir(parents=True, exist_ok=True)
-
-
 
     # Task (0) Generate a batch of quality samples
     print("[INFO] Task (0): Generating a batch of quality samples ...")
@@ -1166,16 +1254,16 @@ def run_eval(
     samples_dir.mkdir(exist_ok=True)
 
     dataloader = get_dataloader_by_group(data, group)
-    dataloader.shuffle = True  
+    dataloader.shuffle = True
 
     max_batches = 3
     for batch_idx, batch in enumerate(dataloader):
         if batch_idx >= max_batches:
             break
 
-        images = batch['image']
-        latents = batch[f'latents_{source_timestep:.2f}']
-        labels = batch['label']
+        images = batch["image"]
+        latents = batch[f"latents_{source_timestep:.2f}"]
+        labels = batch["label"]
 
         # 1. No conditioning
         generate_samples(
@@ -1187,7 +1275,7 @@ def run_eval(
             ccfg_scale=1.0,
             device=device,
             title=f"Generated Samples CFG1.0/CCFG1.0 (Batch {batch_idx})",
-            save_path=str(samples_dir / f"cfg1_ccfg1_grid_{batch_idx}.png")
+            save_path=str(samples_dir / f"cfg1_ccfg1_grid_{batch_idx}.png"),
         )
         torch.cuda.empty_cache()
         gc.collect()
@@ -1202,7 +1290,7 @@ def run_eval(
             ccfg_scale=1.0,
             device=device,
             title=f"Generated Samples CFG2.0/CCFG1.0 (Batch {batch_idx})",
-            save_path=str(samples_dir / f"cfg2_ccfg1_grid_{batch_idx}.png")
+            save_path=str(samples_dir / f"cfg2_ccfg1_grid_{batch_idx}.png"),
         )
         torch.cuda.empty_cache()
         gc.collect()
@@ -1217,11 +1305,10 @@ def run_eval(
             ccfg_scale=1.0,
             device=device,
             title=f"Generated Samples CFG3.0/CCFG1.0 (Batch {batch_idx})",
-            save_path=str(samples_dir / f"cfg3_ccfg1_grid_{batch_idx}.png")
+            save_path=str(samples_dir / f"cfg3_ccfg1_grid_{batch_idx}.png"),
         )
         torch.cuda.empty_cache()
         gc.collect()
-
 
     # Collect samples for interpolation and matrix generation
     all_classes = {cls for pair in interpolation_dict.values() for cls in pair}
@@ -1230,9 +1317,8 @@ def run_eval(
         class_labels=list(all_classes),
         source_timestep=source_timestep,
         samples_per_class=samples_per_class,
-        group_name=group
+        group_name=group,
     )
-    
 
     # Perform interpolations
     print("[INFO] Task (1): Linear interpolation ... ")
@@ -1250,7 +1336,7 @@ def run_eval(
 
         interp_dir = base_results_dir / interp_name
         interp_dir.mkdir(exist_ok=True)
-        
+
         print(f"[INFO] Running interpolation: {interp_name} ({cls_a} → {cls_b})")
 
         linear_interpolation_grid_with_anchors(
@@ -1270,16 +1356,14 @@ def run_eval(
             num_classes=1000,
             device=device,
             filename_suffix=f"{cls_a}_{cls_b}",
-            title=f"Interpolation {interp_name}: {cls_a} → {cls_b}"
+            title=f"Interpolation {interp_name}: {cls_a} → {cls_b}",
         )
-    
+
         torch.cuda.empty_cache()
         gc.collect()
-    
+
     torch.cuda.empty_cache()
     gc.collect()
-    
-    
 
     # Create interpolation dictionary for CFG/CCFG matrices
     # Generate CFG/CCFG Matrix
@@ -1287,12 +1371,16 @@ def run_eval(
     matrix_dir = base_results_dir / "cfg_matrix"
     matrix_dir.mkdir(exist_ok=True)
 
-    target_classes = sorted(set(cls for pair in interpolation_dict.values() for cls in pair))
-    print(f"[INFO] Generating matrices for {len(target_classes)} classes: {target_classes}")
+    target_classes = sorted(
+        set(cls for pair in interpolation_dict.values() for cls in pair)
+    )
+    print(
+        f"[INFO] Generating matrices for {len(target_classes)} classes: {target_classes}"
+    )
 
     for cls_id in target_classes:
         cls_mask = labels == cls_id
-        latent_cls = latents[cls_mask][:1].to(device)   # Take only one sample
+        latent_cls = latents[cls_mask][:1].to(device)  # Take only one sample
         image_cls = images[cls_mask][:1].to(device)
         label_cls = labels[cls_mask][:1].to(device)
 
@@ -1315,7 +1403,7 @@ def run_eval(
             device=device,
             title=f"CFG only | class {cls_id}",
             save_path=class_dir / f"class_{cls_id}_cfg_only.png",
-            upscale_to=128
+            upscale_to=128,
         )
         torch.cuda.empty_cache()
         gc.collect()
@@ -1334,11 +1422,11 @@ def run_eval(
             device=device,
             title=f"CCFG only | class {cls_id}",
             save_path=class_dir / f"class_{cls_id}_ccfg_only.png",
-            upscale_to=128
+            upscale_to=128,
         )
         torch.cuda.empty_cache()
         gc.collect()
-        
+
         # Matrix 3: Joint CFG x CCFG sweep
         generate_cfg_matrix(
             fm_module=fm_module,
@@ -1353,16 +1441,14 @@ def run_eval(
             device=device,
             title=f"CFG × CCFG | class {cls_id}",
             save_path=class_dir / f"class_{cls_id}_cfg_ccfg.png",
-            upscale_to=128
+            upscale_to=128,
         )
         torch.cuda.empty_cache()
         gc.collect()
-    
+
     torch.cuda.empty_cache()
     gc.collect()
-    
-    
-    
+
     # Generate label swap matrices
     print("[INFO] Task (3): CFG/CCFG Label Swap Matrix ...")
     label_swap_dir = base_results_dir / "label_swap"
@@ -1400,12 +1486,12 @@ def run_eval(
             device=device,
             title=f"Class {cls_a} as {cls_b}",
             save_path=swap_ab_dir / f"class_{cls_a}_as_{cls_b}.png",
-            upscale_to=128
+            upscale_to=128,
         )
 
         torch.cuda.empty_cache()
         gc.collect()
-    
+
         print(f"[INFO] Class {cls_b} as {cls_a}")
         generate_cfg_matrix(
             fm_module=fm_module,
@@ -1420,13 +1506,11 @@ def run_eval(
             device=device,
             title=f"Class {cls_b} as {cls_a}",
             save_path=swap_ba_dir / f"class_{cls_b}_as_{cls_a}.png",
-            upscale_to=128
+            upscale_to=128,
         )
 
     torch.cuda.empty_cache()
     gc.collect()
-
-           
 
     print("[INFO] Task (4): PCA & K-Means Traversals ...")
     pca_dir = base_results_dir / "pca_traversals"
@@ -1442,11 +1526,11 @@ def run_eval(
     # Compute PCA directions once
     print("[INFO] Computing PCA directions ...")
     pca_directions, _ = find_pca_directions(
-        fm_module, 
+        fm_module,
         dataloader,
-        source_timestep=source_timestep, 
-        num_components=num_directions, 
-        device=device
+        source_timestep=source_timestep,
+        num_components=num_directions,
+        device=device,
     )
 
     # Compute KMeans directions once
@@ -1457,7 +1541,7 @@ def run_eval(
         source_timestep=source_timestep,
         n_clusters=50,  # Number of clusters for K-Means
         n_directions=num_directions,
-        device=device
+        device=device,
     )
 
     # Iterate over defined class pairs
@@ -1481,12 +1565,12 @@ def run_eval(
                 results_dir=str(pca_dir / f"class_{cls_id}"),
                 labels=None,  # No labels for PCA traversal
                 num_directions_to_traverse=num_directions,
-                upscale_to=128
+                upscale_to=128,
             )
 
             torch.cuda.empty_cache()
             gc.collect()
-    
+
             # === KMeans ===
             out_dir = kmeans_dir / f"class_{cls_id}"
             out_dir.mkdir(exist_ok=True)
@@ -1505,34 +1589,30 @@ def run_eval(
                 results_dir=str(kmeans_dir / f"class_{cls_id}"),
                 labels=None,  # No labels for K-Means traversal
                 num_directions_to_traverse=num_directions,
-                upscale_to=128
+                upscale_to=128,
             )
 
     torch.cuda.empty_cache()
     gc.collect()
 
 
-
-
-
 if __name__ == "__main__":
-    
     #####################################
     # Evaluation Parameters
     #####################################
     # Model checkpoints
-    source_timestep     = 0.50
-    target_timestep     = 1.00
-    beta                = 0.1     # Beta value for the VAE
-    dataset_name        = 'imagenet256-testset-T151412'
-    group               = "validation"  # "validation" or "test"
-    baseline            = (source_timestep == 0.50 and target_timestep == 0.50)
-    batch_size          = 32
-    samples_per_class   = 13
-    num_pairs           = 12
-    num_interpolations  = 20
-    cfg_scale           = 3.0
-    ccfg_scale          = 1.0
+    source_timestep = 0.50
+    target_timestep = 1.00
+    beta = 0.1  # Beta value for the VAE
+    dataset_name = "imagenet256-testset-T151412"
+    group = "validation"  # "validation" or "test"
+    baseline = source_timestep == 0.50 and target_timestep == 0.50
+    batch_size = 32
+    samples_per_class = 13
+    num_pairs = 12
+    num_interpolations = 20
+    cfg_scale = 3.0
+    ccfg_scale = 1.0
 
     #####################################
     # Device + Seed Setup
@@ -1540,39 +1620,39 @@ if __name__ == "__main__":
     seed_everything(2025)
     torch.cuda.empty_cache()
     gc.collect()
-    
+
     #####################################
     # Model Paths for SiT-XL-2
     #####################################
-    
+
     # beta: 0.1
-    DiTSXL_Beta05x05x_01b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_0.1b/BetaVAE-B-2/2025-06-11/29847/checkpoints/last.ckpt'   ### (Baseline)
-    DiTSXL_Beta00x10x_01b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.00x-1.00x_0.1b/BetaVAE-B-2/2025-06-28/30448/checkpoints/last.ckpt'   ### Done
-    DITSXL_BETA02x10x_01b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_0.1b/BetaVAE-B-2/2025-06-27/30400/checkpoints/last.ckpt'   ### Done
-    DITSXL_BETA05x10x_01b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-1.00x_0.1b/BetaVAE-B-2/V0/2025-07-03/30683/checkpoints/last.ckpt'  
-    
+    DiTSXL_Beta05x05x_01b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_0.1b/BetaVAE-B-2/2025-06-11/29847/checkpoints/last.ckpt"  ### (Baseline)
+    DiTSXL_Beta00x10x_01b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.00x-1.00x_0.1b/BetaVAE-B-2/2025-06-28/30448/checkpoints/last.ckpt"  ### Done
+    DITSXL_BETA02x10x_01b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_0.1b/BetaVAE-B-2/2025-06-27/30400/checkpoints/last.ckpt"  ### Done
+    DITSXL_BETA05x10x_01b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-1.00x_0.1b/BetaVAE-B-2/V0/2025-07-03/30683/checkpoints/last.ckpt"
+
     # beta: 1.0
-    DITSXL_Beta05x05x_1b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_1.0b/BetaVAE-B-2/2025-06-14/29969/checkpoints/last.ckpt'    
-    DITSXL_Beta02x10x_1b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_1.0b/BetaVAE-B-2/2025-06-13/29903/checkpoints/last.ckpt'   
-    DITSXL_Beta05x10x_1b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-1.00x_1.0b/BetaVAE-B-2/2025-06-18/30121/checkpoints/last.ckpt'          
+    DITSXL_Beta05x05x_1b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_1.0b/BetaVAE-B-2/2025-06-14/29969/checkpoints/last.ckpt"
+    DITSXL_Beta02x10x_1b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_1.0b/BetaVAE-B-2/2025-06-13/29903/checkpoints/last.ckpt"
+    DITSXL_Beta05x10x_1b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-1.00x_1.0b/BetaVAE-B-2/2025-06-18/30121/checkpoints/last.ckpt"
 
     # beta: 5.0
-    DiTSXL_Beta05x05x_5b ='./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_5.0b/BetaVAE-B-2/2025-06-19/30139/checkpoints/last.ckpt'
-    DiTSXL_Beta02x10x_5b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_5.0b/BetaVAE-B-2/2025-06-16/30028/checkpoints/last.ckpt'    
-    DiTSXL_Beta05x10x_5b = './logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-1.00x_5.0b/BetaVAE-B-2/2025-06-19/30136/checkpoints/last.ckpt'      
-    
-    
-    
+    DiTSXL_Beta05x05x_5b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-0.50x_5.0b/BetaVAE-B-2/2025-06-19/30139/checkpoints/last.ckpt"
+    DiTSXL_Beta02x10x_5b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.20x-1.00x_5.0b/BetaVAE-B-2/2025-06-16/30028/checkpoints/last.ckpt"
+    DiTSXL_Beta05x10x_5b = "./logs_dir/imnet256/SiT-XL-2/context_cls_cond_w_dropout/0.50x-1.00x_5.0b/BetaVAE-B-2/2025-06-19/30136/checkpoints/last.ckpt"
+
     #####################################
     # Dataset & Evaluation Parameters
     #####################################
-    checkpoint                   = DITSXL_BETA05x10x_01b
-    test_data_path               = './dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
-    validation_data_path         = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5' # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
-    project_name                 = "CFM_Qualitative_Eval_Baseline" if baseline else "CFM_Qualitative_Eval"
-    model_name                   = f"Beta-VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
-
-
+    checkpoint = DITSXL_BETA05x10x_01b
+    test_data_path = "./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5"  # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
+    validation_data_path = "./dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5"  # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
+    project_name = (
+        "CFM_Qualitative_Eval_Baseline" if baseline else "CFM_Qualitative_Eval"
+    )
+    model_name = (
+        f"Beta-VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
+    )
 
     #####################################
     # Interpolation Class Pairs
@@ -1613,17 +1693,16 @@ if __name__ == "__main__":
         "brown_to_icebear": [294, 296],
         "icebear_to_brownbear": [296, 294],
         "icebear_to_snow_leopard": [296, 289],
-        "gibbon_to_orangutan": [368, 365],  
+        "gibbon_to_orangutan": [368, 365],
         # Note: Add more class ID pairs
     }
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(2025)
 
-    assert num_pairs <= samples_per_class, \
+    assert num_pairs <= samples_per_class, (
         f"num_pairs ({num_pairs}) cannot be greater than samples_per_class ({samples_per_class})"
-
-
+    )
 
     run_eval(
         checkpoint=checkpoint,
@@ -1634,7 +1713,7 @@ if __name__ == "__main__":
         device=device,
         group=group,  # or "test"
         source_timestep=source_timestep,
-        target_timestep=1.00, # FM timestep
+        target_timestep=1.00,  # FM timestep
         beta=beta,
         samples_per_class=samples_per_class,
         num_interpolations=num_interpolations,

@@ -41,8 +41,8 @@ if torch.cuda.is_available():
     compile_fn = partial(torch.compile, fullgraph=True, backend='inductor' if torch.cuda.get_device_capability()[0] >= 7 else 'aot_eager')
 else:
     compile_fn = lambda f: f
-    
-    
+
+
 def modulate(x, shift, scale):
     return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 
@@ -51,7 +51,7 @@ def modulate(x, shift, scale):
 #               Embedding Layers for Timesteps and Class Labels                 #
 #################################################################################
 
-    
+
 class TimestepEmbedder(nn.Module):
     """
     Embeds scalar timesteps into vector representations.
@@ -64,7 +64,7 @@ class TimestepEmbedder(nn.Module):
             nn.Linear(hidden_size, hidden_size, bias=True),
         )
         self.frequency_embedding_size = frequency_embedding_size
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
 
     @staticmethod
@@ -104,7 +104,7 @@ class LabelEmbedder(nn.Module):
         self.embedding_table = nn.Embedding(num_classes + use_cfg_embedding, hidden_size)
         self.num_classes = num_classes
         self.dropout_prob = dropout_prob
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
 
     def token_drop(self, labels, force_drop_ids=None):
@@ -125,8 +125,8 @@ class LabelEmbedder(nn.Module):
         embeddings = self.embedding_table(labels)
         return embeddings
 
-    
-    
+
+
 #################################################################################
 #                                 Core SiT Model                                #
 #################################################################################
@@ -156,7 +156,7 @@ class SiTBlock(nn.Module):
         x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         return x
 
-    
+
 
 
 class DCTEmbedder(nn.Module):
@@ -168,14 +168,14 @@ class DCTEmbedder(nn.Module):
     """
     def __init__(
         self,
-        img_size: int = 32, 
+        img_size: int = 32,
         patch_size: int = 2,
         tokens: int = 0,
         in_channels: int = 4,
         embed_dim: int = 768,
         norm_layer=nn.LayerNorm,
         bias: bool = True,
-        norm='ortho', 
+        norm='ortho',
         remove_low_freq_ratio=0.1,
         high_freqs=0,
     ):
@@ -199,14 +199,14 @@ class DCTEmbedder(nn.Module):
         grid_size = tuple([s // p for s, p in zip(img_size, self.patch_size)])
         num_patches = grid_size[0] * grid_size[1]
         return img_size, grid_size, num_patches
-  
+
     def batch_split_blocks(self, x, block_sz):
         """ Splits batch tensor into (B, num_blocks, block_sz, block_sz) """
         B, H, W = x.shape[:3]
         x = x.unfold(1, block_sz, block_sz).unfold(2, block_sz, block_sz)   # (B, H//block_sz, W//block_sz, block_sz, block_sz)
         x = x.contiguous().view(B, -1, block_sz, block_sz)
         return x                                                            # Shape: (B, num_patches, patch_sz, patch_sz)
-    
+
     def forward(self, x):
         """
         x: (N, C, H, W) input image or latent representation
@@ -217,7 +217,7 @@ class DCTEmbedder(nn.Module):
 
         # Step 1: Split the image into non-overlapping blocks (patches)
         patches = self.batch_split_blocks(x, self.patch_size[0])        # (B, C, num_patches, patch_sz, patch_sz)
-        
+
         # Step 2: Apply DCT-2D to each patch
         dct_patches = self.dct_2d(patches, norm=self.norm)              # (B, C, num_patches, patch_sz, patch_sz)
 
@@ -225,34 +225,34 @@ class DCTEmbedder(nn.Module):
         if self.remove_low_freq_ratio > 0:
             low_freq_threshold = int(self.remove_low_freq_ratio * dct_patches.shape[-1])
             dct_patches[:, :, :, :low_freq_threshold] = 0               # Zero out low-frequencies
-        
+
         # Step 4: Flatten the DCT coefficients to tokens
         dct_patches = dct_patches.flatten(2).transpose(1, 2)            # (B, num_patches, D)
-        
+
         # Step 5: Optionally normalize the resulting tokens
         x = self.norm_layer(dct_patches)
-        x = self.proj(x)                                                # (B, tokens, num_low_freq*6) --> (B, tokens, hidden_dim)        
+        x = self.proj(x)                                                # (B, tokens, num_low_freq*6) --> (B, tokens, hidden_dim)
         return x
 
 
 
 class FreqPredictionLayer(nn.Module):
-    """ 
+    """
     Linear prediction layer for DCT coefficients.
-    
-    Args:   
+
+    Args:
         hidden_size: int, hidden size of the model
         dct_coeff: int, number of DCT coefficients (N, T, D) -> (N, T, dct_coeff)
     """
     def __init__(self, hidden_size, dct_coeff=1):
         super().__init__()
         self.linear_layer = nn.Linear(hidden_size, dct_coeff, bias=True)
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
-        
+
     def forward(self, x):
         return self.linear_layer(x)
-    
+
 
 
 
@@ -270,7 +270,7 @@ class FinalLayer(nn.Module):
         )
 
         if COMPILE: self.forward = compile_fn(self.forward)
-        
+
     def forward(self, x, c):
         shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
         x = modulate(self.norm_final(x), shift, scale)
@@ -307,7 +307,7 @@ class SiTDCT(SiT):
         super().__init__()
         global COMPILE
         COMPILE = compile
-        
+
         self.learn_sigma = learn_sigma
         self.in_channels = in_channels
         if learn_sigma:
@@ -319,7 +319,7 @@ class SiTDCT(SiT):
 
         # DCT Patch Embedding
         self.dct_embedder = DCTEmbedder(norm=dct_norm, remove_low_freq_ratio=remove_low_freq_ratio)
-        
+
         # Token Embedding
         self.t_embedder = TimestepEmbedder(hidden_size)
         if num_classes > 0:
@@ -328,7 +328,7 @@ class SiTDCT(SiT):
             print(f"[DiT] Class-conditional ({num_classes} classes {uc})")
         else:
             self.y_embedder = None
-            
+
         # Will use fixed sin-cos embedding:
         num_patches = self.dct_embedder.num_patches
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=True)
@@ -338,7 +338,7 @@ class SiTDCT(SiT):
         ])
         self.final_layer = FinalLayer(hidden_size, patch_size, self.out_channels)
         self.initialize_weights()
-        
+
         if load_from_ckpt is not None:
             dev = next(self.parameters()).device
             print(f"[DiT] Loading weights from {load_from_ckpt}")
@@ -401,8 +401,8 @@ class SiTDCT(SiT):
             outputs = module(*inputs)
             return outputs
         return ckpt_forward
-        
-        
+
+
     def forward(self, x, t, y=None,low_freg_sample=None):
         """
         Forward pass of SiT.
@@ -410,9 +410,9 @@ class SiTDCT(SiT):
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
-        x = self.dct_embedder(x)                                    # (N, T, D) where T = H * W, D = number of frequency components per token                   
+        x = self.dct_embedder(x)                                    # (N, T, D) where T = H * W, D = number of frequency components per token
         t = self.t_embedder(t)                                      # (N, D)
-        
+
         if self.y_embedder is not None:
             # Add a null class label for unconditional generation
             if y is None:
@@ -422,7 +422,7 @@ class SiTDCT(SiT):
             if y.ndim > 1:
                 y = y.squeeze(1)
 
-            y = self.y_embedder(y, self.training)                   # (N, D)            
+            y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
         else:
             c = t
@@ -434,24 +434,24 @@ class SiTDCT(SiT):
             c = t + y                                               # (N, D)
         else:
             c = t
-            
+
         x = x + self.pos_embed                                          # (N, T+1, D)
-        
+
         for block in self.blocks:
             x = block(x, c)                                         # (N, T, D)
-        
+
         x = self.final_layer(x, c)                                  # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)                                      # (N, out_channels, H, W)
         if self.learn_sigma:
             x, _ = x.chunk(2, dim=1)
-        
-        # Apply the inverse DCT (IDCT)
-        x = idct_2d(x, norm=self.dct_embedder.norm)  
 
-        # Optional: Add high- and reconstructed low-freq back 
+        # Apply the inverse DCT (IDCT)
+        x = idct_2d(x, norm=self.dct_embedder.norm)
+
+        # Optional: Add high- and reconstructed low-freq back
         if low_freg_sample is not None:
             x = low_freg_sample + x
-            
+
         return x
 
 
@@ -526,7 +526,7 @@ class SiTDCT(SiT):
 
     def DCT_to_RGB_torch(self, sample, tokens=0, low_freqs=0, block_sz=0, reverse_order=None, resolution=0, Y_bound=None):
         device = sample.device if torch.is_tensor(sample) else 'cpu'
-        
+
         # Step 1: Unpack shape
         num_y_blocks = tokens * 4
         num_cb_blocks = tokens

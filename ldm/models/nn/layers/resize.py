@@ -10,6 +10,7 @@ class Upsample(nn.Module):
     :param channels: channels in the inputs and outputs.
     :param use_conv: a bool determining if a convolution is applied.
     """
+
     def __init__(self, channels, use_conv):
         super().__init__()
         self.channels = channels
@@ -32,6 +33,7 @@ class Downsample(nn.Module):
     :param channels: channels in the inputs and outputs.
     :param use_conv: a bool determining if a convolution is applied.
     """
+
     def __init__(self, channels, use_conv):
         super().__init__()
         self.channels = channels

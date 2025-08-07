@@ -26,7 +26,7 @@ trainer_module:
     source_timestep: 0.5        # Cond: semantic conditioning step
     target_timestep: 1.0        # Cond: semantic conditioning step
     ema_rate: 0.0               # Other: no EMA
-    
+
 checkpoint_params:
   every_n_train_steps: 20000    # gradient update steps
 

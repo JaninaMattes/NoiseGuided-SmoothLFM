@@ -9,9 +9,9 @@ defaults:
   - experiment: null                    # must be last in defaults list as it can override all others
 
   # disable hydra logging
-  - override hydra/hydra_logging: disabled  
-  - override hydra/job_logging: disabled 
-  
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
 # ----------------------------------------
 name: debug/your_exp
 
@@ -58,12 +58,12 @@ trainer_module:
       num_steps: 50
       progress: False
       cond_key: 'y'
-    
+
     # EMA
     ema_rate: 0.9999       # if 0, no EMA
     ema_update_every: 1
     ema_update_after_step: 1000
-    
+
     # model specific
     vae_cfg: ${model}
     first_stage_cfg: ${oc.select:autoencoder, null}
@@ -71,7 +71,7 @@ trainer_module:
     metric_tracker_cfg: ${oc.select:metrics, null}
     num_classes: ${oc.select:flow.params.net_cfg.params.num_classes, -1}
     lr_scheduler_cfg: ${oc.select:lr_scheduler, null}
-  
+
 trainer_params:
   max_steps: -1
   max_epochs: -1

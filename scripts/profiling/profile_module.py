@@ -42,7 +42,7 @@ def main(cfg: DictConfig):
 
     """ Setup model """
     module = TrainerModuleLatentAE(
-        ae_cfg=cfg.model.ae_cfg, 
+        ae_cfg=cfg.model.ae_cfg,
         autoencoder_cfg=cfg.get("autoencoder", None),
         flow_cfg=cfg.get("flow", None),
         scale_factor=cfg.train.get("scale_factor", 1.0),
@@ -66,7 +66,6 @@ def main(cfg: DictConfig):
         log_grad_norm=cfg.train.get("log_grad_norm", False),
         normalize=cfg.data.get("normalize", False),
     )
-    
 
     """ Optimizer """
     opt = torch.optim.AdamW(module.parameters(), lr=cfg.trainer_module.params.lr)
@@ -74,15 +73,13 @@ def main(cfg: DictConfig):
     """ Run loop """
     profile_step = cfg.profiling.warmup
     for step, batch in enumerate(tqdm(data.train_dataloader(), total=profile_step)):
-
         batch = {k: v.to(DEV) for k, v in batch.items() if isinstance(v, torch.Tensor)}
 
         with profile_fn() if step == profile_step else NullObject() as prof:
-
             # forward pass
             with record_function(f"step_{step}/training_step"):
                 loss = module.training_step(batch, step)
-            
+
             # backward pass
             with record_function(f"step_{step}/backward"):
                 module.backward(loss)

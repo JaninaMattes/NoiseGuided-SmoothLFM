@@ -9,23 +9,20 @@ class DummyEncoder(nn.Module):
         )
 
         self.initialize_weights()
-    
+
     def forward(self, x):
         x = x.view(x.size(0), -1)
         x = self.encoder(x)
         return x
 
-    
     def initialize_weights(self):
         def _basic_init(module):
             if isinstance(module, nn.Linear):
                 torch.nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
         self.apply(_basic_init)
-    
-
-
 
 
 if __name__ == "__main__":

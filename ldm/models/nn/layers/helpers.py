@@ -2,12 +2,12 @@
 # - https://github.com/huggingface/pytorch-image-models/blob/main/timm/layers/helpers.py
 # - https://github.com/huggingface/pytorch-image-models/blob/main/timm/layers/grid.py
 from typing import Tuple
-from abc import abstractmethod
 
 import torch
 
 
 """ Layer/Module Helpers """
+
 
 def zero_module(module):
     """
@@ -16,7 +16,6 @@ def zero_module(module):
     for p in module.parameters():
         p.detach().zero_()
     return module
-
 
 
 """ Layer/Module Helpers
@@ -32,6 +31,7 @@ def _ntuple(n):
         if isinstance(x, collections.abc.Iterable) and not isinstance(x, str):
             return tuple(x)
         return tuple(repeat(x, n))
+
     return parse
 
 
@@ -42,7 +42,7 @@ to_4tuple = _ntuple(4)
 to_ntuple = _ntuple
 
 
-def make_divisible(v, divisor=8, min_value=None, round_limit=.9):
+def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
     min_value = min_value or divisor
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
     # Make sure that round down does not go down by more than 10%.
@@ -63,8 +63,9 @@ def extend_tuple(x, n):
     return x + (x[-1],) * pad_n
 
 
-
 """ Grid Helpers """
+
+
 def ndgrid(*tensors) -> Tuple[torch.Tensor, ...]:
     """generate N-D grid in dimension order.
 
@@ -82,7 +83,7 @@ def ndgrid(*tensors) -> Tuple[torch.Tensor, ...]:
 
     """
     try:
-        return torch.meshgrid(*tensors, indexing='ij')
+        return torch.meshgrid(*tensors, indexing="ij")
     except TypeError:
         # old PyTorch < 1.10 will follow this path as it does not have indexing arg,
         # the old behaviour of meshgrid was 'ij'

@@ -6,30 +6,25 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-import matplotlib.pyplot as plt
-from pathlib import Path
 from scipy.stats import gaussian_kde
 
 import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 from sklearn.datasets import make_blobs
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from pathlib import Path
 
 
-
-def generate_structured_dummy_probe_data(save_path="test_outputs/dummy_model_v0_results.json"):
+def generate_structured_dummy_probe_data(
+    save_path="test_outputs/dummy_model_v0_results.json",
+):
     model_configs_v0 = [
         {"name": "Beta02x10x_1e4b", "beta": 1e-4, "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_01b",  "beta": 0.1,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_05b",  "beta": 0.5,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_1b",   "beta": 1.0,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_2b",   "beta": 2.0,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_3b",   "beta": 3.0,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_5b",   "beta": 5.0,  "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_01b", "beta": 0.1, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_05b", "beta": 0.5, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_1b", "beta": 1.0, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_2b", "beta": 2.0, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_3b", "beta": 3.0, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_5b", "beta": 5.0, "source_ts": 0.20, "target_ts": 1.00},
     ]
 
     probe_types = ["Linear", "Two-Layer"]
@@ -43,17 +38,18 @@ def generate_structured_dummy_probe_data(save_path="test_outputs/dummy_model_v0_
             "Beta": cfg["beta"],
             "SourceTimestep": cfg["source_ts"],
             "TargetTimestep": cfg["target_ts"],
-            "Results": []
+            "Results": [],
         }
 
         for probe in probe_types:
             for pca in pca_values:
-                val_accuracies = [round(random.uniform(0.05, 0.35), 3) for _ in range(random.randint(6, 12))]
-                model_data["Results"].append({
-                    "ProbeType": probe,
-                    "PCA": pca,
-                    "ValAccuracies": val_accuracies
-                })
+                val_accuracies = [
+                    round(random.uniform(0.05, 0.35), 3)
+                    for _ in range(random.randint(6, 12))
+                ]
+                model_data["Results"].append(
+                    {"ProbeType": probe, "PCA": pca, "ValAccuracies": val_accuracies}
+                )
 
         dummy_results.append(model_data)
 
@@ -64,16 +60,17 @@ def generate_structured_dummy_probe_data(save_path="test_outputs/dummy_model_v0_
     return save_path
 
 
-
-def generate_structured_dummy_probe_data(save_path="test_outputs/dummy_model_v0_results.json"):
+def generate_structured_dummy_probe_data(
+    save_path="test_outputs/dummy_model_v0_results.json",
+):
     model_configs_v0 = [
         {"name": "Beta02x10x_1e4b", "beta": 1e-4, "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_01b",  "beta": 0.1,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_05b",  "beta": 0.5,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_1b",   "beta": 1.0,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_2b",   "beta": 2.0,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_3b",   "beta": 3.0,  "source_ts": 0.20, "target_ts": 1.00},
-        {"name": "Beta02x10x_5b",   "beta": 5.0,  "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_01b", "beta": 0.1, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_05b", "beta": 0.5, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_1b", "beta": 1.0, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_2b", "beta": 2.0, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_3b", "beta": 3.0, "source_ts": 0.20, "target_ts": 1.00},
+        {"name": "Beta02x10x_5b", "beta": 5.0, "source_ts": 0.20, "target_ts": 1.00},
     ]
 
     probe_types = ["Linear", "Two-Layer"]
@@ -87,60 +84,70 @@ def generate_structured_dummy_probe_data(save_path="test_outputs/dummy_model_v0_
             "Beta": cfg["beta"],
             "SourceTimestep": cfg["source_ts"],
             "TargetTimestep": cfg["target_ts"],
-            "Results": []
+            "Results": [],
         }
 
         for probe in probe_types:
             for pca in pca_values:
                 if probe == "Linear":
                     # Low accuracy range
-                    val_accuracies = [round(random.uniform(0.01, 0.05), 3) for _ in range(random.randint(6, 12))]
+                    val_accuracies = [
+                        round(random.uniform(0.01, 0.05), 3)
+                        for _ in range(random.randint(6, 12))
+                    ]
                 else:
                     # High accuracy range
-                    val_accuracies = [round(random.uniform(0.6, 0.95), 3) for _ in range(random.randint(6, 12))]
+                    val_accuracies = [
+                        round(random.uniform(0.6, 0.95), 3)
+                        for _ in range(random.randint(6, 12))
+                    ]
 
-                model_data["Results"].append({
-                    "ProbeType": probe,
-                    "PCA": pca,
-                    "ValAccuracies": val_accuracies
-                })
+                model_data["Results"].append(
+                    {"ProbeType": probe, "PCA": pca, "ValAccuracies": val_accuracies}
+                )
 
         dummy_results.append(model_data)
 
     Path(save_path).parent.mkdir(parents=True, exist_ok=True)
     with open(save_path, "w") as f:
         json.dump(dummy_results, f, indent=2)
-    print(f"[INFO] Dummy probe result data (with extreme scale difference) saved to: {save_path}")
+    print(
+        f"[INFO] Dummy probe result data (with extreme scale difference) saved to: {save_path}"
+    )
     return save_path
-
 
 
 def generate_dummy_kmeans_results(
     pca_values=[2, 3, 5, 7, 10, 20],
     k_values=[2, 3, 5, 10, 15, 20, 50],
-    model_name="dummy_model"
+    model_name="dummy_model",
 ):
     dummy_results = []
 
     for pca in pca_values:
         for k in k_values:
-            dummy_results.append({
-                "Model": model_name,
-                "Beta": 1.0,
-                "PCA": pca,
-                "K": k,
-                "Silhouette": round(random.uniform(0.2, 0.75), 3),
-                "ARI": round(random.uniform(0.1, 0.8), 3),
-                "NMI": round(random.uniform(0.15, 0.9), 3)
-            })
+            dummy_results.append(
+                {
+                    "Model": model_name,
+                    "Beta": 1.0,
+                    "PCA": pca,
+                    "K": k,
+                    "Silhouette": round(random.uniform(0.2, 0.75), 3),
+                    "ARI": round(random.uniform(0.1, 0.8), 3),
+                    "NMI": round(random.uniform(0.15, 0.9), 3),
+                }
+            )
 
     return dummy_results
 
 
-
-def generate_dummy_pca_kmeans_data(pca_values=[2, 3, 5], k_values=[2, 3, 4], n_samples=500, n_features=20):
+def generate_dummy_pca_kmeans_data(
+    pca_values=[2, 3, 5], k_values=[2, 3, 4], n_samples=500, n_features=20
+):
     np.random.seed(42)
-    X, y_true = make_blobs(n_samples=n_samples, centers=5, n_features=n_features, random_state=42)
+    X, y_true = make_blobs(
+        n_samples=n_samples, centers=5, n_features=n_features, random_state=42
+    )
 
     all_rows = []
     for pca_dim in pca_values:
@@ -154,18 +161,22 @@ def generate_dummy_pca_kmeans_data(pca_values=[2, 3, 5], k_values=[2, 3, 4], n_s
             # For scatter plot, we only use 2D (first 2 components) for plotting
             if X_pca.shape[1] < 2:
                 # pad with zeros
-                X_plot = np.hstack([X_pca, np.zeros((X_pca.shape[0], 2 - X_pca.shape[1]))])
+                X_plot = np.hstack(
+                    [X_pca, np.zeros((X_pca.shape[0], 2 - X_pca.shape[1]))]
+                )
             else:
                 X_plot = X_pca[:, :2]
 
             for i in range(len(X_plot)):
-                all_rows.append({
-                    "PCA": pca_dim,
-                    "K": k,
-                    "x": X_plot[i, 0],
-                    "y": X_plot[i, 1],
-                    "Cluster": labels[i]
-                })
+                all_rows.append(
+                    {
+                        "PCA": pca_dim,
+                        "K": k,
+                        "x": X_plot[i, 0],
+                        "y": X_plot[i, 1],
+                        "Cluster": labels[i],
+                    }
+                )
 
     return pd.DataFrame(all_rows)
 
@@ -177,19 +188,21 @@ def plot_pca_kmeans_scatter_grid(df, project_name="test_outputs"):
 
     # Set global style to match example
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # Convert types for plotting
     df["PCA"] = df["PCA"].astype(str)
@@ -198,8 +211,14 @@ def plot_pca_kmeans_scatter_grid(df, project_name="test_outputs"):
     g = sns.FacetGrid(df, row="PCA", col="K", margin_titles=True, height=2.8, aspect=1)
     g.map_dataframe(
         sns.scatterplot,
-        x="x", y="y", hue="Cluster", palette="tab10", s=20, linewidth=0, alpha=0.8,
-        legend=False  # <- disable legend in individual plots
+        x="x",
+        y="y",
+        hue="Cluster",
+        palette="tab10",
+        s=20,
+        linewidth=0,
+        alpha=0.8,
+        legend=False,  # <- disable legend in individual plots
     )
 
     g.set_axis_labels("PC 1", "PC 2")
@@ -219,15 +238,14 @@ def plot_pca_kmeans_scatter_grid(df, project_name="test_outputs"):
     plt.close()
 
 
-
-
-
-
 # -----------------------------------------------
 # Plotting Functions
 # -----------------------------------------------
 
-def plot_probe_results_from_json(json_path, project_name="test_outputs", probe_filter="Linear"):
+
+def plot_probe_results_from_json(
+    json_path, project_name="test_outputs", probe_filter="Linear"
+):
     with open(json_path, "r") as f:
         data = json.load(f)
 
@@ -236,15 +254,17 @@ def plot_probe_results_from_json(json_path, project_name="test_outputs", probe_f
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracy": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracy": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df = df[df["ProbeType"] == probe_filter]
@@ -253,20 +273,22 @@ def plot_probe_results_from_json(json_path, project_name="test_outputs", probe_f
 
     #
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
-    
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
+
     # Setup FacetGrid
     g = sns.FacetGrid(df, col="PCA", col_wrap=3, height=2.8, aspect=1.2, sharey=True)
 
@@ -276,30 +298,44 @@ def plot_probe_results_from_json(json_path, project_name="test_outputs", probe_f
         data = data.copy()
         data["Beta"] = data["Beta"].astype(float)
 
-
         # Violin background
         sns.violinplot(
-            data=data, x="Beta", y="ValAccuracy",
-            ax=ax, order=beta_order,
-            inner=None, linewidth=0, color="#a0aab8", saturation=0.3
+            data=data,
+            x="Beta",
+            y="ValAccuracy",
+            ax=ax,
+            order=beta_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         # Boxplot overlay
         sns.boxplot(
-            data=data, x="Beta", y="ValAccuracy",
-            width=0.3, ax=ax, order=beta_order,
+            data=data,
+            x="Beta",
+            y="ValAccuracy",
+            width=0.3,
+            ax=ax,
+            order=beta_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
         # Median line — map beta to float *positions* on x-axis
-        medians = data.groupby("Beta", observed=True)["ValAccuracy"].median().reindex(beta_order)
-        x_vals = list(range(len(beta_order)))               # x positions of boxes
-        y_vals = medians.values                             # medians
+        medians = (
+            data.groupby("Beta", observed=True)["ValAccuracy"]
+            .median()
+            .reindex(beta_order)
+        )
+        x_vals = list(range(len(beta_order)))  # x positions of boxes
+        y_vals = medians.values  # medians
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
 
         # Set correct tick labels
@@ -307,17 +343,19 @@ def plot_probe_results_from_json(json_path, project_name="test_outputs", probe_f
         ax.set_xticklabels([f"{b:.4g}" for b in beta_order])  # optional formatting
         ax.set_xlabel(r"$\beta$", fontsize=10)
         ax.set_ylabel(r"Validation Accuracy", fontsize=10)
-        ax.tick_params(axis='x', rotation=0)
+        ax.tick_params(axis="x", rotation=0)
         ax.grid(True, linestyle="--", alpha=0.4)
 
         # Debug
-        print(f"[PCA {data['PCA'].iloc[0]}] Median line: {list(zip(beta_order, y_vals))}")
-
-
+        print(
+            f"[PCA {data['PCA'].iloc[0]}] Median line: {list(zip(beta_order, y_vals))}"
+        )
 
     g.map_dataframe(draw_minimalist_boxplot)
     g.set_titles(col_template=r"PCA = {col_name}", size=10)
-    plt.suptitle(r"Validation Accuracy over Number of PCA Components", fontsize=12, y=1.05)
+    plt.suptitle(
+        r"Validation Accuracy over Number of PCA Components", fontsize=12, y=1.05
+    )
 
     plt.tight_layout()
     plot_path = Path(f"{project_name}/pca_beta_boxplot_style_matched.png")
@@ -326,9 +364,8 @@ def plot_probe_results_from_json(json_path, project_name="test_outputs", probe_f
     print(f"[INFO] Saved PCA plot to: {plot_path}")
     plt.show()
     plt.close()
-    
-    
-    
+
+
 def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
     import json
     import numpy as np
@@ -336,7 +373,6 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
     import seaborn as sns
     import matplotlib.pyplot as plt
     from pathlib import Path
-    from scipy.stats import gaussian_kde
 
     with open(json_path, "r") as f:
         data = json.load(f)
@@ -346,15 +382,17 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracy": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracy": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df["Beta"] = df["Beta"].astype(float)
@@ -364,19 +402,21 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
 
     # Style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # Calculate generous KDE-based y-limits per probe type
     y_limits = {}
@@ -395,20 +435,19 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
 
         # Expand limits generously
         padding = (y_max - y_min) * 0.2 if y_max > y_min else 0.05
-        y_limits[probe] = (
-            max(0.0, y_min - padding),
-            min(1.2, y_max + padding)
-        )
+        y_limits[probe] = (max(0.0, y_min - padding), min(1.2, y_max + padding))
 
     # FacetGrid with relaxed height and spacing
     g = sns.FacetGrid(
         df,
-        row="ProbeType", col="PCA",
-        height=3.2, aspect=1.2,
+        row="ProbeType",
+        col="PCA",
+        height=3.2,
+        aspect=1.2,
         sharey=False,
         row_order=probe_order,
         col_order=pca_order,
-        margin_titles=True
+        margin_titles=True,
     )
 
     def draw_boxplot_with_medians(data, **kwargs):
@@ -417,24 +456,39 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="Beta", y="ValAccuracy",
-            ax=ax, order=beta_order,
-            inner=None, linewidth=0, color="#a0aab8", saturation=0.3
+            data=data,
+            x="Beta",
+            y="ValAccuracy",
+            ax=ax,
+            order=beta_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="Beta", y="ValAccuracy",
-            width=0.3, ax=ax, order=beta_order,
+            data=data,
+            x="Beta",
+            y="ValAccuracy",
+            width=0.3,
+            ax=ax,
+            order=beta_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
         # Median line
-        medians = data.groupby("Beta", observed=True)["ValAccuracy"].median().reindex(beta_order)
+        medians = (
+            data.groupby("Beta", observed=True)["ValAccuracy"]
+            .median()
+            .reindex(beta_order)
+        )
         x_vals = list(range(len(beta_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -452,7 +506,7 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
     # Row subtitles
     row_labels = {
         "Linear": "(a) Linear Probe Classifier Evaluation",
-        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation"
+        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation",
     }
 
     g.fig.subplots_adjust(top=0.9, hspace=0.4)
@@ -466,12 +520,18 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
         y_offset = 0.08 if i == len(probe_order) - 1 else 0.035
 
         g.fig.text(
-            center_x, bottom_y - y_offset,
+            center_x,
+            bottom_y - y_offset,
             row_labels[probe],
-            fontsize=11, fontweight="bold", ha="center", va="top"
+            fontsize=11,
+            fontweight="bold",
+            ha="center",
+            va="top",
         )
 
-    plt.suptitle(r"Validation Accuracy over Number of PCA Components", fontsize=14, y=1.04)
+    plt.suptitle(
+        r"Validation Accuracy over Number of PCA Components", fontsize=14, y=1.04
+    )
     plot_path = Path(f"{project_name}/combined_probe_accuracy_grid.png")
     plot_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
@@ -480,10 +540,9 @@ def plot_probe_comparison_grid(json_path, project_name="test_outputs"):
     plt.close()
 
 
-
-
-
-def plot_pca_across_betas(json_path, project_name="test_outputs", probe_filter="Linear"):
+def plot_pca_across_betas(
+    json_path, project_name="test_outputs", probe_filter="Linear"
+):
     with open(json_path, "r") as f:
         data = json.load(f)
 
@@ -492,15 +551,17 @@ def plot_pca_across_betas(json_path, project_name="test_outputs", probe_filter="
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracy": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracy": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df = df[df["ProbeType"] == probe_filter]
@@ -512,25 +573,31 @@ def plot_pca_across_betas(json_path, project_name="test_outputs", probe_filter="
 
     # Global style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # FacetGrid with one subplot per Beta
     g = sns.FacetGrid(
-        df, col="Beta", col_wrap=4,
-        height=2.8, aspect=1.2, sharey=True,
-        col_order=beta_order
+        df,
+        col="Beta",
+        col_wrap=4,
+        height=2.8,
+        aspect=1.2,
+        sharey=True,
+        col_order=beta_order,
     )
 
     def draw_pca_grouped_boxplot(data, **kwargs):
@@ -539,23 +606,38 @@ def plot_pca_across_betas(json_path, project_name="test_outputs", probe_filter="
         data = data.copy()
 
         sns.violinplot(
-            data=data, x="PCA", y="ValAccuracy",
-            ax=ax, order=pca_order,
-            inner=None, linewidth=0, color="#a0aab8", saturation=0.3
+            data=data,
+            x="PCA",
+            y="ValAccuracy",
+            ax=ax,
+            order=pca_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="PCA", y="ValAccuracy",
-            width=0.3, ax=ax, order=pca_order,
+            data=data,
+            x="PCA",
+            y="ValAccuracy",
+            width=0.3,
+            ax=ax,
+            order=pca_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
-        medians = data.groupby("PCA", observed=True)["ValAccuracy"].median().reindex(pca_order)
+        medians = (
+            data.groupby("PCA", observed=True)["ValAccuracy"]
+            .median()
+            .reindex(pca_order)
+        )
         x_vals = list(range(len(pca_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -572,7 +654,11 @@ def plot_pca_across_betas(json_path, project_name="test_outputs", probe_filter="
 
     g.map_dataframe(draw_pca_grouped_boxplot)
     g.set_titles(col_template=r"$\beta$ = {col_name}", size=10)
-    plt.suptitle(f"Validation Accuracy by PCA Dimension\n({probe_filter} Probes)", fontsize=14, y=1.05)
+    plt.suptitle(
+        f"Validation Accuracy by PCA Dimension\n({probe_filter} Probes)",
+        fontsize=14,
+        y=1.05,
+    )
 
     plt.tight_layout()
     plot_path = Path(f"{project_name}/pca_over_beta_faceted_by_beta.png")
@@ -590,7 +676,6 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
     import seaborn as sns
     import matplotlib.pyplot as plt
     from pathlib import Path
-    from scipy.stats import gaussian_kde
 
     with open(json_path, "r") as f:
         data = json.load(f)
@@ -600,15 +685,17 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracy": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracy": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df["Beta"] = df["Beta"].astype(float)
@@ -620,19 +707,21 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
 
     # Set global style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # KDE-based y-limits per probe type to avoid violin cutoffs
     y_limits = {}
@@ -654,12 +743,14 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
     # FacetGrid (with sharey=False to allow custom limits)
     g = sns.FacetGrid(
         df,
-        row="ProbeType", col="Beta",
-        height=3.0, aspect=1.2,
+        row="ProbeType",
+        col="Beta",
+        height=3.0,
+        aspect=1.2,
         sharey=False,
         row_order=probe_order,
         col_order=beta_order,
-        margin_titles=True
+        margin_titles=True,
     )
 
     def draw_pca_vs_accuracy_boxplot(data, **kwargs):
@@ -668,24 +759,38 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="PCA", y="ValAccuracy",
-            ax=ax, order=pca_order,
-            inner=None, linewidth=0,
-            color="#a0aab8", saturation=0.3
+            data=data,
+            x="PCA",
+            y="ValAccuracy",
+            ax=ax,
+            order=pca_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="PCA", y="ValAccuracy",
-            width=0.3, ax=ax, order=pca_order,
+            data=data,
+            x="PCA",
+            y="ValAccuracy",
+            width=0.3,
+            ax=ax,
+            order=pca_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
-        medians = data.groupby("PCA", observed=True)["ValAccuracy"].median().reindex(pca_order)
+        medians = (
+            data.groupby("PCA", observed=True)["ValAccuracy"]
+            .median()
+            .reindex(pca_order)
+        )
         x_vals = list(range(len(pca_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -706,7 +811,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
     # Row annotations
     row_labels = {
         "Linear": "(a) Linear Probe Classifier Evaluation",
-        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation"
+        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation",
     }
 
     g.fig.subplots_adjust(top=0.92, hspace=0.4)
@@ -720,12 +825,18 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
         y_offset = 0.08 if i == len(probe_order) - 1 else 0.035
 
         g.fig.text(
-            center_x, bottom_y - y_offset,
+            center_x,
+            bottom_y - y_offset,
             row_labels[probe],
-            fontsize=11, fontweight="bold", ha="center", va="top"
+            fontsize=11,
+            fontweight="bold",
+            ha="center",
+            va="top",
         )
 
-    plt.suptitle("Validation Accuracy across PCA Dimensions per Beta Value", fontsize=14, y=1.05)
+    plt.suptitle(
+        "Validation Accuracy across PCA Dimensions per Beta Value", fontsize=14, y=1.05
+    )
     plot_path = Path(f"{project_name}/pca_vs_beta_combined_grid.png")
     plot_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
@@ -734,40 +845,38 @@ def plot_pca_comparison_by_beta_grid(json_path, project_name="test_outputs"):
     plt.close()
 
 
-
-
-
-def plot_kmeans_grid(clustering_results, metric="Silhouette", project_name="test_outputs"):
+def plot_kmeans_grid(
+    clustering_results, metric="Silhouette", project_name="test_outputs"
+):
     df = pd.DataFrame(clustering_results)
     df["PCA"] = df["PCA"].astype(str)
     df["K"] = df["K"].astype(int)
 
     if metric not in df.columns:
-        raise ValueError(f"Metric '{metric}' not found in results. Available: {list(df.columns)}")
+        raise ValueError(
+            f"Metric '{metric}' not found in results. Available: {list(df.columns)}"
+        )
 
     # Set global style to match example
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,  # Set to True if you want full LaTeX rendering
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,  # Set to True if you want full LaTeX rendering
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     g = sns.FacetGrid(df, row="PCA", height=2.5, aspect=1.5, sharey=True)
-    g.map_dataframe(
-        sns.barplot,
-        x="K", y=metric,
-        color="steelblue",
-        edgecolor="black"
-    )
+    g.map_dataframe(sns.barplot, x="K", y=metric, color="steelblue", edgecolor="black")
 
     g.set_titles(row_template="PCA = {row_name}")
     g.set_axis_labels("K (# Clusters)", f"{metric} Score")
@@ -782,8 +891,6 @@ def plot_kmeans_grid(clustering_results, metric="Silhouette", project_name="test
     plt.close()
 
 
-
-
 if __name__ == "__main__":
     json_path = generate_structured_dummy_probe_data()
 
@@ -795,16 +902,16 @@ if __name__ == "__main__":
     plot_pca_across_betas(json_path, probe_filter="Linear")
     plot_pca_across_betas(json_path, probe_filter="Two-Layer")
 
-
     # Combined comparison grid
     plot_probe_comparison_grid(json_path)
     plot_pca_comparison_by_beta_grid(json_path)
 
-
     # ---- K-Means Clustering Example ----
-    df = generate_dummy_pca_kmeans_data(pca_values=[2, 3, 5, 10, 20], k_values=[2, 3, 5, 10, 20])
+    df = generate_dummy_pca_kmeans_data(
+        pca_values=[2, 3, 5, 10, 20], k_values=[2, 3, 5, 10, 20]
+    )
     plot_pca_kmeans_scatter_grid(df)
-    
+
     # Test K-Means grid plotting with dummy data
     # Generate dummy K-Means results
     dummy_kmeans_results = generate_dummy_kmeans_results()
@@ -814,4 +921,4 @@ if __name__ == "__main__":
     plot_kmeans_grid(dummy_kmeans_results, metric="ARI")
     plot_kmeans_grid(dummy_kmeans_results, metric="NMI")
 
-# CUDA_VISIBLE_DEVICES=1 python 
+# CUDA_VISIBLE_DEVICES=1 python

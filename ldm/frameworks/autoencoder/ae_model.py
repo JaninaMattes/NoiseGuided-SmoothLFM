@@ -13,8 +13,7 @@ import torch.nn.functional as F
 from jutils import instantiate_from_config
 
 
-project_root = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), '../../../../'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
 sys.path.append(project_root)
 
 
@@ -28,16 +27,22 @@ class AE(BaseAE):
     def __init__(
         self,
         encoder_cfg: Union[dict, BaseEncoder],
-        decoder_cfg: Union[dict, BaseDecoder]
+        decoder_cfg: Union[dict, BaseDecoder],
     ):
         super().__init__()
         self.model_name = "AE"
 
         # Instantiate the encoder and decoder
-        self.encoder = encoder_cfg if isinstance(
-            encoder_cfg, nn.Module) else instantiate_from_config(encoder_cfg)
-        self.decoder = decoder_cfg if isinstance(
-            decoder_cfg, nn.Module) else instantiate_from_config(decoder_cfg)
+        self.encoder = (
+            encoder_cfg
+            if isinstance(encoder_cfg, nn.Module)
+            else instantiate_from_config(encoder_cfg)
+        )
+        self.decoder = (
+            decoder_cfg
+            if isinstance(decoder_cfg, nn.Module)
+            else instantiate_from_config(decoder_cfg)
+        )
 
     def forward(self, x: torch.Tensor, normalize=False) -> AEModelOutput:
         """The input data is encoded and decoded
@@ -83,11 +88,12 @@ class AE(BaseAE):
         return AEDecoderOutput(z_dec=recon_z, noise=None)
 
     def loss_function(self, recons_x, x) -> torch.Tensor:
-        """ Reconstruction loss."""
+        """Reconstruction loss."""
         return F.mse_loss(recons_x, x)
 
     def initialize_weights(self):
         """Initialize the weights of the model"""
+
         def _basic_init(module):
             self.apply(_basic_init)
 

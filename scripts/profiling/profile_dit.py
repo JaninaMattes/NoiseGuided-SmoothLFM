@@ -51,13 +51,11 @@ def main(args):
     profile_step = args.warmup + 1
     fn = f"dit_step{profile_step}_bs{args.bs}_{args.name}"
     for step in tqdm(range(profile_step), desc="Profiling"):
-        
         batch = gen_data(args.bs)
         batch = {k: v.to(DEV) for k, v in batch.items() if isinstance(v, torch.Tensor)}
 
         with inf_context:
             with profile_fn() if step == args.warmup else NullObject() as prof:
-                
                 # forward pass
                 with record_function(f"step_{step}/fwd"):
                     out = model(**batch)
@@ -80,7 +78,6 @@ def main(args):
     """ check timing """
     times = dict(fwd=[], bwd=[], opt=[], total=[])
     for step in tqdm(range(args.warmup + args.timing_steps), desc="Timing"):
-        
         batch = gen_data(args.bs)
         batch = {k: v.to(DEV) for k, v in batch.items() if isinstance(v, torch.Tensor)}
 
@@ -98,11 +95,11 @@ def main(args):
         if step < args.warmup:
             continue
 
-        times['fwd'].append(t_fwd - t0)
-        times['bwd'].append(t_bwd - t_fwd)
-        times['opt'].append(t_opt - t_bwd)
-        times['total'].append(t_opt - t0)
-    
+        times["fwd"].append(t_fwd - t0)
+        times["bwd"].append(t_bwd - t_fwd)
+        times["opt"].append(t_opt - t_bwd)
+        times["total"].append(t_opt - t0)
+
     print(f"Evaluated {len(times['fwd'])} steps for timing")
     with open(f"{fn}.txt", "w") as f:
         header = f"{'Process':<10} {'Mean':<10} {'Min':<10} {'Max':<10}"

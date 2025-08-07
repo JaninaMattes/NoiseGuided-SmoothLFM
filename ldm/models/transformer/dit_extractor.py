@@ -152,7 +152,7 @@ class DiT_Extractor(nn.Module):
         self.num_heads = num_heads
         self.use_checkpointing = use_checkpointing
         self.hidden_size = hidden_size
-        
+
         self.return_sigma = return_sigma
 
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
@@ -231,7 +231,7 @@ class DiT_Extractor(nn.Module):
         x = torch.einsum('nhwpqc->nchpwq', x)
         imgs = x.reshape(shape=(x.shape[0], c, h * p, h * p))
         return imgs
-    
+
     def ckpt_wrapper(self, module):
         def ckpt_forward(*inputs):
             outputs = module(*inputs)
@@ -247,7 +247,7 @@ class DiT_Extractor(nn.Module):
         """
         x = self.x_embedder(x) + self.pos_embed  # (N, T, D), where T = H * W / patch_size ** 2
         t = self.t_embedder(t)                   # (N, D)
-        
+
         if self.y_embedder is not None:
             # Add a null class label for unconditional generation
             if y is None:
@@ -257,7 +257,7 @@ class DiT_Extractor(nn.Module):
             if y.ndim > 1:
                 y = y.squeeze(1)
 
-            y = self.y_embedder(y, self.training)                   # (N, D)            
+            y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
         else:
             c = t
@@ -284,7 +284,7 @@ class DiT_Extractor(nn.Module):
         """
         if cfg_scale == 1.0:                                # without CFG
             print(f"[DiffusionFlow] CFG scale is 1.0, no CFG applied")
-            
+
         # https://github.com/openai/glide-text2im/blob/main/notebooks/text2im.ipynb
         half = x[: len(x) // 2]
         combined = torch.cat([half, half], dim=0)
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     ipt = torch.randn(2, 4, 32, 32)
     t = torch.randint(0, 100, (2,))
     y = torch.randint(0, 1000, (2,))
-    
+
     """ Conditional """
     net = DiT_models['DiT-B/8']()
     out = net(ipt, t, y)
@@ -365,7 +365,7 @@ if __name__ == "__main__":
     print(f"{'Params':<10}: {sum([p.numel() for p in net.parameters() if p.requires_grad]):,}")
     print(f"{'Input':<10}: {ipt.shape}")
     print(f"{'Output':<10}: {out.shape}")
-    
+
     """ Unconditional """
     net = DiT_models['DiT-B/8'](num_classes=-1)
     out = net(ipt, t)

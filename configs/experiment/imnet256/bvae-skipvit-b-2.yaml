@@ -25,7 +25,7 @@ trainer_module:
     source_timestep: 0.5        # Source: x0, t=0.0 (full-noise), t=1.0 (data), t={0.25, ..., 0.75} etc. default: 0.5 (mid-point)
     target_timestep: 0.5        # Target: x1, t=0.0 (full-noise), t=1.0 (data), t={0.25, ..., 0.75} etc. default: 0.5 (mid-point)
     ema_rate: 0.0                # Other: no EMA
-    
+
 checkpoint_params:
   every_n_train_steps: 10000    # gradient update steps
 

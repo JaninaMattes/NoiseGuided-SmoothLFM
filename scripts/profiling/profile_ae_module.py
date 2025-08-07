@@ -16,6 +16,7 @@ pdir = os.path.dirname(cdir)
 ppdir = os.path.dirname(pdir)
 sys.path.insert(0, ppdir)
 
+
 def gen_data(bs):
     return {
         "image": torch.randn(bs, 3, 256, 256),
@@ -24,10 +25,12 @@ def gen_data(bs):
     }
 
 
-@hydra.main(config_path="../../configs", config_name="ae_vit_default_config", version_base=None)
+@hydra.main(
+    config_path="../../configs", config_name="ae_vit_default_config", version_base=None
+)
 def main(cfg: DictConfig):
     DEV = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     """Setup Torch Profiling"""
     profile_fn = partial(
         profile,
@@ -40,16 +43,15 @@ def main(cfg: DictConfig):
         with_flops=cfg.profiling.with_flops,
         with_stack=True,
     )
-    
+
     """ Setup dataloader """
     data = instantiate_from_config(cfg.data)
     if hasattr(data, "prepare_data"):
         data.prepare_data()
     if hasattr(data, "setup"):
-        data.setup(stage='fit')
+        data.setup(stage="fit")
         print("Data setup complete.")
-        
-        
+
     """ Setup model """
     module = instantiate_from_config(cfg.trainer_module)
     module.model.to(DEV)
@@ -60,15 +62,13 @@ def main(cfg: DictConfig):
     """ Run loop """
     profile_step = cfg.profiling.warmup
     for step, batch in enumerate(tqdm(data.train_dataloader(), total=profile_step)):
-
         batch = {k: v.to(DEV) for k, v in batch.items() if isinstance(v, torch.Tensor)}
 
         with profile_fn() if step == profile_step else NullObject() as prof:
-
             # forward pass
             with record_function(f"step_{step}/training_step"):
                 loss = module.training_step(batch, step)
-            
+
             # backward pass
             with record_function(f"step_{step}/backward"):
                 module.backward(loss)
@@ -77,7 +77,7 @@ def main(cfg: DictConfig):
             with record_function(f"step_{step}/optimizer_step"):
                 opt.step()
                 opt.zero_grad()
-                
+
         if step == profile_step:
             fn = f"profile_{module.__class__.__name__}_step{step}.json"
             print(f"[Profiling] Enabled after {cfg.profiling.warmup} steps.")

@@ -41,7 +41,7 @@ import cv2
 from moviepy import ImageSequenceClip
 
 
-# helper 
+# helper
 from torchmetrics.image.fid import FrechetInceptionDistance
 from elatentlpips import ELatentLPIPS
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
@@ -50,7 +50,7 @@ from pytorch_fid.inception import InceptionV3
 
 
 
-# Jutils 
+# Jutils
 from jutils import denorm
 from jutils import ims_to_grid
 from jutils.vision import tensor2im
@@ -95,18 +95,18 @@ def clear_folder(path: Path):
 def sharpen_image(img_np, strength=0.1):
     """
     Applies a sharpening filter to an image.
-    
+
     Args:
         img_np: np.array of shape (H, W, C), dtype uint8 or float32
         strength: Controls sharpness intensity (1.0 = default)
-    
+
     Returns:
         Sharpened image as np.uint8
     """
     kernel = np.array([[0, -1, 0],
                        [-1, 5 + strength, -1],
                        [0, -1, 0]])
-    
+
     if img_np.dtype != np.uint8:
         img_np = (img_np * 255).clip(0, 255).astype(np.uint8)
     return cv2.filter2D(img_np, -1, kernel)
@@ -147,7 +147,7 @@ def lerp(t, v0, v1):
     return v0 * (1 - t) + v1 * t
 
 def generate_interpolation_sequence(start_img, end_img, num_steps=8):
-    seq = torch.stack([lerp(t, start_img, end_img) 
+    seq = torch.stack([lerp(t, start_img, end_img)
                        for t in torch.linspace(0, 1, num_steps)], dim=0)
     return seq
 
@@ -166,8 +166,8 @@ class LatentSmoothnessMetricsTracker(nn.Module):
     Combines two metrics to evaluate Smoothness in latent space:
     - PPL (Perceptual Path Length): Measures the average perceptual distance between consecutive images in a sequence.
     - ISTD (Interpolation Smoothness STD): Measures the standard deviation of the perceptual distances, indicating how smooth the interpolation is.
-    
-    
+
+
     Based on:
     [0] PPL: "Analyzing and Improving the Image Quality of StyleGAN" (Karras et al., 2020)
     [1] Smooth Diffusion: "Crafting Smooth Latent Spaces in Diffusion Models" (Guo et al., 2024)
@@ -177,7 +177,7 @@ class LatentSmoothnessMetricsTracker(nn.Module):
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.e_lpips = ELatentLPIPS(encoder="sd15", augment="bg").to(self.device).eval()
         self.normalize_step = normalize_step
-        
+
         self.reset()
 
     def reset(self):
@@ -230,11 +230,11 @@ class LatentSmoothnessMetricsTracker(nn.Module):
 
         if len(self.ppl_values) == 0:
             print("Warning: No distances computed. Check input sequences.")
-            
+
         # Clean up memory
         del sequences
         torch.cuda.empty_cache()
-            
+
 
     @torch.no_grad()
     def aggregate(self):
@@ -273,8 +273,8 @@ class LatentImageMetricsTracker(nn.Module):
         self.maes = []
         self.cossims = []
         self.e_lpips_scores = []
-        
-        
+
+
     @torch.no_grad()
     def update(self, target, pred):
         assert pred.shape == target.shape, f"Shape mismatch: {pred.shape} vs {target.shape}"
@@ -289,7 +289,7 @@ class LatentImageMetricsTracker(nn.Module):
         target_flat = F.normalize(target_norm.view(B, -1), dim=1)
         cossim = torch.sum(pred_flat * target_flat, dim=1)  # shape: (B,)
         self.cossims.append(cossim.detach().cpu())
-        
+
         # Standard metrics
         self.ssims.append(self.ssim(pred_norm, target_norm).detach().cpu())
         self.psnrs.append(self.psnr(pred_norm, target_norm).detach().cpu())
@@ -334,13 +334,13 @@ def collect_samples(
     """
     collected_latents = defaultdict(list)
     collected_images = defaultdict(list)
-    
+
     # Dataloader
     if group_name == 'validation':
         val_loader = data.val_dataloader()
     else:
         val_loader = data.test_dataloader()
-        
+
     latent_key = f'latents_{source_timestep:.2f}'
 
     for batch_idx, batch in enumerate(val_loader):
@@ -397,10 +397,10 @@ def get_dataloader_by_group(data_module, group: str):
         return data_module.test_dataloader()
     else:
         raise ValueError(f"Unsupported group: {group}")
-    
-    
-    
-    
+
+
+
+
 #########################################################
 #               Linear Interpolation Grid                #
 #########################################################
@@ -438,9 +438,9 @@ def interpolate_vectors(z1, z2, alpha_vals, mode="linear", dot_threshold=0.9995)
 
 @torch.no_grad()
 def linear_interpolation_grid_with_evaluation(
-    cls1_latents, 
+    cls1_latents,
     cls2_latents,
-    cls1_images, 
+    cls1_images,
     cls2_images,
     beta_vae_module,
     results_dir,
@@ -487,18 +487,18 @@ def linear_interpolation_grid_with_evaluation(
 
         # Samples in latent space of Beta-VAE
         samples = beta_vae_module.model.decode(interp_context)["sample"] # shape: (B, C, H, W)
-        
+
         # Update tracker if provided
         if tracker is not None:
             tracker.update(samples.unsqueeze(0)) # 1, T, C, H, W
             print(f"[INFO] Updated tracker for pair {i} with {samples.shape[0]} samples.")
 
-        if image_tracker is not None:        
+        if image_tracker is not None:
             # Resize and normalize for evaluation
-            
+
             pred_pair = samples[[0, -1]] # interpolated samples - first and last shape: (2, C, H, W)
             gt_pair = torch.stack([cls1_latents[i], cls2_latents[i]])            # shape: (2, C, H, W) - ground truth images
-            
+
             print(f"[INFO] Shape pred_pair: {pred_pair.shape}, gt_pair: {gt_pair.shape}")
             assert pred_pair.shape == gt_pair.shape, f"Shape mismatch: {pred_pair.shape} vs {gt_pair.shape}"
             image_tracker.update(target=gt_pair, pred=pred_pair)
@@ -517,11 +517,11 @@ def linear_interpolation_grid_with_evaluation(
                 print(f"[INFO] Pair {i}: Using dummy labels for interpolation (adjust if needed).")
             else:
                 labels = None
-                
+
             # Decode for plotting
             decoded_latents = beta_vae_module.decode_second_stage(samples.to(device), label=labels)
             generated_interpolation = beta_vae_module.decode_first_stage(decoded_latents.to(device))
-                
+
             row_images = denorm_tensor(generated_interpolation).detach().cpu()
             row_images = torch.stack([FT.resize(im, [upscale_to, upscale_to]) for im in row_images])
 
@@ -641,12 +641,12 @@ def run_interpolation_and_evaluation(
         samples_per_class=samples_per_class,
         group_name=group
     )
-    
+
     metrics_records = []
 
     print("[INFO] Task (1): Interpolating pairs ...")
     for interp_name, (cls_a, cls_b) in interpolation_dict.items():
-        
+
         try:
             cls1_mask = labels == cls_a
             cls2_mask = labels == cls_b
@@ -677,7 +677,7 @@ def run_interpolation_and_evaluation(
                 num_pairs=num_pairs,
                 num_interpolations=num_interpolations,
                 tracker=tracker,
-                image_tracker=image_tracker, 
+                image_tracker=image_tracker,
                 create_video=create_video,
                 create_grid=True,
                 sharpen=True,
@@ -692,7 +692,7 @@ def run_interpolation_and_evaluation(
         except Exception as e:
             print(f"[ERROR] Skipping pair '{interp_name}' due to error: {e}")
             continue
-        
+
         # Update trackers
         tracker_metrics = tracker.aggregate()
         image_metrics = image_tracker.aggregate()
@@ -721,7 +721,7 @@ def run_interpolation_and_evaluation(
         partial_df = pd.DataFrame(metrics_records)
         partial_df.to_csv(base_results_dir / f"interpolation_metrics_partial_{model_name}.csv", index=False)
         print(f"[INFO] Saved metrics for {interp_name} to CSV.")
-        
+
         tracker.reset()
         image_tracker.reset()
 
@@ -731,7 +731,7 @@ def run_interpolation_and_evaluation(
 
     # Finalize metrics collection
     print("[INFO] Task (1): Completed all interpolations.")
-    
+
     # Compute overall averages
     df = pd.DataFrame(metrics_records)
     summary_row = {
@@ -773,7 +773,7 @@ def run_interpolation_and_evaluation(
 
 
 if __name__ == "__main__":
-    
+
     #####################################
     # Evaluation Parameters
     #####################################
@@ -790,21 +790,21 @@ if __name__ == "__main__":
     num_interpolations  = 18
     cfg_scale           = 4.0
     ccfg_scale          = 1.0
-    
+
     #####################################
     # Model Paths for SiT-XL-2
     #####################################
-    
-    # beta: 1e-4 
+
+    # beta: 1e-4
     Beta02x10x_1e4b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
-    
+
     # beta: 0.1
     Beta00x00x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt'
-    Beta02x02x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt'                     # Open 
+    Beta02x02x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt'                     # Open
     Beta05x05x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt'                     # Open (Baseline)
     Beta05x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt'                                       # Open
-    Beta04x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'  
-    Beta03x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'  
+    Beta04x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
+    Beta03x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
     Beta02x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt'                    ####### DONE
     Beta00x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt'                 # Open
 
@@ -830,7 +830,7 @@ if __name__ == "__main__":
     Beta05x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'                                                                                                                                  # Open
     Beta02x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'                   # Open
 
-    
+
     #####################################
     # Dataset & Evaluation Parameters
     #####################################
@@ -889,8 +889,8 @@ if __name__ == "__main__":
     #     "gibbon_to_orangutan": [368, 365],
     #     # Note: Add more class ID pairs
     # }
-    
-    
+
+
     #####################################
     interpolation_dict = {
         "admiral_to_cabbage_butterfly": [321, 324],         # Admiral butterfly to cabbage butterfly
@@ -911,7 +911,7 @@ if __name__ == "__main__":
     }
 
 
-    
+
     #####################################
     # Device + Seed Setup
     #####################################
@@ -942,7 +942,7 @@ if __name__ == "__main__":
         # "icebear_to_snow_leopard",
         # "icebear_to_white_wolf",
     ]
-    
+
     #####################################
     # Checkpoint paths
     #####################################
@@ -1126,6 +1126,6 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
     gc.collect()
     print("\n[INFO] Evaluation script completed successfully!")
-      
+
 
 # CUDA_VISIBLE_DEVICES=1 python ...

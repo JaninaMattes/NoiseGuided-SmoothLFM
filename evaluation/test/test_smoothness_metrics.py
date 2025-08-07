@@ -1,4 +1,3 @@
-
 # Code adapted from:
 # - https://github.com/SHI-Labs/Smooth-Diffusion
 # - https://github.com/NVlabs/stylegan/blob/master/metrics/perceptual_path_length.py
@@ -6,71 +5,40 @@
 # - https://github.com/NVlabs/stylegan2-ada-pytorch/tree/main/metrics
 
 
-import os, sys
-import gc
+import os
+import sys
 
-from tqdm import tqdm
 
 import torch
 import torch.nn as nn
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-import torchvision
-import torchvision.transforms.functional as FT
-import torchvision.transforms as transforms
-from torchvision.utils import make_grid
-
-from datetime import datetime
-from pathlib import Path
-from collections import defaultdict
-from typing import List, Tuple
 
 
-from matplotlib import pyplot as plt
-from matplotlib import rcParams
-import pandas as pd
+
+
 import numpy as np
-import matplotlib.pyplot as plt
-import umap
-from tqdm import tqdm
 
 
-
-# helper 
-from torchmetrics.image.fid import FrechetInceptionDistance
+# helper
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
-from torchmetrics.image import PeakSignalNoiseRatio as PSNR
-from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
-from pytorch_fid.inception import InceptionV3
 
 
-
-# Jutils 
-from jutils import denorm
-from jutils import ims_to_grid
-from jutils.vision import tensor2im
-from jutils import exists, freeze, default
-from jutils import tensor2im, ims_to_grid
-
+# Jutils
 
 
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../")
+)
 sys.path.append(project_root)
 
-from ldm.trainer_rf_vae import TrainerModuleLatentFlow
-from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
-
+from data_processing.tools.norm import (
+    denorm_metrics_tensor,
+)  # denorm tensor -- just for plotting
 
 
-torch.set_float32_matmul_precision('high')
-
+torch.set_float32_matmul_precision("high")
 
 
 #########################################################
@@ -78,9 +46,7 @@ torch.set_float32_matmul_precision('high')
 #########################################################
 def sharpen_image(img_np):
     """img_np: shape (H, W, C), dtype uint8 or float32 in range 0-1 or 0-255"""
-    kernel = np.array([[0, -1, 0],
-                       [-1, 5,-1],
-                       [0, -1, 0]])
+    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     if img_np.dtype != np.uint8:
         img_np = (img_np * 255).clip(0, 255).astype(np.uint8)
     sharpened = cv2.filter2D(img_np, -1, kernel)
@@ -105,20 +71,18 @@ def frames2mp4(vpath, frames, fps=10, sharpen=True):
         clip.write_videofile(vpath, fps=fps)
 
 
-
-
 #########################################################
 #               Helper Linear Interpolation             #
 #########################################################
 def lerp(t, v0, v1):
     return v0 * (1 - t) + v1 * t
 
+
 def generate_interpolation_sequence(start_img, end_img, num_steps=8):
-    seq = torch.stack([lerp(t, start_img, end_img) 
-                       for t in torch.linspace(0, 1, num_steps)], dim=0)
+    seq = torch.stack(
+        [lerp(t, start_img, end_img) for t in torch.linspace(0, 1, num_steps)], dim=0
+    )
     return seq
-
-
 
 
 #########################################################
@@ -129,16 +93,19 @@ class SmoothnessMetricsTracker(nn.Module):
     Combines two metrics to evaluate Smoothness in latent space:
     - PPL (Perceptual Path Length): Measures the average perceptual distance between consecutive images in a sequence.
     - ISTD (Interpolation Smoothness STD): Measures the standard deviation of the perceptual distances, indicating how smooth the interpolation is.
-    
-    
+
+
     Based on:
     [0] PPL: "Analyzing and Improving the Image Quality of StyleGAN" (Karras et al., 2020)
     [1] Smooth Diffusion: "Crafting Smooth Latent Spaces in Diffusion Models" (Guo et al., 2024)
     """
+
     def __init__(self, device=None, normalize_step=True):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.lpips = LPIPS(net_type='vgg').to(self.device).eval()
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self.lpips = LPIPS(net_type="vgg").to(self.device).eval()
         self.normalize_step = normalize_step
         self.reset()
 
@@ -157,7 +124,9 @@ class SmoothnessMetricsTracker(nn.Module):
         epsilon = 1.0 / (T - 1) if self.normalize_step else 1.0
 
         # Convert to [0, 1] for consistency with LPIPS expectations
-        sequences = denorm_metrics_tensor(sequences, target_range=(0, 1), dtype='float').to(self.device)
+        sequences = denorm_metrics_tensor(
+            sequences, target_range=(0, 1), dtype="float"
+        ).to(self.device)
 
         for b in range(B):
             seq = sequences[b]  # (T, C, H, W)
@@ -196,10 +165,6 @@ class SmoothnessMetricsTracker(nn.Module):
         }
 
 
-
-
-
-
 def test_smoothness_metrics():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     tracker = SmoothnessMetricsTracker(device=device, normalize_step=True)
@@ -214,14 +179,21 @@ def test_smoothness_metrics():
 
     # Generate interpolated sequences
     alphas = torch.linspace(0, 1, T).to(device)
-    smooth_batch = torch.stack([
-        torch.stack([lerp(a, start[b].to(device), end[b].to(device)) for a in alphas], dim=0)
-        for b in range(B)
-    ], dim=0)  # (B, T, C, H, W)
+    smooth_batch = torch.stack(
+        [
+            torch.stack(
+                [lerp(a, start[b].to(device), end[b].to(device)) for a in alphas], dim=0
+            )
+            for b in range(B)
+        ],
+        dim=0,
+    )  # (B, T, C, H, W)
 
     tracker.update(smooth_batch)
     results = tracker.aggregate()
-    print(f"Smooth Interp - PPL: {results['ppl']:.6f}, ISTD: {results['istd']:.6f}, LPIPS: {results['lpips_mean']:.6f} ± {results['lpips_std']:.6f}")
+    print(
+        f"Smooth Interp - PPL: {results['ppl']:.6f}, ISTD: {results['istd']:.6f}, LPIPS: {results['lpips_mean']:.6f} ± {results['lpips_std']:.6f}"
+    )
     tracker.reset()
 
     print("\n===================================")
@@ -230,7 +202,9 @@ def test_smoothness_metrics():
     jagged_batch = torch.rand(B, T, C, H, W)
     tracker.update(jagged_batch.to(device))
     results = tracker.aggregate()
-    print(f"Jagged - PPL: {results['ppl']:.6f}, ISTD: {results['istd']:.6f}, LPIPS: {results['lpips_mean']:.6f} ± {results['lpips_std']:.6f}")
+    print(
+        f"Jagged - PPL: {results['ppl']:.6f}, ISTD: {results['istd']:.6f}, LPIPS: {results['lpips_mean']:.6f} ± {results['lpips_std']:.6f}"
+    )
     tracker.reset()
 
     print("\n===================================")
@@ -240,23 +214,26 @@ def test_smoothness_metrics():
     identical_batch = identical.unsqueeze(1).repeat(1, T, 1, 1, 1)
     tracker.update(identical_batch.to(device))
     results = tracker.aggregate()
-    print(f"Identical - PPL: {results['ppl']:.6f}, ISTD: {results['istd']:.6f}, LPIPS: {results['lpips_mean']:.6f} ± {results['lpips_std']:.6f}")
+    print(
+        f"Identical - PPL: {results['ppl']:.6f}, ISTD: {results['istd']:.6f}, LPIPS: {results['lpips_mean']:.6f} ± {results['lpips_std']:.6f}"
+    )
     tracker.reset()
 
     # Optional: simple assertions for test sanity
     assert results["ppl"] < 1e-4, "Identical image PPL should be near zero"
     assert results["istd"] < 1e-4, "Identical image ISTD should be near zero"
-    assert results["lpips_mean"] < 1e-4, "Identical image LPIPS mean should be near zero"
+    assert results["lpips_mean"] < 1e-4, (
+        "Identical image LPIPS mean should be near zero"
+    )
     assert results["lpips_std"] < 1e-4, "Identical image LPIPS std should be near zero"
 
-    
+
 # ------------------------------------------------
 # Test runner
 # ------------------------------------------------
 if __name__ == "__main__":
     print("Running improved Precision-Recall tests...")
     test_smoothness_metrics()
- 
-    
-    
+
+
 # CUDA_VISIBLE_DEVICES=0 python ...

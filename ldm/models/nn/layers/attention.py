@@ -12,7 +12,6 @@
 #   https://github.com/rwightman/pytorch-image-models/tree/master/timm/models/vision_transformer.py
 import os
 import math
-import sys
 import warnings
 
 import torch
@@ -26,8 +25,8 @@ from torch.jit import Final
 from timm.layers import use_fused_attn
 
 
-
 """ Layer/Module Helpers """
+
 
 def zero_module(module):
     """
@@ -36,8 +35,6 @@ def zero_module(module):
     for p in module.parameters():
         p.detach().zero_()
     return module
-
-
 
 
 """ XFormers Fused Attention """
@@ -57,32 +54,31 @@ except ImportError:
     warnings.warn("xFormers is not available (Attention)")
 
 
-
-
 #################################################
 #                Standard Attention             #
 #################################################
 
 """ Attention Layers """
 
+
 class Attention(nn.Module):
     fused_attn: Final[bool]
 
     def __init__(
-            self,
-            dim: int,
-            num_heads: int = 8,
-            qkv_bias: bool = False,
-            qk_norm: bool = False,
-            attn_drop: float = 0.,
-            proj_drop: float = 0.,
-            norm_layer: nn.Module = nn.LayerNorm,
+        self,
+        dim: int,
+        num_heads: int = 8,
+        qkv_bias: bool = False,
+        qk_norm: bool = False,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+        norm_layer: nn.Module = nn.LayerNorm,
     ) -> None:
         super().__init__()
-        assert dim % num_heads == 0, 'dim should be divisible by num_heads'
+        assert dim % num_heads == 0, "dim should be divisible by num_heads"
         self.num_heads = num_heads
         self.num_headsead_dim = dim // num_heads
-        self.scale = self.num_headsead_dim ** -0.5
+        self.scale = self.num_headsead_dim**-0.5
         self.fused_attn = use_fused_attn()
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
@@ -94,14 +90,20 @@ class Attention(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.num_headsead_dim).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, self.num_headsead_dim)
+            .permute(2, 0, 3, 1, 4)
+        )
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
         if self.fused_attn:
             x = F.scaled_dot_product_attention(
-                q, k, v,
-                dropout_p=self.attn_drop.p if self.training else 0.,
+                q,
+                k,
+                v,
+                dropout_p=self.attn_drop.p if self.training else 0.0,
             )
         else:
             q = q * self.scale
@@ -114,7 +116,6 @@ class Attention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
-
 
 
 #################################################
@@ -149,7 +150,11 @@ class DinoAttention(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+            .permute(2, 0, 3, 1, 4)
+        )
 
         q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
         attn = q @ k.transpose(-2, -1)
@@ -161,9 +166,8 @@ class DinoAttention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
-    
-    
-    
+
+
 # Dinov2 Attention with Memory Efficient Attention
 class MemEffAttention(DinoAttention):
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
@@ -185,18 +189,19 @@ class MemEffAttention(DinoAttention):
         return x
 
 
-
 #################################################
 #               QKV Attention SiT               #
 #################################################
 
 
-""" QKV Attention Layers """  
-        
+""" QKV Attention Layers """
+
+
 class QKVAttention(nn.Module):
     """
     A module which performs QKV attention.
     """
+
     def __init__(self, efficient_attn: bool = True, dropout: float = 0.0):
         super().__init__()
         self.embed_dimropout = dropout
@@ -205,7 +210,9 @@ class QKVAttention(nn.Module):
             try:
                 _ = nn.functional.scaled_dot_product_attention
             except AttributeError:
-                print("Please update PyTorch to 2.0 or higher to use efficient attention.")
+                print(
+                    "Please update PyTorch to 2.0 or higher to use efficient attention."
+                )
                 self.efficient_attn = False
 
     def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor):
@@ -217,15 +224,19 @@ class QKVAttention(nn.Module):
             res: (n, ..., l, c) tensor after attention.
         """
         if self.efficient_attn:
-            res = nn.functional.scaled_dot_product_attention(q, k, v, dropout_p=self.embed_dimropout)
+            res = nn.functional.scaled_dot_product_attention(
+                q, k, v, dropout_p=self.embed_dimropout
+            )
         else:
             ch = q.shape[-1]
-            scale = 1. / math.sqrt(ch)
-            dot = torch.einsum('...td, ...kd -> ...tk', q, k) * scale
+            scale = 1.0 / math.sqrt(ch)
+            dot = torch.einsum("...td, ...kd -> ...tk", q, k) * scale
             weight = torch.softmax(dot, dim=-1)
             if self.embed_dimropout > 0.0:
-                weight = torch.dropout(weight, p=self.embed_dimropout, train=self.training)
-            res = torch.einsum('...dt, ...tv -> ...dv', weight, v)
+                weight = torch.dropout(
+                    weight, p=self.embed_dimropout, train=self.training
+                )
+            res = torch.einsum("...dt, ...tv -> ...dv", weight, v)
         return res
 
 
@@ -234,6 +245,7 @@ class LinearQKVAttention(nn.Module):
     A module which performs linear QKV attention.
     (https://arxiv.org/abs/1812.01243)
     """
+
     def __init__(self, l2_norm_v: bool = False):
         super().__init__()
         self.l2_norm_v = l2_norm_v
@@ -247,16 +259,15 @@ class LinearQKVAttention(nn.Module):
             res: (n, ..., l, c) tensor after attention.
         """
         ch = q.shape[-1]
-        scale = 1. / math.sqrt(ch)
+        scale = 1.0 / math.sqrt(ch)
         q = q.softmax(dim=-1)
         k = k.softmax(dim=-2)
         q = q * scale
         if self.l2_norm_v:
             v = torch.nn.functional.normalize(v, dim=-1)
-        context = torch.einsum('...nd, ...ne -> ...de', k, v)
-        res = torch.einsum('...nd, ...de -> ...ne', q, context)
+        context = torch.einsum("...nd, ...ne -> ...de", k, v)
+        res = torch.einsum("...nd, ...de -> ...ne", q, context)
         return res
-
 
 
 class SpatialSelfAttention(nn.Module):
@@ -264,8 +275,15 @@ class SpatialSelfAttention(nn.Module):
     Originally ported from here, but adapted to the N-d case.
     https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/models/unet.py#L66.
     """
-    def __init__(self, dim: int, heads: int = 4, dim_head: int = 64,
-                 use_linear: bool = False, use_efficient_attn: bool = True):
+
+    def __init__(
+        self,
+        dim: int,
+        heads: int = 4,
+        dim_head: int = 64,
+        use_linear: bool = False,
+        use_efficient_attn: bool = True,
+    ):
         super().__init__()
         self.embed_dimim = dim
         self.num_headseads = heads
@@ -274,7 +292,11 @@ class SpatialSelfAttention(nn.Module):
 
         self.norm = nn.GroupNorm(32, dim)
         self.qkv = nn.Conv1d(dim, self.inner_dim * 3, 1)
-        self.attention = LinearQKVAttention() if use_linear else QKVAttention(efficient_attn=use_efficient_attn)
+        self.attention = (
+            LinearQKVAttention()
+            if use_linear
+            else QKVAttention(efficient_attn=use_efficient_attn)
+        )
         self.proj_out = zero_module(nn.Conv1d(self.inner_dim, self.embed_dimim, 1))
 
     def forward(self, x: torch.Tensor):
@@ -285,16 +307,16 @@ class SpatialSelfAttention(nn.Module):
             x: Tensor after attention, MHSA(x) + residual.
         """
         b, c, *spatial = x.shape
-        x = x.reshape(b, c, -1)                                     # (b, c, f * h * w)
-        qkv = self.qkv(self.norm(x))                                # (b, 3 * c * nh, f * h * w)
-        qkv = qkv.reshape(b, self.num_headseads, qkv.shape[-1], -1)         # (b, nh, f * h * w, 3 * c)
-        q, k, v = qkv.chunk(3, dim=-1)                              # (b, nh, f * h * w, c) each
-        h = self.attention(q, k, v)                                 # (b, nh, f * h * w, c)
-        h = h.reshape(b, self.inner_dim, -1)                        # (b, nh * c, f * h * w)
-        h = self.proj_out(h)                                        # (b, c, f * h * w)
+        x = x.reshape(b, c, -1)  # (b, c, f * h * w)
+        qkv = self.qkv(self.norm(x))  # (b, 3 * c * nh, f * h * w)
+        qkv = qkv.reshape(
+            b, self.num_headseads, qkv.shape[-1], -1
+        )  # (b, nh, f * h * w, 3 * c)
+        q, k, v = qkv.chunk(3, dim=-1)  # (b, nh, f * h * w, c) each
+        h = self.attention(q, k, v)  # (b, nh, f * h * w, c)
+        h = h.reshape(b, self.inner_dim, -1)  # (b, nh * c, f * h * w)
+        h = self.proj_out(h)  # (b, c, f * h * w)
         return (x + h).reshape(b, c, *spatial)
-
-
 
 
 #################################################
@@ -315,67 +337,77 @@ def causal_mask(b, h, q_idx, kv_idx):
 
 
 class CausalSelfAttention(nn.Module):
-    """ Standard Causal Attention with Masking. """
-    
-    def __init__(self, embed_dim, num_heads, max_seq_len=256, bias=False, dropout=0.1, **kwargs):
+    """Standard Causal Attention with Masking."""
+
+    def __init__(
+        self, embed_dim, num_heads, max_seq_len=256, bias=False, dropout=0.1, **kwargs
+    ):
         super().__init__()
-        assert embed_dim % num_heads == 0, "Embedding dimension must be divisible by number of heads."
+        assert embed_dim % num_heads == 0, (
+            "Embedding dimension must be divisible by number of heads."
+        )
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.max_seq_len = max_seq_len
         self.bias = bias
         self.dropout = nn.Dropout(dropout)
-        
-        # key, query, value projections for all heads in batch 
+
+        # key, query, value projections for all heads in batch
         # output is 3x the dimension for key, query, value per head
         self.c_attn = nn.Linear(embed_dim, embed_dim * 3, bias=bias)
         self.c_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        
+
         # dropout module
         self.attn_dropout = nn.Dropout(dropout)
         self.resid_dropout = nn.Dropout(dropout)
-        
+
         # torch.tril for lower triangular matrix (causal masking)
         # causal mask to ensure that attention is only applied to previous tokens (left in the input sequence)
-        self.register_buffer("mask", torch.tril(torch.ones(self.max_seq_len, self.max_seq_len)).view(1, 1, self.max_seq_len, self.max_seq_len))
-        
-        
+        self.register_buffer(
+            "mask",
+            torch.tril(torch.ones(self.max_seq_len, self.max_seq_len)).view(
+                1, 1, self.max_seq_len, self.max_seq_len
+            ),
+        )
+
     def forward(self, x):
-        B, T, D = x.size()                                                  # B: batch size, T: num tokens, D: embedding dimensionality
+        B, T, D = x.size()  # B: batch size, T: num tokens, D: embedding dimensionality
 
         # Compute query, key, and value vectors for all heads in batch
         # split the output into separate query, key, and value tensors
-        q, k, v  = self.c_attn(x).split(self.embed_dim, dim=2)              # [B, T, d]
+        q, k, v = self.c_attn(x).split(self.embed_dim, dim=2)  # [B, T, d]
 
         # Reshape tensor into sequences of smaller token vectors for each head
-        k = k.view(B, T, self.num_heads, self.embed_dim // self.num_heads).transpose(1, 2) # [B, H, T, d // H]
-        q = q.view(B, T, self.num_heads, self.embed_dim // self.num_heads).transpose(1, 2)
-        v = v.view(B, T, self.num_heads, self.embed_dim // self.num_heads).transpose(1, 2)
+        k = k.view(B, T, self.num_heads, self.embed_dim // self.num_heads).transpose(
+            1, 2
+        )  # [B, H, T, d // H]
+        q = q.view(B, T, self.num_heads, self.embed_dim // self.num_heads).transpose(
+            1, 2
+        )
+        v = v.view(B, T, self.num_heads, self.embed_dim // self.num_heads).transpose(
+            1, 2
+        )
 
         # Masking Additional Attention Weights With Dropout
         # compute the attention matrix, perform masking, and apply dropout
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1))) # [B, H, T, T]
-        att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float('-inf'))
+        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))  # [B, H, T, T]
+        att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
 
         # compute output vectors for each token
-        y = att @ v # [B, H, T, d // H]
+        y = att @ v  # [B, H, T, d // H]
 
         # Concatenate outputs from each attention head and linearly project
         y = y.transpose(1, 2).contiguous().view(B, T, self.embed_dim)
         y = self.resid_dropout(self.c_proj(y))
-        
+
         return y
-
-
-
-
 
 
 if __name__ == "__main__":
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     # Test Attention Layers
     ipt = torch.randn((1, 32, 8, 8))
     print("Input:", ipt.shape)
@@ -383,8 +415,7 @@ if __name__ == "__main__":
     print(f"Params: {sum(p.numel() for p in attn.parameters()):,}")
     out = attn(ipt)
     print("Output:", out.shape)
-    
-    
+
     # Test Causal Self Attention
     ipt = torch.randn((1, 256, 384))
     print("Input:", ipt.shape)

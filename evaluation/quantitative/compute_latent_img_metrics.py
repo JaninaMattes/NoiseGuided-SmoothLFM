@@ -3,7 +3,8 @@
 # - https://github.com/youngjung/improved-precision-and-recall-metric-pytorch/blob/master/improved_precision_recall.py#L185
 # - https://github.com/NVlabs/stylegan2-ada-pytorch/tree/main/metrics
 
-import os, sys
+import os
+import sys
 import csv
 import gc
 from tqdm import tqdm
@@ -13,75 +14,50 @@ from pathlib import Path
 
 import time
 import torch
-import gc
-import csv
 import pandas as pd
 from datetime import datetime
-from pathlib import Path
-from tqdm import tqdm
 
 
-
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import torchvision
 from lightning import seed_everything
 import torchvision.transforms.functional as TF
-import torchvision.transforms as transforms
 from torchvision.utils import make_grid
-from scipy import linalg
 
-from torch.utils.data import Dataset, DataLoader
 
-import random
-import numpy as np
-from typing import List, Tuple
-from datetime import datetime
-from pathlib import Path
 from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib import rcParams
 
 
-# helper 
-from torchmetrics.image.fid import FrechetInceptionDistance
+# helper
 from elatentlpips import ELatentLPIPS
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
-from pytorch_fid.inception import InceptionV3
 
-from torchmetrics.image.fid import FrechetInceptionDistance
-from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
 
-import torch_fidelity
-from prdc import compute_prdc
-from pytorch_fid.inception import InceptionV3
 
-# Jutils 
-from jutils import denorm
-from jutils import ims_to_grid
-from jutils.vision import tensor2im
-from jutils import exists, freeze, default
-from jutils import tensor2im, ims_to_grid
+# Jutils
+from jutils import freeze
 
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../")
+)
 sys.path.append(project_root)
 
 
 # Custom modules
 from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
-from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
+from data_processing.tools.norm import (
+    denorm_metrics_tensor,
+    denorm_tensor,
+)  # denorm tensor -- just for plotting
 
 
-torch.set_float32_matmul_precision('high')
-
-
+torch.set_float32_matmul_precision("high")
 
 
 def save_tensor_as_png(tensor: torch.Tensor, path: str):
@@ -89,7 +65,7 @@ def save_tensor_as_png(tensor: torch.Tensor, path: str):
     Save a torch tensor (C, H, W) as a .png image.
     Assumes tensor is in [-1, 1] or [0, 1].
     """
-    tensor = denorm_tensor(tensor).detach().cpu() # just for visualization
+    tensor = denorm_tensor(tensor).detach().cpu()  # just for visualization
     img = TF.to_pil_image(tensor.byte())
     img.save(path)
 
@@ -111,15 +87,14 @@ def load_png_to_tensor_normalized(path: str) -> torch.Tensor:
     return tensor
 
 
-
-
 ############################################
 #   Utils
 ############################################
 from filelock import FileLock
 
+
 def clear_folder(folder_path: Path):
-    lock_file = folder_path.with_suffix('.lock')
+    lock_file = folder_path.with_suffix(".lock")
     with FileLock(lock_file):
         try:
             if folder_path.exists() and folder_path.is_dir():
@@ -136,9 +111,6 @@ def clear_folder(folder_path: Path):
         finally:
             folder_path.mkdir(parents=True, exist_ok=True)
             print(f"[INFO] Created folder: {folder_path}")
-            
-
-    
 
 
 ############################################
@@ -147,7 +119,9 @@ def clear_folder(folder_path: Path):
 class LatentImageMetricsTracker(nn.Module):
     def __init__(self, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         self.ssim = SSIM(data_range=1.0).to(self.device)
         self.psnr = PSNR(data_range=1.0).to(self.device)
@@ -163,15 +137,20 @@ class LatentImageMetricsTracker(nn.Module):
         self.maes = []
         self.cossims = []
         self.e_lpips_scores = []
-        
-        
+
     @torch.no_grad()
     def update(self, target, pred):
-        assert pred.shape == target.shape, f"Shape mismatch: {pred.shape} vs {target.shape}"
+        assert pred.shape == target.shape, (
+            f"Shape mismatch: {pred.shape} vs {target.shape}"
+        )
 
         # Normalize pred and target for pixel metrics [0, 1]
-        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype='float').to(self.device)
-        target_norm = denorm_metrics_tensor(target, target_range=(0, 1), dtype='float').to(self.device)
+        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype="float").to(
+            self.device
+        )
+        target_norm = denorm_metrics_tensor(
+            target, target_range=(0, 1), dtype="float"
+        ).to(self.device)
 
         # Cosine similarity computation
         B = pred_norm.shape[0]
@@ -179,13 +158,19 @@ class LatentImageMetricsTracker(nn.Module):
         target_flat = F.normalize(target_norm.view(B, -1), dim=1)
         cossim = torch.sum(pred_flat * target_flat, dim=1)  # shape: (B,)
         self.cossims.append(cossim.detach().cpu())
-        
+
         # Standard metrics
         self.ssims.append(self.ssim(pred_norm, target_norm).detach().cpu())
         self.psnrs.append(self.psnr(pred_norm, target_norm).detach().cpu())
-        self.mses.append(torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]).detach().cpu())
-        self.maes.append(torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]).detach().cpu())
-        self.e_lpips_scores.append(self.e_lpips(pred_norm * 2 - 1, target_norm * 2 - 1).detach().cpu())
+        self.mses.append(
+            torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]).detach().cpu()
+        )
+        self.maes.append(
+            torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]).detach().cpu()
+        )
+        self.e_lpips_scores.append(
+            self.e_lpips(pred_norm * 2 - 1, target_norm * 2 - 1).detach().cpu()
+        )
 
         # Clean up memory
         del pred_norm, target_norm
@@ -199,13 +184,8 @@ class LatentImageMetricsTracker(nn.Module):
             mse=torch.stack(self.mses).mean().item(),
             mae=torch.stack(self.maes).mean().item(),
             lpips=torch.stack(self.e_lpips_scores).mean().item(),
-            cossim=torch.cat(self.cossims).mean().item()
+            cossim=torch.cat(self.cossims).mean().item(),
         )
-
-
-
-
-
 
 
 #########################################################
@@ -213,11 +193,6 @@ class LatentImageMetricsTracker(nn.Module):
 #########################################################
 import torch
 import os
-import gc
-import matplotlib.pyplot as plt
-from torchvision.utils import make_grid
-import torchvision.transforms.functional as TF
-from matplotlib import rcParams
 
 
 def generate_samples(
@@ -242,18 +217,17 @@ def generate_samples(
     # Move tensors to device
     gt_imgs = gt_imgs.to(device)
     xt_noise_latents = xt_latent.to(device)
-    
+
     if labels is not None:
         labels = labels.to(device).squeeze()
 
     with torch.no_grad():
         # Encode-Decode with ß-VAE
-        latents = beta_vae_module.model.encode(xt_noise_latents)['latent_dist'].sample()
-        fake_noise_latents = beta_vae_module.model.decode(latents)['sample']
+        latents = beta_vae_module.model.encode(xt_noise_latents)["latent_dist"].sample()
+        fake_noise_latents = beta_vae_module.model.decode(latents)["sample"]
 
     # Plotting (optional)
     if plot_samples:
-        
         # Decode to RGB space
         latent = beta_vae_module.decode_second_stage(fake_noise_latents, label=labels)
         fake_gt_imgs = beta_vae_module.decode_first_stage(latent)
@@ -270,31 +244,33 @@ def generate_samples(
 
         grid = make_grid(torch.stack(interleaved), nrow=nrow, padding=0)
 
-        rcParams.update({'font.size': 12, 'font.family': 'DejaVu Sans'})
+        rcParams.update({"font.size": 12, "font.family": "DejaVu Sans"})
         fig, ax = plt.subplots(figsize=(grid.shape[2] / 50, grid.shape[1] / 50))
         ax.imshow(grid.permute(1, 2, 0).cpu().numpy())
-        ax.axis('off')
+        ax.axis("off")
         ax.set_title(title, fontsize=14)
 
         if save_path:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            plt.savefig(save_path, bbox_inches='tight', dpi=300)
+            plt.savefig(save_path, bbox_inches="tight", dpi=300)
             print(f"[INFO] Saved sample plot to {save_path}")
 
         plt.show()
         plt.close(fig)
 
-        del grid, fake_gt_imgs_, real_gt_imgs_, real_gt_imgs_resized, fake_gt_imgs_resized
+        del (
+            grid,
+            fake_gt_imgs_,
+            real_gt_imgs_,
+            real_gt_imgs_resized,
+            fake_gt_imgs_resized,
+        )
         # Clear memory
         torch.cuda.empty_cache()
         gc.collect()
 
     return fake_noise_latents.detach().cpu(), xt_noise_latents.detach().cpu()
 
-
-
-
-    
 
 ##################################################
 # Get dataloader by group
@@ -310,8 +286,6 @@ def get_dataloader_by_group(data_module, group: str):
         raise ValueError(f"Unsupported group: {group}")
 
 
-
-
 def get_last_valid_sample_index(fake_dir: Path, real_dir: Path, label_dir: Path) -> int:
     fake_ids = {int(f.stem) for f in fake_dir.glob("*.png") if f.stem.isdigit()}
     real_ids = {int(f.stem) for f in real_dir.glob("*.png") if f.stem.isdigit()}
@@ -319,13 +293,9 @@ def get_last_valid_sample_index(fake_dir: Path, real_dir: Path, label_dir: Path)
 
     common_ids = fake_ids & real_ids & label_ids
     if not common_ids:
-        return 0                # No labels found
+        return 0  # No labels found
 
     return max(common_ids) + 1  # Resume from next index
-
-
-
-
 
 
 @torch.no_grad()
@@ -351,7 +321,7 @@ def run_data_collection_and_evaluation(
     num_classes=1000,
     plot_every_n_batches=1000,
     device=None,
-):      
+):
     # Set device
     seed_everything(2025)
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -360,11 +330,15 @@ def run_data_collection_and_evaluation(
     gc.collect()
 
     # Load model
-    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location="cpu")
+    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(
+        checkpoint, map_location="cpu"
+    )
     beta_vae_module.eval().to(device)
     freeze(beta_vae_module.model)
 
-    print(f"[INFO] Model loaded with {sum(p.numel() for p in beta_vae_module.parameters()) / 1e6:.2f}M parameters.")
+    print(
+        f"[INFO] Model loaded with {sum(p.numel() for p in beta_vae_module.parameters()) / 1e6:.2f}M parameters."
+    )
     print(f"[INFO] Group: {group}, Dataset: {dataset_name}")
 
     # Load data
@@ -475,8 +449,7 @@ def run_data_collection_and_evaluation(
         del img_metrics_tracker
         torch.cuda.empty_cache()
         gc.collect()
-        
-        
+
     # Final aggregated metrics
     df_metrics = pd.DataFrame(metrics_records)
 
@@ -507,78 +480,72 @@ def run_data_collection_and_evaluation(
     return summary_row, base_results_dir
 
 
-
-
-
 if __name__ == "__main__":
-    
     #####################################
     # Evaluation Parameters
     #####################################
     # Model checkpoints
-    source_timestep     = 0.50
-    target_timestep     = 1.00
-    beta                = 0.1     # Beta value for the VAE
-    dataset_name        = 'imagenet256-testset-T151412'
-    group               = "test"  # "validation" or "test"
-    root_path           = './results'  # Root directory for results
-    baseline            = (source_timestep == 0.50 and target_timestep == 0.50)
-    batch_size          = 24
-    samples_per_class   = 12
-    num_pairs           = 10
-    num_interpolations  = 18
-    cfg_scale           = 4.0
-    ccfg_scale          = 1.0
-    max_samples         = 100   # 50000
-    num_steps           = 50
-    num_classes         = 1000
+    source_timestep = 0.50
+    target_timestep = 1.00
+    beta = 0.1  # Beta value for the VAE
+    dataset_name = "imagenet256-testset-T151412"
+    group = "test"  # "validation" or "test"
+    root_path = "./results"  # Root directory for results
+    baseline = source_timestep == 0.50 and target_timestep == 0.50
+    batch_size = 24
+    samples_per_class = 12
+    num_pairs = 10
+    num_interpolations = 18
+    cfg_scale = 4.0
+    ccfg_scale = 1.0
+    max_samples = 100  # 50000
+    num_steps = 50
+    num_classes = 1000
     plot_every_n_batches = 100  # Plot every N batches
-    
+
     #####################################
     # Model Paths for SiT-XL-2
     #####################################
-    
-    # beta: 1e-4 
-    Beta02x10x_1e4b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
-    
+
+    # beta: 1e-4
+    Beta02x10x_1e4b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt"
+
     # beta: 0.1
-    Beta00x00x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt'
-    Beta02x02x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt'                     # Open 
-    Beta05x05x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt'                     # Open (Baseline)
-    Beta05x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt'                                       # Open
-    Beta04x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'  
-    Beta03x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'  
-    Beta02x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt'                    ####### DONE
-    Beta00x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt'                 # Open
+    Beta00x00x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt"
+    Beta02x02x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt"  # Open
+    Beta05x05x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt"  # Open (Baseline)
+    Beta05x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt"  # Open
+    Beta04x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt"
+    Beta03x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt"
+    Beta02x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt"  ####### DONE
+    Beta00x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt"  # Open
 
     # beta: 0.5
-    Beta02x10x_05b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.5b/2025-06-30/manual/V0/2025-07-19/101646/checkpoints/last.ckpt'
-    Beta05x10x_05b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'                                                                 # Open (Baseline)
+    Beta02x10x_05b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.5b/2025-06-30/manual/V0/2025-07-19/101646/checkpoints/last.ckpt"
+    Beta05x10x_05b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt"  # Open (Baseline)
 
     # beta: 1.0
-    Beta05x05x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt'                                                                                                                                   # Open (Baseline)
-    Beta05x10x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'                                                                                                                                   # Open
-    Beta02x10x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt'                                          # Open
+    Beta05x05x_1b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt"  # Open (Baseline)
+    Beta05x10x_1b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt"  # Open
+    Beta02x10x_1b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt"  # Open
 
     # beta: 2.0
-    Beta02x10x_2b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-2.0b/V2/2025-07-16/101646/checkpoints/last.ckpt'                     # Open
-    Beta05x10x_2b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'  # Open (Baseline)
-
+    Beta02x10x_2b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-2.0b/V2/2025-07-16/101646/checkpoints/last.ckpt"  # Open
+    Beta05x10x_2b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt"  # Open (Baseline)
 
     # beta: 3.0
-    Beta02x10x_3b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt'                     # Open
+    Beta02x10x_3b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt"  # Open
 
     # beta: 5.0
-    Beta05x05x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt'                                                                                                                                   # Open (Baseline)
-    Beta05x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'                                                                                                                                  # Open
-    Beta02x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'                   # Open
+    Beta05x05x_5b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt"  # Open (Baseline)
+    Beta05x10x_5b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt"  # Open
+    Beta02x10x_5b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt"  # Open
 
-    
     #####################################
     # Dataset & Evaluation Parameters
     #####################################
-    test_data_path               = './dataset/processed/testset-256/imagenet256-testset-T222343.hdf5' #'./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
-    validation_data_path         = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5' # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
+    test_data_path = "./dataset/processed/testset-256/imagenet256-testset-T222343.hdf5"  #'./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
+    validation_data_path = "./dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5"  # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
 
     model_configs = [
         # beta: 1e-4
@@ -587,138 +554,132 @@ if __name__ == "__main__":
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 0.0001,
-            "group_name": "Beta1e-4"
+            "group_name": "Beta1e-4",
         },
-
         # beta: 0.1
         {
             "checkpoint": Beta00x00x_01b,
             "source_timestep": 0.00,
             "target_timestep": 0.00,
             "beta": 0.1,
-            "group_name": "Beta0.1_Reconstruction"
+            "group_name": "Beta0.1_Reconstruction",
         },
         {
             "checkpoint": Beta02x02x_01b,
             "source_timestep": 0.20,
             "target_timestep": 0.20,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta05x05x_01b,
             "source_timestep": 0.50,
             "target_timestep": 0.50,
             "beta": 0.1,
-            "group_name": "Beta0.1_Baseline"
+            "group_name": "Beta0.1_Baseline",
         },
         {
             "checkpoint": Beta05x10x_01b,
             "source_timestep": 0.50,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta04x10x_01b,
             "source_timestep": 0.40,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta03x10x_01b,
             "source_timestep": 0.30,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta02x10x_01b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta00x10x_01b,
             "source_timestep": 0.00,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
-
         # beta: 0.5
         {
             "checkpoint": Beta02x10x_05b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 0.5,
-            "group_name": "Beta0.5"
+            "group_name": "Beta0.5",
         },
-
         # beta: 1.0
         {
             "checkpoint": Beta05x05x_1b,
             "source_timestep": 0.50,
             "target_timestep": 0.50,
             "beta": 1.0,
-            "group_name": "Beta1.0_Baseline"
+            "group_name": "Beta1.0_Baseline",
         },
         {
             "checkpoint": Beta05x10x_1b,
             "source_timestep": 0.50,
             "target_timestep": 1.00,
             "beta": 1.0,
-            "group_name": "Beta1.0"
+            "group_name": "Beta1.0",
         },
         {
             "checkpoint": Beta02x10x_1b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 1.0,
-            "group_name": "Beta1.0"
+            "group_name": "Beta1.0",
         },
-
         # beta: 2.0
         {
             "checkpoint": Beta02x10x_2b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 2.0,
-            "group_name": "Beta2.0"
+            "group_name": "Beta2.0",
         },
-
         # beta: 3.0
         {
             "checkpoint": Beta02x10x_3b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 3.0,
-            "group_name": "Beta3.0"
+            "group_name": "Beta3.0",
         },
-
         # beta: 5.0
         {
             "checkpoint": Beta05x05x_5b,
             "source_timestep": 0.50,
             "target_timestep": 0.50,
             "beta": 5.0,
-            "group_name": "Beta5.0_Baseline"
+            "group_name": "Beta5.0_Baseline",
         },
         {
             "checkpoint": Beta05x10x_5b,
             "source_timestep": 0.50,
             "target_timestep": 1.00,
             "beta": 5.0,
-            "group_name": "Beta5.0"
+            "group_name": "Beta5.0",
         },
         {
             "checkpoint": Beta02x10x_5b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 5.0,
-            "group_name": "Beta5.0"
+            "group_name": "Beta5.0",
         },
     ]
 
@@ -729,11 +690,15 @@ if __name__ == "__main__":
         beta = config["beta"]
         group_name = config["group_name"]
 
-        baseline = (source_timestep == target_timestep)
-        project_name = "BetaVAE_Quantitative_Eval_Baseline" if baseline else "BetaVAE_Quantitative_Eval"
+        baseline = source_timestep == target_timestep
+        project_name = (
+            "BetaVAE_Quantitative_Eval_Baseline"
+            if baseline
+            else "BetaVAE_Quantitative_Eval"
+        )
         model_name = f"{group_name}_VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
 
-        print(f"\n{'='*100}\nStarting evaluation: {model_name}\n{'='*100}\n")
+        print(f"\n{'=' * 100}\nStarting evaluation: {model_name}\n{'=' * 100}\n")
 
         run_data_collection_and_evaluation(
             checkpoint=checkpoint,
@@ -758,12 +723,11 @@ if __name__ == "__main__":
             plot_every_n_batches=plot_every_n_batches,
         )
 
-        print(f"\nCompleted: {model_name}\n{'='*100}\n")
+        print(f"\nCompleted: {model_name}\n{'=' * 100}\n")
         torch.cuda.empty_cache()
         gc.collect()
 
     print("\n[INFO] Evaluation script completed successfully!")
-
 
 
 # CUDA_VISIBLE_DEVICES=2 python ...

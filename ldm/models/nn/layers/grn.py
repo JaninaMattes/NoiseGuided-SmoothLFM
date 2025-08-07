@@ -1,6 +1,6 @@
 # Code adapted from:
 # - https://github.com/huggingface/pytorch-image-models/blob/main/timm/layers/grn.py
-""" Global Response Normalization Module
+"""Global Response Normalization Module
 
 Based on the GRN layer presented in
 `ConvNeXt-V2 - Co-designing and Scaling ConvNets with Masked Autoencoders` - https://arxiv.org/abs/2301.00808
@@ -18,8 +18,8 @@ from torch import nn as nn
 
 
 class GlobalResponseNorm(nn.Module):
-    """ Global Response Normalization layer
-    """
+    """Global Response Normalization layer"""
+
     def __init__(self, dim, eps=1e-6, channels_last=True):
         super().__init__()
         self.eps = eps
@@ -38,4 +38,6 @@ class GlobalResponseNorm(nn.Module):
     def forward(self, x):
         x_g = x.norm(p=2, dim=self.spatial_dim, keepdim=True)
         x_n = x_g / (x_g.mean(dim=self.channel_dim, keepdim=True) + self.eps)
-        return x + torch.addcmul(self.bias.view(self.wb_shape), self.weight.view(self.wb_shape), x * x_n)
+        return x + torch.addcmul(
+            self.bias.view(self.wb_shape), self.weight.view(self.wb_shape), x * x_n
+        )

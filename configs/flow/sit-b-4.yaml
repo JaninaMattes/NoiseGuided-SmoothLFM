@@ -7,7 +7,7 @@ params:
   net_cfg:
     target: ldm.models.wrapper.dit.DiTLDMWrapper
     params:
-      model_type: DiT-XL/2  
+      model_type: DiT-XL/2
       input_size: 32
       num_classes: 1000
       learn_sigma: True

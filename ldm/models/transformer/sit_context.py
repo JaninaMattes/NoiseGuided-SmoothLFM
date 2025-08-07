@@ -24,7 +24,7 @@ sys.path.append(project_root)
 from ldm.models.nn.layers.attention import Attention
 from ldm.models.nn.layers.mlp import Mlp
 from ldm.models.nn.layers.patch_embed import PatchEmbed
-    
+
 
 """ Jit Compile """
 
@@ -33,9 +33,9 @@ if torch.cuda.is_available():
     compile_fn = partial(torch.compile, fullgraph=True, backend='inductor' if torch.cuda.get_device_capability()[0] >= 7 else 'aot_eager')
 else:
     compile_fn = lambda f: f
-    
-    
-    
+
+
+
 """ Modulation Functions """
 
 def modulate(x, shift, scale):
@@ -58,7 +58,7 @@ class TimestepEmbedder(nn.Module):
             nn.Linear(hidden_size, hidden_size, bias=True),
         )
         self.frequency_embedding_size = frequency_embedding_size
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
 
     @staticmethod
@@ -99,9 +99,9 @@ class LabelEmbedder(nn.Module):
         self.embedding_table = nn.Embedding(num_classes + use_cfg_embedding, hidden_size)
         self.num_classes = num_classes
         self.dropout_prob = dropout_prob
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
-        
+
 
     def token_drop(self, labels, force_drop_ids=None):
         """
@@ -142,7 +142,7 @@ class SiTBlock(nn.Module):
             nn.SiLU(),
             nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
 
     def forward(self, x, c):
@@ -151,7 +151,7 @@ class SiTBlock(nn.Module):
         x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
         return x
 
-    
+
 
 class FinalLayer(nn.Module):
     """
@@ -167,7 +167,7 @@ class FinalLayer(nn.Module):
         )
 
         if COMPILE: self.forward = compile_fn(self.forward)
-        
+
     def forward(self, x, c):
         shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
         x = modulate(self.norm_final(x), shift, scale)
@@ -190,10 +190,10 @@ class ContextEmbedder(nn.Module):
         )
 
         if COMPILE: self.forward = compile_fn(self.forward)
-        
+
     def forward(self, x):
         return self.mlp(x)
-    
+
 
 
 class ContextEmbedderWithCFG(nn.Module):
@@ -207,33 +207,33 @@ class ContextEmbedderWithCFG(nn.Module):
         )
         self.dropout_prob = dropout_prob
         self.null_token = nn.Parameter(torch.zeros(1, hidden_size))                 # learned null-token for dropped context vectors
-        
+
         if COMPILE: self.forward = compile_fn(self.forward)
 
 
     def token_drop(self, context, drop_prob):
         """ Drops context vector (B, context_size) → (B, embed_dim) for classifier-free guidance.
             Torch supported.
-            
+
             Drop mask:
             - Drops elements per batch (for each element a random number is drawn, if its less it's replaced with a null token)
         """
-        drop_mask = torch.rand(context.size(0), device=context.device) < drop_prob  # (N,) 
+        drop_mask = torch.rand(context.size(0), device=context.device) < drop_prob  # (N,)
         null_context = self.null_token.expand(context.shape[0], -1)                 # (N, D)
-        return torch.where(drop_mask.unsqueeze(1), null_context, context)           
+        return torch.where(drop_mask.unsqueeze(1), null_context, context)
 
 
     def forward(self, x):
-        orig_dtype = x.dtype                            
-        context_emb = self.mlp(x.to(self.null_token.dtype))  
-        context_emb = context_emb.to(orig_dtype)       
+        orig_dtype = x.dtype
+        context_emb = self.mlp(x.to(self.null_token.dtype))
+        context_emb = context_emb.to(orig_dtype)
 
         if self.dropout_prob > 0:
             context_emb = self.token_drop(context_emb, self.dropout_prob)
 
         return context_emb
 
-  
+
 
 class ContextSiT(nn.Module):
     """
@@ -273,7 +273,7 @@ class ContextSiT(nn.Module):
         self.num_heads = num_heads
         self.use_checkpointing = use_checkpointing
         self.hidden_size = hidden_size
-        
+
         self.return_sigma = return_sigma
 
         self.x_embedder = PatchEmbed(input_size, patch_size, in_channels, hidden_size, bias=True)
@@ -284,7 +284,7 @@ class ContextSiT(nn.Module):
             print(f"[DiT] Class-conditional ({num_classes} classes {uc})")
         else:
             self.y_embedder = None
-            
+
         # Context embedding + CFG
         if cat_context:
             if context_dropout_prob > 0:
@@ -319,8 +319,8 @@ class ContextSiT(nn.Module):
             outputs = module(*inputs)
             return outputs
         return ckpt_forward
-    
-    
+
+
     def forward(self, x, t, y=None, context=None):
         """
         Forward pass of DiT.
@@ -331,7 +331,7 @@ class ContextSiT(nn.Module):
         """
         x = self.x_embedder(x)                                      # (N, T, D), where T = H * W / patch_size ** 2
         t = self.t_embedder(t)                                      # (N, D)
-        
+
         if self.y_embedder is not None:
             # Add a null class label for unconditional generation
             if y is None:
@@ -341,7 +341,7 @@ class ContextSiT(nn.Module):
             if y.ndim > 1:
                 y = y.squeeze(1)
 
-            y = self.y_embedder(y, self.training)                   # (N, D)            
+            y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
         else:
             c = t
@@ -357,31 +357,31 @@ class ContextSiT(nn.Module):
         if self.context_embedder is not None and context is not None:
             context_emb = self.context_embedder(context).unsqueeze(1)   # (N, D) -> (N, 1, D)
             x = torch.cat([x, context_emb], dim=1)                      # (N, T+1, D) append context to img tokens
-            
+
         x = x + self.pos_embed                                          # (N, T+1, D)
-        
+
         for block in self.blocks:
             if self.use_checkpointing:
                 x = torch.utils.checkpoint.checkpoint(self.ckpt_wrapper(block), x, c)
             else:
                 x = block(x, c)                                         # (N, T, D)
-        
+
         if self.context_embedder is not None and context is not None:
             x = x[:, :-1]                                               # remove context token
-        
+
         x = self.final_layer(x, c)                                      # (N, T, patch_size ** 2 * out_channels)
         x = self.unpatchify(x)                                          # (N, out_channels, H, W)
         if self.learn_sigma and not self.return_sigma:                  # LEGACY
             x, _ = x.chunk(2, dim=1)
         return x
-        
+
     def forward_with_cfg(self, x, t, y, cfg_scale):
         """
         Forward pass of SiT, but also batches the unconSiTional forward pass for classifier-free guidance.
         """
         if cfg_scale == 1.0:                                # without CFG
             print(f"[DiffusionFlow] CFG scale is 1.0, no CFG applied")
-            
+
         # https://github.com/openai/glide-text2im/blob/main/notebooks/text2im.ipynb
         half = x[: len(x) // 2]
         combined = torch.cat([half, half], dim=0)
@@ -421,7 +421,7 @@ class ContextSiT(nn.Module):
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
         self.apply(_basic_init)
-        
+
         # Initialize (and freeze) pos_embed by sin-cos embedding:
         cls_token, extra_tokens = bool(self.y_embedder), self.extras  # 1 if class-conditional, 0 otherwise
         pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.x_embedder.num_patches ** 0.5), cls_token=cls_token, extra_tokens=extra_tokens)
@@ -565,28 +565,28 @@ SiT_models = {
 
 
 if __name__ == '__main__':
-    
-    """ Simple test for concatenation """ 
-    
+
+    """ Simple test for concatenation """
+
     N = 1  # Batch size
     D = 2  # Dimensionality of each token
     T = 2  # Number of tokens
-    
+
     # Create input tensor (N, T, D)
-    ipt = torch.randn(N, T, D)  
+    ipt = torch.randn(N, T, D)
     print(f"Input tensor (x): {ipt.shape}")
 
     # Embedded context vector (N, 1, D)
-    context_emb = torch.zeros(N, 1, D)  
+    context_emb = torch.zeros(N, 1, D)
     print(f"Context emb (before concat): {context_emb.shape}")
     print(f"Context tensor (context_emb): {context_emb}")
-    
+
     # Concatenate (N, T+1, D)
-    x = torch.cat([ipt, context_emb], dim=1)  
+    x = torch.cat([ipt, context_emb], dim=1)
     print(f"Cat output (after concat): {x.shape}")
     print(f"Cat tensor (x): {x}")
-    
+
     # Remove context token (N, T, D)
-    x = x[:, :-1, :]  
+    x = x[:, :-1, :]
     print(f"Removed context (after removal): {x.shape}")
     print(f"Output tensor (x): {x}")
