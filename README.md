@@ -8,7 +8,7 @@
 > **Noise-guided latent flow matching for smooth, controllable image generation through representation-learning based classifier-guidance.**
 
 <p align="center">
-  <img src="assets/readme/pair_01.gif" alt="Interpolation 1" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_010.gif" alt="Interpolation 1" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
   <img src="assets/readme/pair_04.gif" alt="Interpolation 2" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
   <img src="assets/readme/pair_06.gif" alt="Interpolation 3" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
   <img src="assets/readme/pair_05.gif" alt="Interpolation 4" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
@@ -17,8 +17,8 @@
 <p align="center">
   <img src="assets/readme/pair_09.gif" alt="Interpolation 5" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
   <img src="assets/readme/pair_10.gif" alt="Interpolation 6" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_11.gif" alt="Interpolation 7" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_12.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_08.gif" alt="Interpolation 7" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
+  <img src="assets/readme/pair_07.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
 </p>
 
 
