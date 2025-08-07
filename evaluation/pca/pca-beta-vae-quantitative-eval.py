@@ -57,7 +57,7 @@ from jutils import tensor2im, ims_to_grid
 project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
 sys.path.append(project_root)
 
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
+from ldm.utils.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
 from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
 from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule

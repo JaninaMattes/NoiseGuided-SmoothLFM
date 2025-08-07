@@ -57,7 +57,7 @@ sys.path.append(project_root)
 from ldm.trainer_rf_vae import TrainerModuleLatentFlow
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
+from ldm.utils.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
 from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
 
 
