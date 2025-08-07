@@ -69,8 +69,8 @@ class RegisterDiT(DiT):
 
             y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
-        else:
-            c = t
+        # else:
+        #     c = t
             
         for block in self.blocks:
             if self.use_checkpointing:

@@ -709,7 +709,7 @@ def run_interpolation_and_evaluation(
                 "psnr": image_metrics["psnr"],
                 "mse": image_metrics["mse"],
                 "mae": image_metrics["mae"],
-                "cossim": image_metrics["cossim"]
+                "cossim": image_metrics["cossim"],
                 "lpips": image_metrics["lpips"],
                 "lpips_mean": tracker_metrics.get("lpips_mean", float("nan")),
                 "lpips_std": tracker_metrics.get("lpips_std", float("nan")),
@@ -1104,7 +1104,7 @@ if __name__ == "__main__":
             checkpoint=checkpoint,
             data_path=test_data_path if group == "test" else validation_data_path,
             interpolation_dict=interpolation_dict,
-            project_name=project_name / "interpolation"
+            project_name=project_name / "interpolation",
             model_name=model_name,
             group=group,
             source_timestep=source_timestep,

@@ -1991,7 +1991,7 @@ if __name__ == "__main__":
             project_path=group_path,
         )
         print(f"[INFO] Completed group: {group_name}\n")
-        print(f"==" * 50)s
+        print(f"==" * 50)
 
     # --------------------------------------
     # K-Means PCA Scatter Grid (Fixed)

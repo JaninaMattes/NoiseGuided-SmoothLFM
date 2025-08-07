@@ -31,7 +31,7 @@ if __name__ == "__main__":
     latent_dim = 1024
     z = torch.randn(16, 1024).to(device)
 
-    Test dummy decoder
+    # Test dummy decoder
     decoder = DummyDecoder(in_channels=in_channels, latent_dim=latent_dim).to(device)
     out = decoder(z)
     

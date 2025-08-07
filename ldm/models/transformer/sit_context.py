@@ -351,8 +351,8 @@ class ContextSiT(nn.Module):
 
             y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
-        else:
-            c = t
+        # else:
+        #     c = t
 
         if self.context_embedder is not None and context is not None:
             context_emb = self.context_embedder(context).unsqueeze(1)   # (N, D) -> (N, 1, D)

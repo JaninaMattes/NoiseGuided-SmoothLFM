@@ -432,8 +432,8 @@ class SiTDCT(SiT):
 
             y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
-        else:
-            c = t
+        # else:
+        #     c = t
             
         x = x + self.pos_embed                                          # (N, T+1, D)
         

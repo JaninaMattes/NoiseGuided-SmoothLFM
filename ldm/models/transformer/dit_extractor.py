@@ -267,8 +267,8 @@ class DiT_Extractor(nn.Module):
 
             y = self.y_embedder(y, self.training)                   # (N, D)
             c = t + y                                               # (N, D)
-        else:
-            c = t
+        # else:
+        #     c = t
         for i, block in enumerate(self.blocks):
             x = block(x, c)                      # (N, T, D)
             self.block_activations[i] = block.activations
