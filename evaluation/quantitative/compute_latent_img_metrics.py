@@ -37,7 +37,6 @@ from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
 
 
-
 # Jutils
 from jutils import freeze
 

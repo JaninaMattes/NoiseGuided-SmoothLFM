@@ -36,8 +36,6 @@ from sklearn.metrics import (
 )
 
 
-
-
 from sklearn.metrics import (
     classification_report,
     f1_score,
@@ -51,10 +49,6 @@ from sklearn.metrics import accuracy_score
 
 
 from sklearn.model_selection import train_test_split
-
-
-
-
 
 
 # Helper utilities
@@ -457,8 +451,6 @@ def plot_scree(explained_variance, threshold=1.0, save_path=None):
     plt.close()
 
 
-
-
 def plot_variance_explained(explained_variance_ratio, save_path=None):
     """
     Plot explained variance and cumulative variance for PCA components.
@@ -527,7 +519,6 @@ def plot_pca_scatter(pca_latents, labels, num_components=2, save_path=None):
 
 
 def plot_decision_boundary(X, y, clf, title="Decision Boundary", save_path=None):
-
     set_style()
 
     x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
@@ -660,7 +651,6 @@ def run_pca_over_beta(
     device=None,
     results_root=None,
 ):
-
     # Ensure path types
     if isinstance(data_path, str):
         data_path = Path(data_path)

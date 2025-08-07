@@ -20,8 +20,6 @@ import torchvision.transforms as transforms
 from pathlib import Path
 
 
-
-
 # helper
 from torchmetrics.image.fid import FrechetInceptionDistance
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS

@@ -32,7 +32,6 @@ from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
 from lightning import seed_everything
 
 
-
 from jutils import freeze
 
 

@@ -723,8 +723,6 @@ def linear_interpolation_grid_with_evaluation(
         print(f"[INFO] Saved grid image: {grid_path}")
 
 
-
-
 @torch.no_grad()
 def run_interpolation_and_evaluation(
     checkpoint,

@@ -29,6 +29,7 @@ class DecoderOutput(BaseOutput):
     Args:
         recon_x (`torch.Tensor`): Reconstructed image of shape (B, NC, H, W).
     """
+
     sample: torch.Tensor
     logvar_dec: torch.Tensor
 
@@ -46,6 +47,7 @@ class BetaVAEModelOutput(BaseOutput):
         logvar_z (`torch.Tensor`):
             The log variance of the latent distribution output conditioned on the `encoder_hidden_states` input.
     """
+
     loss: torch.Tensor
     recon_loss: torch.Tensor
     kld_loss: torch.Tensor
@@ -67,6 +69,7 @@ class AEModelOutput(BaseOutput):
         logvar_z (`torch.Tensor`):
             The log variance of the latent distribution output conditioned on the `encoder_hidden_states` input.
     """
+
     loss: torch.Tensor
     sample: torch.Tensor
 
@@ -76,6 +79,7 @@ class AEEncoderOutput(BaseOutput):
     """
     The output of [`AEEncoder`].
     """
+
     z_enc: torch.Tensor
     skips: Optional[list[torch.Tensor]] = None  # skip connections
 
@@ -85,6 +89,7 @@ class AEDecoderOutput(BaseOutput):
     """
     The output of [`AEDecoder`].
     """
+
     z_dec: torch.Tensor
     noise: Optional[torch.Tensor] = None  # noise added to the latent space
 

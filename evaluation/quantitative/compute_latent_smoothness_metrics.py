@@ -5,7 +5,8 @@
 # - https://github.com/NVlabs/stylegan2-ada-pytorch/tree/main/metrics
 
 
-import os, sys
+import os
+import sys
 import gc
 
 from tqdm import tqdm
@@ -13,15 +14,11 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 
-import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning import seed_everything
 
 import torchvision
 import torchvision.transforms.functional as FT
-import torchvision.transforms as transforms
-from torchvision.utils import make_grid
 
 from datetime import datetime
 from pathlib import Path
@@ -30,58 +27,45 @@ from typing import List, Tuple
 
 
 from matplotlib import pyplot as plt
-from matplotlib import rcParams
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import umap
-from tqdm import tqdm
 
 import cv2
 from moviepy import ImageSequenceClip
 
 
 # helper
-from torchmetrics.image.fid import FrechetInceptionDistance
 from elatentlpips import ELatentLPIPS
 from torchmetrics.image import PeakSignalNoiseRatio as PSNR
 from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
-from pytorch_fid.inception import InceptionV3
-
 
 
 # Jutils
-from jutils import denorm
-from jutils import ims_to_grid
-from jutils.vision import tensor2im
-from jutils import exists, freeze, default
-from jutils import tensor2im, ims_to_grid
-
+from jutils import freeze
 
 
 # Setup project root for import resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../")
+)
 sys.path.append(project_root)
 
 from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
-from ldm.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor # denorm tensor -- just for plotting
+from data_processing.tools.norm import (
+    denorm_metrics_tensor,
+    denorm_tensor,
+)  # denorm tensor -- just for plotting
 
 
-
-torch.set_float32_matmul_precision('high')
-
-
-
-
-
+torch.set_float32_matmul_precision("high")
 
 
 ############################################
 #   Utils
 ############################################
+
 
 def clear_folder(path: Path):
     if path.exists() and path.is_dir():
@@ -103,15 +87,11 @@ def sharpen_image(img_np, strength=0.1):
     Returns:
         Sharpened image as np.uint8
     """
-    kernel = np.array([[0, -1, 0],
-                       [-1, 5 + strength, -1],
-                       [0, -1, 0]])
+    kernel = np.array([[0, -1, 0], [-1, 5 + strength, -1], [0, -1, 0]])
 
     if img_np.dtype != np.uint8:
         img_np = (img_np * 255).clip(0, 255).astype(np.uint8)
     return cv2.filter2D(img_np, -1, kernel)
-
-
 
 
 def frames2mp4(vpath, frames, fps=10, sharpen=True, sharpen_strength=0.1):
@@ -138,24 +118,18 @@ def frames2mp4(vpath, frames, fps=10, sharpen=True, sharpen_strength=0.1):
     del clip
 
 
-
-
 #########################################################
 #               Helper Linear Interpolation             #
 #########################################################
 def lerp(t, v0, v1):
     return v0 * (1 - t) + v1 * t
 
+
 def generate_interpolation_sequence(start_img, end_img, num_steps=8):
-    seq = torch.stack([lerp(t, start_img, end_img)
-                       for t in torch.linspace(0, 1, num_steps)], dim=0)
+    seq = torch.stack(
+        [lerp(t, start_img, end_img) for t in torch.linspace(0, 1, num_steps)], dim=0
+    )
     return seq
-
-
-
-
-
-
 
 
 #########################################################
@@ -172,9 +146,12 @@ class LatentSmoothnessMetricsTracker(nn.Module):
     [0] PPL: "Analyzing and Improving the Image Quality of StyleGAN" (Karras et al., 2020)
     [1] Smooth Diffusion: "Crafting Smooth Latent Spaces in Diffusion Models" (Guo et al., 2024)
     """
+
     def __init__(self, device=None, normalize_step=True):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
         self.e_lpips = ELatentLPIPS(encoder="sd15", augment="bg").to(self.device).eval()
         self.normalize_step = normalize_step
 
@@ -184,7 +161,6 @@ class LatentSmoothnessMetricsTracker(nn.Module):
         self.ppl_values = []
         self.istd_values = []
         self.lpips_values = []
-
 
     @torch.no_grad()
     def update(self, sequences):
@@ -196,7 +172,9 @@ class LatentSmoothnessMetricsTracker(nn.Module):
         epsilon = 1.0 / (T - 1) if self.normalize_step else 1.0
 
         # Normalize for LPIPS (expects [-1, 1])
-        sequences = denorm_metrics_tensor(sequences, target_range=(0, 1), dtype='float').to(self.device)
+        sequences = denorm_metrics_tensor(
+            sequences, target_range=(0, 1), dtype="float"
+        ).to(self.device)
 
         for i in range(B):
             seq = sequences[i]  # shape: (T, C, H, W)
@@ -235,7 +213,6 @@ class LatentSmoothnessMetricsTracker(nn.Module):
         del sequences
         torch.cuda.empty_cache()
 
-
     @torch.no_grad()
     def aggregate(self):
         if len(self.ppl_values) == 0:
@@ -243,11 +220,8 @@ class LatentSmoothnessMetricsTracker(nn.Module):
         return {
             "ppl": np.mean(self.ppl_values),
             "istd": np.mean(self.istd_values),
-            "lpips": np.mean(self.lpips_values)
+            "lpips": np.mean(self.lpips_values),
         }
-
-
-
 
 
 ############################################
@@ -256,7 +230,9 @@ class LatentSmoothnessMetricsTracker(nn.Module):
 class LatentImageMetricsTracker(nn.Module):
     def __init__(self, device=None):
         super().__init__()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         self.ssim = SSIM(data_range=1.0).to(self.device)
         self.psnr = PSNR(data_range=1.0).to(self.device)
@@ -274,14 +250,19 @@ class LatentImageMetricsTracker(nn.Module):
         self.cossims = []
         self.e_lpips_scores = []
 
-
     @torch.no_grad()
     def update(self, target, pred):
-        assert pred.shape == target.shape, f"Shape mismatch: {pred.shape} vs {target.shape}"
+        assert pred.shape == target.shape, (
+            f"Shape mismatch: {pred.shape} vs {target.shape}"
+        )
 
         # Normalize pred and target for pixel metrics [0, 1]
-        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype='float').to(self.device)
-        target_norm = denorm_metrics_tensor(target, target_range=(0, 1), dtype='float').to(self.device)
+        pred_norm = denorm_metrics_tensor(pred, target_range=(0, 1), dtype="float").to(
+            self.device
+        )
+        target_norm = denorm_metrics_tensor(
+            target, target_range=(0, 1), dtype="float"
+        ).to(self.device)
 
         # Cosine similarity computation
         B = pred_norm.shape[0]
@@ -293,9 +274,15 @@ class LatentImageMetricsTracker(nn.Module):
         # Standard metrics
         self.ssims.append(self.ssim(pred_norm, target_norm).detach().cpu())
         self.psnrs.append(self.psnr(pred_norm, target_norm).detach().cpu())
-        self.mses.append(torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]).detach().cpu())
-        self.maes.append(torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]).detach().cpu())
-        self.e_lpips_scores.append(self.e_lpips(pred_norm * 2 - 1, target_norm * 2 - 1).detach().cpu())
+        self.mses.append(
+            torch.mean((pred_norm - target_norm) ** 2, dim=[1, 2, 3]).detach().cpu()
+        )
+        self.maes.append(
+            torch.mean(torch.abs(pred_norm - target_norm), dim=[1, 2, 3]).detach().cpu()
+        )
+        self.e_lpips_scores.append(
+            self.e_lpips(pred_norm * 2 - 1, target_norm * 2 - 1).detach().cpu()
+        )
 
         # Clean up memory
         del pred_norm, target_norm
@@ -309,16 +296,14 @@ class LatentImageMetricsTracker(nn.Module):
             mse=torch.stack(self.mses).mean().item(),
             mae=torch.stack(self.maes).mean().item(),
             lpips=torch.stack(self.e_lpips_scores).mean().item(),
-            cossim=torch.cat(self.cossims).mean().item()
+            cossim=torch.cat(self.cossims).mean().item(),
         )
-
 
 
 #########################################################
 #           Collect samples from the dataset            #
 #########################################################
-from collections import defaultdict
-from typing import List, Tuple
+
 
 @torch.no_grad()
 def collect_samples(
@@ -326,7 +311,7 @@ def collect_samples(
     class_labels: List[int],
     source_timestep: float,
     samples_per_class: int = 10,
-    group_name='validation'
+    group_name="validation",
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Collects a fixed number of samples per class from a validation dataloader.
@@ -336,17 +321,17 @@ def collect_samples(
     collected_images = defaultdict(list)
 
     # Dataloader
-    if group_name == 'validation':
+    if group_name == "validation":
         val_loader = data.val_dataloader()
     else:
         val_loader = data.test_dataloader()
 
-    latent_key = f'latents_{source_timestep:.2f}'
+    latent_key = f"latents_{source_timestep:.2f}"
 
     for batch_idx, batch in enumerate(val_loader):
         latents = batch[latent_key].detach().cpu()
-        labels = batch['label'].view(-1).detach().cpu()
-        images = batch['image'].detach().cpu()
+        labels = batch["label"].view(-1).detach().cpu()
+        images = batch["image"].detach().cpu()
 
         for label in class_labels:
             needed = samples_per_class - len(collected_latents[label])
@@ -362,8 +347,12 @@ def collect_samples(
                 collected_latents[label].extend(selected_latents[:to_take])
                 collected_images[label].extend(selected_images[:to_take])
 
-        if all(len(collected_latents[label]) >= samples_per_class for label in class_labels):
-            print(f"[INFO] Collected enough samples for all classes after {batch_idx + 1} batches.")
+        if all(
+            len(collected_latents[label]) >= samples_per_class for label in class_labels
+        ):
+            print(
+                f"[INFO] Collected enough samples for all classes after {batch_idx + 1} batches."
+            )
             break
 
     all_latents, all_labels, all_images = [], [], []
@@ -372,7 +361,9 @@ def collect_samples(
         images_list = collected_images[label]
 
         if len(latents_list) < samples_per_class:
-            raise ValueError(f"Not enough samples collected for class {label}: got {len(latents_list)}")
+            raise ValueError(
+                f"Not enough samples collected for class {label}: got {len(latents_list)}"
+            )
 
         stacked_latents = torch.stack(latents_list[:samples_per_class], dim=0)
         stacked_images = torch.stack(images_list[:samples_per_class], dim=0)
@@ -385,9 +376,8 @@ def collect_samples(
     return (
         torch.cat(all_latents, dim=0),
         torch.cat(all_labels, dim=0),
-        torch.cat(all_images, dim=0)
+        torch.cat(all_images, dim=0),
     )
-
 
 
 def get_dataloader_by_group(data_module, group: str):
@@ -397,8 +387,6 @@ def get_dataloader_by_group(data_module, group: str):
         return data_module.test_dataloader()
     else:
         raise ValueError(f"Unsupported group: {group}")
-
-
 
 
 #########################################################
@@ -411,29 +399,26 @@ def interpolate_vectors(z1, z2, alpha_vals, mode="linear", dot_threshold=0.9995)
     Returns a tensor of shape (B, D) where B = len(alpha_vals).
     """
     if mode == "linear":
-        return torch.stack([
-            (1 - alpha) * z1 + alpha * z2 for alpha in alpha_vals
-        ])
+        return torch.stack([(1 - alpha) * z1 + alpha * z2 for alpha in alpha_vals])
     elif mode == "slerp":
         z1_norm = z1 / z1.norm()
         z2_norm = z2 / z2.norm()
         dot = torch.dot(z1_norm, z2_norm).clamp(-1.0, 1.0)
 
         if torch.abs(dot) > dot_threshold:
-            return torch.stack([
-                torch.lerp(z1, z2, alpha) for alpha in alpha_vals
-            ])
+            return torch.stack([torch.lerp(z1, z2, alpha) for alpha in alpha_vals])
         else:
             omega = torch.acos(dot)
             sin_omega = torch.sin(omega)
-            return torch.stack([
-                torch.sin((1.0 - alpha) * omega) / sin_omega * z1_norm +
-                torch.sin(alpha * omega) / sin_omega * z2_norm
-                for alpha in alpha_vals
-            ])
+            return torch.stack(
+                [
+                    torch.sin((1.0 - alpha) * omega) / sin_omega * z1_norm
+                    + torch.sin(alpha * omega) / sin_omega * z2_norm
+                    for alpha in alpha_vals
+                ]
+            )
     else:
         raise ValueError(f"Unknown interpolation mode: {mode}")
-
 
 
 @torch.no_grad()
@@ -461,7 +446,7 @@ def linear_interpolation_grid_with_evaluation(
     use_labels=False,
     num_classes=1000,
     plot_samples=False,
-    device=None
+    device=None,
 ):
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(results_dir, exist_ok=True)
@@ -476,64 +461,103 @@ def linear_interpolation_grid_with_evaluation(
         x2 = cls2_latents[i].unsqueeze(0)
 
         # Encode third stage
-        context_z1 = beta_vae_module.model.encode(x1)['latent_dist'].sample().squeeze(0)
-        context_z2 = beta_vae_module.model.encode(x2)['latent_dist'].sample().squeeze(0)
+        context_z1 = beta_vae_module.model.encode(x1)["latent_dist"].sample().squeeze(0)
+        context_z2 = beta_vae_module.model.encode(x2)["latent_dist"].sample().squeeze(0)
 
         # Interpolate context
-        interp_context = interpolate_vectors(context_z1, context_z2, alpha_lin_space, mode=interp_type).to(device)
+        interp_context = interpolate_vectors(
+            context_z1, context_z2, alpha_lin_space, mode=interp_type
+        ).to(device)
 
         B = interp_context.shape[0]
         C, H, W = x1.size()[1:]
 
         # Samples in latent space of Beta-VAE
-        samples = beta_vae_module.model.decode(interp_context)["sample"] # shape: (B, C, H, W)
+        samples = beta_vae_module.model.decode(interp_context)[
+            "sample"
+        ]  # shape: (B, C, H, W)
 
         # Update tracker if provided
         if tracker is not None:
-            tracker.update(samples.unsqueeze(0)) # 1, T, C, H, W
-            print(f"[INFO] Updated tracker for pair {i} with {samples.shape[0]} samples.")
+            tracker.update(samples.unsqueeze(0))  # 1, T, C, H, W
+            print(
+                f"[INFO] Updated tracker for pair {i} with {samples.shape[0]} samples."
+            )
 
         if image_tracker is not None:
             # Resize and normalize for evaluation
 
-            pred_pair = samples[[0, -1]] # interpolated samples - first and last shape: (2, C, H, W)
-            gt_pair = torch.stack([cls1_latents[i], cls2_latents[i]])            # shape: (2, C, H, W) - ground truth images
+            pred_pair = samples[
+                [0, -1]
+            ]  # interpolated samples - first and last shape: (2, C, H, W)
+            gt_pair = torch.stack(
+                [cls1_latents[i], cls2_latents[i]]
+            )  # shape: (2, C, H, W) - ground truth images
 
-            print(f"[INFO] Shape pred_pair: {pred_pair.shape}, gt_pair: {gt_pair.shape}")
-            assert pred_pair.shape == gt_pair.shape, f"Shape mismatch: {pred_pair.shape} vs {gt_pair.shape}"
+            print(
+                f"[INFO] Shape pred_pair: {pred_pair.shape}, gt_pair: {gt_pair.shape}"
+            )
+            assert pred_pair.shape == gt_pair.shape, (
+                f"Shape mismatch: {pred_pair.shape} vs {gt_pair.shape}"
+            )
             image_tracker.update(target=gt_pair, pred=pred_pair)
-            print(f"[INFO] Updated image tracker for pair {i} with {pred_pair.shape[0]} samples.")
-
+            print(
+                f"[INFO] Updated image tracker for pair {i} with {pred_pair.shape[0]} samples."
+            )
 
         if plot_samples:
             # Handle label logic
             if use_labels:
                 half = num_interpolations // 2
-                row_labels = torch.cat([
-                    torch.full((half,), 0, dtype=torch.long),  # Replace 0 with cls1 label if needed
-                    torch.full((num_interpolations - half,), 1, dtype=torch.long)  # Replace 1 with cls2 label if needed
-                ])
+                row_labels = torch.cat(
+                    [
+                        torch.full(
+                            (half,), 0, dtype=torch.long
+                        ),  # Replace 0 with cls1 label if needed
+                        torch.full(
+                            (num_interpolations - half,), 1, dtype=torch.long
+                        ),  # Replace 1 with cls2 label if needed
+                    ]
+                )
                 labels = row_labels.to(device)
-                print(f"[INFO] Pair {i}: Using dummy labels for interpolation (adjust if needed).")
+                print(
+                    f"[INFO] Pair {i}: Using dummy labels for interpolation (adjust if needed)."
+                )
             else:
                 labels = None
 
             # Decode for plotting
-            decoded_latents = beta_vae_module.decode_second_stage(samples.to(device), label=labels)
-            generated_interpolation = beta_vae_module.decode_first_stage(decoded_latents.to(device))
+            decoded_latents = beta_vae_module.decode_second_stage(
+                samples.to(device), label=labels
+            )
+            generated_interpolation = beta_vae_module.decode_first_stage(
+                decoded_latents.to(device)
+            )
 
             row_images = denorm_tensor(generated_interpolation).detach().cpu()
-            row_images = torch.stack([FT.resize(im, [upscale_to, upscale_to]) for im in row_images])
+            row_images = torch.stack(
+                [FT.resize(im, [upscale_to, upscale_to]) for im in row_images]
+            )
 
-            start_img = FT.resize(denorm_tensor(cls1_images[i].unsqueeze(0))[0].cpu(), [upscale_to, upscale_to])
-            end_img = FT.resize(denorm_tensor(cls2_images[i].unsqueeze(0))[0].cpu(), [upscale_to, upscale_to])
-            full_row = torch.cat([start_img.unsqueeze(0), row_images, end_img.unsqueeze(0)], dim=0)
+            start_img = FT.resize(
+                denorm_tensor(cls1_images[i].unsqueeze(0))[0].cpu(),
+                [upscale_to, upscale_to],
+            )
+            end_img = FT.resize(
+                denorm_tensor(cls2_images[i].unsqueeze(0))[0].cpu(),
+                [upscale_to, upscale_to],
+            )
+            full_row = torch.cat(
+                [start_img.unsqueeze(0), row_images, end_img.unsqueeze(0)], dim=0
+            )
 
             generated_rows.append(full_row)
 
             if create_video:
                 frames = [im.detach().cpu().permute(1, 2, 0).numpy() for im in full_row]
-                video_path = os.path.join(results_dir, f"pair_{i:02d}.{'gif' if video_fps < 10 else 'mp4'}")
+                video_path = os.path.join(
+                    results_dir, f"pair_{i:02d}.{'gif' if video_fps < 10 else 'mp4'}"
+                )
                 frames2mp4(video_path, frames, fps=video_fps, sharpen=sharpen)
                 print(f"[INFO] Saved video: {video_path}")
 
@@ -556,7 +580,7 @@ def linear_interpolation_grid_with_evaluation(
 
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
         ax.imshow(grid_np)
-        ax.axis('off')
+        ax.axis("off")
         plt.title("Interpolation Grid with Anchors")
         grid_path = os.path.join(results_dir, f"grid_{filename_suffix}.png")
         plt.tight_layout()
@@ -565,19 +589,10 @@ def linear_interpolation_grid_with_evaluation(
         print(f"[INFO] Saved grid image: {grid_path}")
 
 
-
-
-
-import pandas as pd
-import csv
 from pathlib import Path
-from datetime import datetime
 import torch
-import gc
 from torch import nn
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
-from torchvision.utils import make_grid
+
 
 @torch.no_grad()
 def run_interpolation_and_evaluation(
@@ -599,7 +614,7 @@ def run_interpolation_and_evaluation(
     selected_video_pairs=None,
     results_root="./results",
     plot_every_n_samples=10,
-    device=None
+    device=None,
 ):
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(2025)
@@ -607,7 +622,9 @@ def run_interpolation_and_evaluation(
     gc.collect()
 
     # Load model
-    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location='cpu')
+    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(
+        checkpoint, map_location="cpu"
+    )
     beta_vae_module.eval().to(device)
     freeze(beta_vae_module.model)
     beta_vae_module.to(device)
@@ -627,7 +644,7 @@ def run_interpolation_and_evaluation(
     data.setup(stage="fit" if group == "validation" else "test")
 
     # Setup results directory
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     base_results_dir = Path(results_root) / project_name / model_name / timestamp
     base_results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -639,14 +656,13 @@ def run_interpolation_and_evaluation(
         class_labels=list(all_classes),
         source_timestep=source_timestep,
         samples_per_class=samples_per_class,
-        group_name=group
+        group_name=group,
     )
 
     metrics_records = []
 
     print("[INFO] Task (1): Interpolating pairs ...")
     for interp_name, (cls_a, cls_b) in interpolation_dict.items():
-
         try:
             cls1_mask = labels == cls_a
             cls2_mask = labels == cls_b
@@ -663,7 +679,11 @@ def run_interpolation_and_evaluation(
 
             tracker = LatentSmoothnessMetricsTracker(device=device)
             image_tracker = LatentImageMetricsTracker(device=device)
-            create_video = False if not selected_video_pairs else interp_name in selected_video_pairs
+            create_video = (
+                False
+                if not selected_video_pairs
+                else interp_name in selected_video_pairs
+            )
 
             linear_interpolation_grid_with_evaluation(
                 cls1_latents=latents_1,
@@ -697,11 +717,16 @@ def run_interpolation_and_evaluation(
         tracker_metrics = tracker.aggregate()
         image_metrics = image_tracker.aggregate()
 
-        print(f"[METRICS] Average PPL: {tracker_metrics['ppl']:.6f}, ISTD: {tracker_metrics['istd']:.6f}")
-        print(f"[METRICS] SSIM: {image_metrics['ssim']:.6f}, PSNR: {image_metrics['psnr']:.6f}, MSE: {image_metrics['mse']:.6f}, "
-                  f"MAE: {image_metrics['mae']:.6f}, LPIPS: {image_metrics['lpips']:.6f}, COSSIM: {image_metrics['cossim']:.6f}")
+        print(
+            f"[METRICS] Average PPL: {tracker_metrics['ppl']:.6f}, ISTD: {tracker_metrics['istd']:.6f}"
+        )
+        print(
+            f"[METRICS] SSIM: {image_metrics['ssim']:.6f}, PSNR: {image_metrics['psnr']:.6f}, MSE: {image_metrics['mse']:.6f}, "
+            f"MAE: {image_metrics['mae']:.6f}, LPIPS: {image_metrics['lpips']:.6f}, COSSIM: {image_metrics['cossim']:.6f}"
+        )
 
-        metrics_records.append({
+        metrics_records.append(
+            {
                 "pair_name": interp_name,
                 "cls_a": cls_a,
                 "cls_b": cls_b,
@@ -709,17 +734,21 @@ def run_interpolation_and_evaluation(
                 "psnr": image_metrics["psnr"],
                 "mse": image_metrics["mse"],
                 "mae": image_metrics["mae"],
-                "cossim": image_metrics["cossim"]
+                "cossim": image_metrics["cossim"],
                 "lpips": image_metrics["lpips"],
                 "lpips_mean": tracker_metrics.get("lpips_mean", float("nan")),
                 "lpips_std": tracker_metrics.get("lpips_std", float("nan")),
                 "ppl": tracker_metrics["ppl"],
                 "istd": tracker_metrics["istd"],
-            })
+            }
+        )
 
         # Save partial results to CSV
         partial_df = pd.DataFrame(metrics_records)
-        partial_df.to_csv(base_results_dir / f"interpolation_metrics_partial_{model_name}.csv", index=False)
+        partial_df.to_csv(
+            base_results_dir / f"interpolation_metrics_partial_{model_name}.csv",
+            index=False,
+        )
         print(f"[INFO] Saved metrics for {interp_name} to CSV.")
 
         tracker.reset()
@@ -746,8 +775,12 @@ def run_interpolation_and_evaluation(
         "cossim": df["cossim"].mean(),
         "ppl": df["ppl"].mean(),
         "istd": df["istd"].mean(),
-        "lpips_mean_interpolation": df["lpips"].mean() if "lpips_mean" in df.columns else float("nan"),   # from smoothness tracker
-        "lpips_std_interpolation": df["lpips"].std() if "lpips_std" in df.columns else float("nan"),      # from smoothness tracker
+        "lpips_mean_interpolation": df["lpips"].mean()
+        if "lpips_mean" in df.columns
+        else float("nan"),  # from smoothness tracker
+        "lpips_std_interpolation": df["lpips"].std()
+        if "lpips_std" in df.columns
+        else float("nan"),  # from smoothness tracker
     }
     df = pd.concat([df, pd.DataFrame([summary_row])], ignore_index=True)
 
@@ -770,77 +803,76 @@ def run_interpolation_and_evaluation(
     gc.collect()
 
 
-
-
 if __name__ == "__main__":
-
     #####################################
     # Evaluation Parameters
     #####################################
     # Model checkpoints
-    source_timestep     = 0.50
-    target_timestep     = 1.00
-    beta                = 0.1     # Beta value for the VAE
-    dataset_name        = 'imagenet256-testset-T151412'
-    group               = "test"  # "validation" or "test"
-    baseline            = (source_timestep == 0.50 and target_timestep == 0.50)
-    batch_size          = 24
-    samples_per_class   = 12
-    num_pairs           = 10
-    num_interpolations  = 18
-    cfg_scale           = 4.0
-    ccfg_scale          = 1.0
+    source_timestep = 0.50
+    target_timestep = 1.00
+    beta = 0.1  # Beta value for the VAE
+    dataset_name = "imagenet256-testset-T151412"
+    group = "test"  # "validation" or "test"
+    baseline = source_timestep == 0.50 and target_timestep == 0.50
+    batch_size = 24
+    samples_per_class = 12
+    num_pairs = 10
+    num_interpolations = 18
+    cfg_scale = 4.0
+    ccfg_scale = 1.0
 
     #####################################
     # Model Paths for SiT-XL-2
     #####################################
 
     # beta: 1e-4
-    Beta02x10x_1e4b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
+    Beta02x10x_1e4b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt"
 
     # beta: 0.1
-    Beta00x00x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt'
-    Beta02x02x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt'                     # Open
-    Beta05x05x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt'                     # Open (Baseline)
-    Beta05x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt'                                       # Open
-    Beta04x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
-    Beta03x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'
-    Beta02x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt'                    ####### DONE
-    Beta00x10x_01b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt'                 # Open
+    Beta00x00x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-0.00x-0.1b/2025-06-11/29845/checkpoints/last.ckpt"
+    Beta02x02x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-0.20x-0.1b/2025-06-18/29842/V2/2025-06-18/29842/checkpoints/last.ckpt"  # Open
+    Beta05x05x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-0.1b/2025-06-18/29847/V2/2025-06-18/29847/checkpoints/last.ckpt"  # Open (Baseline)
+    Beta05x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-02/101646/checkpoints/last.ckpt"  # Open
+    Beta04x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.40x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt"
+    Beta03x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.30x-1.00x-0.1b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt"
+    Beta02x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt"  ####### DONE
+    Beta00x10x_01b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.00x-1.00x-0.1b/2025-06-18/29852/V0-eV2/2025-06-24/29852/checkpoints/last.ckpt"  # Open
 
     # beta: 0.5
-    Beta02x10x_05b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.5b/2025-06-30/manual/V0/2025-07-19/101646/checkpoints/last.ckpt'
-    Beta05x10x_05b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'                                                                 # Open (Baseline)
+    Beta02x10x_05b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.5b/2025-06-30/manual/V0/2025-07-19/101646/checkpoints/last.ckpt"
+    Beta05x10x_05b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt"  # Open (Baseline)
 
     # beta: 1.0
-    Beta05x05x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt'                                                                                                                                   # Open (Baseline)
-    Beta05x10x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'                                                                                                                                   # Open
-    Beta02x10x_1b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt'                                          # Open
+    Beta05x05x_1b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.50x-0.50x-1.0b/2025-06-17/29850/checkpoints/last.ckpt"  # Open (Baseline)
+    Beta05x10x_1b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt"  # Open
+    Beta02x10x_1b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt"  # Open
 
     # beta: 2.0
-    Beta02x10x_2b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-2.0b/V2/2025-07-16/101646/checkpoints/last.ckpt'                     # Open
-    Beta05x10x_2b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'  # Open (Baseline)
-
+    Beta02x10x_2b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-2.0b/V2/2025-07-16/101646/checkpoints/last.ckpt"  # Open
+    Beta05x10x_2b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt"  # Open (Baseline)
 
     # beta: 3.0
-    Beta02x10x_3b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt'                     # Open
+    Beta02x10x_3b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt"  # Open
 
     # beta: 5.0
-    Beta05x05x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt'                                                                                                                                   # Open (Baseline)
-    Beta05x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'                                                                                                                                  # Open
-    Beta02x10x_5b = './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'                   # Open
-
+    Beta05x05x_5b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt"  # Open (Baseline)
+    Beta05x10x_5b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt"  # Open
+    Beta02x10x_5b = "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt"  # Open
 
     #####################################
     # Dataset & Evaluation Parameters
     #####################################
-    checkpoint                   = Beta05x10x_01b
-    test_data_path               = './dataset/processed/testset-256/imagenet256-testset-T222343.hdf5' #'./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
-    validation_data_path         = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5' # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
-    project_name                 = "BetaVAE_Quantitative_Eval_Baseline" if baseline else "BetaVAE_Quantitative_Eval"
-    model_name                   = f"Beta-VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
-
-
+    checkpoint = Beta05x10x_01b
+    test_data_path = "./dataset/processed/testset-256/imagenet256-testset-T222343.hdf5"  #'./dataset/processed/testset-256/imagenet256-testset-T151412.hdf5' # ./dataset/processed/testset-256/imagenet256-testset-T151633.hdf5'
+    validation_data_path = "./dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5"  # './dataset/processed/testset-256/imagenet256-testset-T190319.hdf5'
+    project_name = (
+        "BetaVAE_Quantitative_Eval_Baseline"
+        if baseline
+        else "BetaVAE_Quantitative_Eval"
+    )
+    model_name = (
+        f"Beta-VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
+    )
 
     # #####################################
     # # Interpolation Class Pairs
@@ -890,27 +922,33 @@ if __name__ == "__main__":
     #     # Note: Add more class ID pairs
     # }
 
-
     #####################################
     interpolation_dict = {
-        "admiral_to_cabbage_butterfly": [321, 324],         # Admiral butterfly to cabbage butterfly
-        "monarch_to_admiral_butterfly": [323, 321],         # Monarch butterfly to admiral butterfly
-        "lion_to_tiger": [291, 292],                         # Iconic big cats
-        "snow_leopard_to_leopard": [289, 288],               # Similar species with coat pattern shift
-        "snow_leopard_to_siamese": [289, 284],               # Cat-family transition, fur + form
-        "red_panda_to_giant_panda": [387, 388],              # Strong contrast but related
-        "giant_panda_to_koala": [388, 105],                  # Bear → marsupial
-        "husky_to_doberman": [250, 236],                     # Visually distinct dog breeds
-        "fox_to_pembroke_corgi": [277, 263],                 # Morphologically different canines
-        "cockatoo_to_lorikeet": [89, 90],                    # Parrot family, vibrant color shift
-        "macaw_to_toucan": [88, 96],                         # Colorful tropical birds
-        "penguin_to_flamingo": [145, 130],                   # Dramatic change (aquatic → leggy)
-        "horse_to_zebra": [339, 340],                        # Same species, high-contrast texture
-        "camel_to_gazelle": [354, 353],                      # Large → slender quadruped
-        "icebear_to_brownbear": [296, 294],                  # Polar → brown bear, habitat shift
+        "admiral_to_cabbage_butterfly": [
+            321,
+            324,
+        ],  # Admiral butterfly to cabbage butterfly
+        "monarch_to_admiral_butterfly": [
+            323,
+            321,
+        ],  # Monarch butterfly to admiral butterfly
+        "lion_to_tiger": [291, 292],  # Iconic big cats
+        "snow_leopard_to_leopard": [
+            289,
+            288,
+        ],  # Similar species with coat pattern shift
+        "snow_leopard_to_siamese": [289, 284],  # Cat-family transition, fur + form
+        "red_panda_to_giant_panda": [387, 388],  # Strong contrast but related
+        "giant_panda_to_koala": [388, 105],  # Bear → marsupial
+        "husky_to_doberman": [250, 236],  # Visually distinct dog breeds
+        "fox_to_pembroke_corgi": [277, 263],  # Morphologically different canines
+        "cockatoo_to_lorikeet": [89, 90],  # Parrot family, vibrant color shift
+        "macaw_to_toucan": [88, 96],  # Colorful tropical birds
+        "penguin_to_flamingo": [145, 130],  # Dramatic change (aquatic → leggy)
+        "horse_to_zebra": [339, 340],  # Same species, high-contrast texture
+        "camel_to_gazelle": [354, 353],  # Large → slender quadruped
+        "icebear_to_brownbear": [296, 294],  # Polar → brown bear, habitat shift
     }
-
-
 
     #####################################
     # Device + Seed Setup
@@ -919,9 +957,9 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
     gc.collect()
 
-    assert num_pairs <= samples_per_class, \
+    assert num_pairs <= samples_per_class, (
         f"num_pairs ({num_pairs}) cannot be greater than samples_per_class ({samples_per_class})"
-
+    )
 
     # Optional: Select specific pairs for evaluation
     selected_video_pairs = [
@@ -954,141 +992,134 @@ if __name__ == "__main__":
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 0.0001,
-            "group_name": "Beta1e-4"
+            "group_name": "Beta1e-4",
         },
-
         # beta: 0.1
         {
             "checkpoint": Beta00x00x_01b,
             "source_timestep": 0.00,
             "target_timestep": 0.00,
             "beta": 0.1,
-            "group_name": "Beta0.1_Reconstruction"
+            "group_name": "Beta0.1_Reconstruction",
         },
         {
             "checkpoint": Beta02x02x_01b,
             "source_timestep": 0.20,
             "target_timestep": 0.20,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta05x05x_01b,
             "source_timestep": 0.50,
             "target_timestep": 0.50,
             "beta": 0.1,
-            "group_name": "Beta0.1_Baseline"
+            "group_name": "Beta0.1_Baseline",
         },
         {
             "checkpoint": Beta05x10x_01b,
             "source_timestep": 0.50,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta04x10x_01b,
             "source_timestep": 0.40,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta03x10x_01b,
             "source_timestep": 0.30,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta02x10x_01b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
         {
             "checkpoint": Beta00x10x_01b,
             "source_timestep": 0.00,
             "target_timestep": 1.00,
             "beta": 0.1,
-            "group_name": "Beta0.1"
+            "group_name": "Beta0.1",
         },
-
         # beta: 0.5
         {
             "checkpoint": Beta02x10x_05b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 0.5,
-            "group_name": "Beta0.5"
+            "group_name": "Beta0.5",
         },
-
         # beta: 1.0
         {
             "checkpoint": Beta05x05x_1b,
             "source_timestep": 0.50,
             "target_timestep": 0.50,
             "beta": 1.0,
-            "group_name": "Beta1.0_Baseline"
+            "group_name": "Beta1.0_Baseline",
         },
         {
             "checkpoint": Beta05x10x_1b,
             "source_timestep": 0.50,
             "target_timestep": 1.00,
             "beta": 1.0,
-            "group_name": "Beta1.0"
+            "group_name": "Beta1.0",
         },
         {
             "checkpoint": Beta02x10x_1b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 1.0,
-            "group_name": "Beta1.0"
+            "group_name": "Beta1.0",
         },
-
         # beta: 2.0
         {
             "checkpoint": Beta02x10x_2b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 2.0,
-            "group_name": "Beta2.0"
+            "group_name": "Beta2.0",
         },
-
         # beta: 3.0
         {
             "checkpoint": Beta02x10x_3b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 3.0,
-            "group_name": "Beta3.0"
+            "group_name": "Beta3.0",
         },
-
         # beta: 5.0
         {
             "checkpoint": Beta05x05x_5b,
             "source_timestep": 0.50,
             "target_timestep": 0.50,
             "beta": 5.0,
-            "group_name": "Beta5.0_Baseline"
+            "group_name": "Beta5.0_Baseline",
         },
         {
             "checkpoint": Beta05x10x_5b,
             "source_timestep": 0.50,
             "target_timestep": 1.00,
             "beta": 5.0,
-            "group_name": "Beta5.0"
+            "group_name": "Beta5.0",
         },
         {
             "checkpoint": Beta02x10x_5b,
             "source_timestep": 0.20,
             "target_timestep": 1.00,
             "beta": 5.0,
-            "group_name": "Beta5.0"
+            "group_name": "Beta5.0",
         },
     ]
-
 
     for config in model_configs:
         checkpoint = config["checkpoint"]
@@ -1098,13 +1129,13 @@ if __name__ == "__main__":
         group_name = config["group_name"]
 
         model_name = f"{group_name}_VAE-{source_timestep:.2f}x{target_timestep:.2f}x_{beta}b_{dataset_name}"
-        print(f"\n{'='*100}\nStarting evaluation for: {model_name}\n{'='*100}\n")
+        print(f"\n{'=' * 100}\nStarting evaluation for: {model_name}\n{'=' * 100}\n")
 
         run_interpolation_and_evaluation(
             checkpoint=checkpoint,
             data_path=test_data_path if group == "test" else validation_data_path,
             interpolation_dict=interpolation_dict,
-            project_name=project_name / "interpolation"
+            project_name=project_name / "interpolation",
             model_name=model_name,
             group=group,
             source_timestep=source_timestep,
@@ -1118,7 +1149,7 @@ if __name__ == "__main__":
             ccfg_scale=ccfg_scale,
             batch_size=batch_size,
         )
-        print(f"\nCompleted: {model_name}\n{'='*100}\n")
+        print(f"\nCompleted: {model_name}\n{'=' * 100}\n")
         torch.cuda.empty_cache()
         gc.collect()
 

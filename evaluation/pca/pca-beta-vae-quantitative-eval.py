@@ -25,7 +25,6 @@ import umap
 from tqdm import tqdm
 
 
-
 from sklearn.metrics import precision_score, recall_score
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
@@ -36,7 +35,6 @@ from sklearn.metrics import (
     davies_bouldin_score,
 )
 from sklearn.manifold import TSNE
-
 
 
 # helper Jutils imports

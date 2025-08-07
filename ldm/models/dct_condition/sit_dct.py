@@ -14,7 +14,7 @@
 # GLIDE: https://github.com/openai/glide-text2im
 # MAE: https://github.com/facebookresearch/mae/blob/main/models_mae.py
 # --------------------------------------------------------
-from typing import Callable, Optional, Tuple, Union
+from typing import Tuple, Union
 import cv2
 import numpy as np
 import math
@@ -27,18 +27,23 @@ import torchvision.transforms.functional as F
 import torch.fft
 
 
-from timm.layers import Format, nchw_to, to_2tuple, _assert
+from timm.layers import to_2tuple
 from timm.models.vision_transformer import Attention, Mlp
 
-from ldm.models.dct_condition.code2dtc import  DCTEmbedder
+from ldm.models.dct_condition.code2dtc import DCTEmbedder
 from ldm.models.dct_condition.dct.torch_dct import idct_2d
-from ldm.models.nn.layers.patch_embed import PatchEmbed
 from ldm.models.transformer.sit import SiT
 
 
 COMPILE = True
 if torch.cuda.is_available():
-    compile_fn = partial(torch.compile, fullgraph=True, backend='inductor' if torch.cuda.get_device_capability()[0] >= 7 else 'aot_eager')
+    compile_fn = partial(
+        torch.compile,
+        fullgraph=True,
+        backend="inductor"
+        if torch.cuda.get_device_capability()[0] >= 7
+        else "aot_eager",
+    )
 else:
     compile_fn = lambda f: f
 
@@ -56,6 +61,7 @@ class TimestepEmbedder(nn.Module):
     """
     Embeds scalar timesteps into vector representations.
     """
+
     def __init__(self, hidden_size, frequency_embedding_size=256):
         super().__init__()
         self.mlp = nn.Sequential(
@@ -65,7 +71,8 @@ class TimestepEmbedder(nn.Module):
         )
         self.frequency_embedding_size = frequency_embedding_size
 
-        if COMPILE: self.forward = compile_fn(self.forward)
+        if COMPILE:
+            self.forward = compile_fn(self.forward)
 
     @staticmethod
     def timestep_embedding(t, dim, max_period=10000):
@@ -80,12 +87,16 @@ class TimestepEmbedder(nn.Module):
         # https://github.com/openai/glide-text2im/blob/main/glide_text2im/nn.py
         half = dim // 2
         freqs = torch.exp(
-            -math.log(max_period) * torch.arange(start=0, end=half, dtype=torch.float32) / half
+            -math.log(max_period)
+            * torch.arange(start=0, end=half, dtype=torch.float32)
+            / half
         ).to(device=t.device)
         args = t[:, None].float() * freqs[None]
         embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
         if dim % 2:
-            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+            embedding = torch.cat(
+                [embedding, torch.zeros_like(embedding[:, :1])], dim=-1
+            )
         return embedding
 
     def forward(self, t):
@@ -98,21 +109,27 @@ class LabelEmbedder(nn.Module):
     """
     Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
     """
+
     def __init__(self, num_classes, hidden_size, dropout_prob):
         super().__init__()
         use_cfg_embedding = dropout_prob > 0
-        self.embedding_table = nn.Embedding(num_classes + use_cfg_embedding, hidden_size)
+        self.embedding_table = nn.Embedding(
+            num_classes + use_cfg_embedding, hidden_size
+        )
         self.num_classes = num_classes
         self.dropout_prob = dropout_prob
 
-        if COMPILE: self.forward = compile_fn(self.forward)
+        if COMPILE:
+            self.forward = compile_fn(self.forward)
 
     def token_drop(self, labels, force_drop_ids=None):
         """
         Drops labels to enable classifier-free guidance.
         """
         if force_drop_ids is None:
-            drop_ids = torch.rand(labels.shape[0], device=labels.device) < self.dropout_prob
+            drop_ids = (
+                torch.rand(labels.shape[0], device=labels.device) < self.dropout_prob
+            )
         else:
             drop_ids = force_drop_ids == 1
         labels = torch.where(drop_ids, self.num_classes, labels)
@@ -126,37 +143,49 @@ class LabelEmbedder(nn.Module):
         return embeddings
 
 
-
 #################################################################################
 #                                 Core SiT Model                                #
 #################################################################################
+
 
 class SiTBlock(nn.Module):
     """
     A SiT block with adaptive layer norm zero (adaLN-Zero) conditioning.
     """
+
     def __init__(self, hidden_size, num_heads, mlp_ratio=4.0, **block_kwargs):
         super().__init__()
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.attn = Attention(hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs)
+        self.attn = Attention(
+            hidden_size, num_heads=num_heads, qkv_bias=True, **block_kwargs
+        )
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         mlp_hidden_dim = int(hidden_size * mlp_ratio)
         approx_gelu = lambda: nn.GELU(approximate="tanh")
-        self.mlp = Mlp(in_features=hidden_size, hidden_features=mlp_hidden_dim, act_layer=approx_gelu, drop=0)
+        self.mlp = Mlp(
+            in_features=hidden_size,
+            hidden_features=mlp_hidden_dim,
+            act_layer=approx_gelu,
+            drop=0,
+        )
         self.adaLN_modulation = nn.Sequential(
-            nn.SiLU(),
-            nn.Linear(hidden_size, 6 * hidden_size, bias=True)
+            nn.SiLU(), nn.Linear(hidden_size, 6 * hidden_size, bias=True)
         )
 
-        if COMPILE: self.forward = compile_fn(self.forward)
+        if COMPILE:
+            self.forward = compile_fn(self.forward)
 
     def forward(self, x, c):
-        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c).chunk(6, dim=1)
-        x = x + gate_msa.unsqueeze(1) * self.attn(modulate(self.norm1(x), shift_msa, scale_msa))
-        x = x + gate_mlp.unsqueeze(1) * self.mlp(modulate(self.norm2(x), shift_mlp, scale_mlp))
+        shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = (
+            self.adaLN_modulation(c).chunk(6, dim=1)
+        )
+        x = x + gate_msa.unsqueeze(1) * self.attn(
+            modulate(self.norm1(x), shift_msa, scale_msa)
+        )
+        x = x + gate_mlp.unsqueeze(1) * self.mlp(
+            modulate(self.norm2(x), shift_mlp, scale_mlp)
+        )
         return x
-
-
 
 
 class DCTEmbedder(nn.Module):
@@ -166,6 +195,7 @@ class DCTEmbedder(nn.Module):
     Converts latent patches (B, C, H, W) -> (B, tokens, embed_dim)
     P = 2 * B (patch_size = 2 * block_size)
     """
+
     def __init__(
         self,
         img_size: int = 32,
@@ -175,7 +205,7 @@ class DCTEmbedder(nn.Module):
         embed_dim: int = 768,
         norm_layer=nn.LayerNorm,
         bias: bool = True,
-        norm='ortho',
+        norm="ortho",
         remove_low_freq_ratio=0.1,
         high_freqs=0,
     ):
@@ -189,7 +219,9 @@ class DCTEmbedder(nn.Module):
 
         # Optionally normalize DCT coefficients
         self.norm_layer = norm_layer(embed_dim)
-        self.proj = nn.Linear(self.DCT_coes * 6, embed_dim, bias=bias)      # Shape: (DCT_coes * 6) -> embed_dim
+        self.proj = nn.Linear(
+            self.DCT_coes * 6, embed_dim, bias=bias
+        )  # Shape: (DCT_coes * 6) -> embed_dim
 
     def _init_img_size(self, img_size: Union[int, Tuple[int, int]]):
         assert self.patch_size
@@ -201,11 +233,13 @@ class DCTEmbedder(nn.Module):
         return img_size, grid_size, num_patches
 
     def batch_split_blocks(self, x, block_sz):
-        """ Splits batch tensor into (B, num_blocks, block_sz, block_sz) """
+        """Splits batch tensor into (B, num_blocks, block_sz, block_sz)"""
         B, H, W = x.shape[:3]
-        x = x.unfold(1, block_sz, block_sz).unfold(2, block_sz, block_sz)   # (B, H//block_sz, W//block_sz, block_sz, block_sz)
+        x = x.unfold(1, block_sz, block_sz).unfold(
+            2, block_sz, block_sz
+        )  # (B, H//block_sz, W//block_sz, block_sz, block_sz)
         x = x.contiguous().view(B, -1, block_sz, block_sz)
-        return x                                                            # Shape: (B, num_patches, patch_sz, patch_sz)
+        return x  # Shape: (B, num_patches, patch_sz, patch_sz)
 
     def forward(self, x):
         """
@@ -216,24 +250,27 @@ class DCTEmbedder(nn.Module):
         assert H == W, "Input must be square for DCT"
 
         # Step 1: Split the image into non-overlapping blocks (patches)
-        patches = self.batch_split_blocks(x, self.patch_size[0])        # (B, C, num_patches, patch_sz, patch_sz)
+        patches = self.batch_split_blocks(
+            x, self.patch_size[0]
+        )  # (B, C, num_patches, patch_sz, patch_sz)
 
         # Step 2: Apply DCT-2D to each patch
-        dct_patches = self.dct_2d(patches, norm=self.norm)              # (B, C, num_patches, patch_sz, patch_sz)
+        dct_patches = self.dct_2d(
+            patches, norm=self.norm
+        )  # (B, C, num_patches, patch_sz, patch_sz)
 
         # Step 3: Optionally remove low-frequency components
         if self.remove_low_freq_ratio > 0:
             low_freq_threshold = int(self.remove_low_freq_ratio * dct_patches.shape[-1])
-            dct_patches[:, :, :, :low_freq_threshold] = 0               # Zero out low-frequencies
+            dct_patches[:, :, :, :low_freq_threshold] = 0  # Zero out low-frequencies
 
         # Step 4: Flatten the DCT coefficients to tokens
-        dct_patches = dct_patches.flatten(2).transpose(1, 2)            # (B, num_patches, D)
+        dct_patches = dct_patches.flatten(2).transpose(1, 2)  # (B, num_patches, D)
 
         # Step 5: Optionally normalize the resulting tokens
         x = self.norm_layer(dct_patches)
-        x = self.proj(x)                                                # (B, tokens, num_low_freq*6) --> (B, tokens, hidden_dim)
+        x = self.proj(x)  # (B, tokens, num_low_freq*6) --> (B, tokens, hidden_dim)
         return x
-
 
 
 class FreqPredictionLayer(nn.Module):
@@ -244,39 +281,41 @@ class FreqPredictionLayer(nn.Module):
         hidden_size: int, hidden size of the model
         dct_coeff: int, number of DCT coefficients (N, T, D) -> (N, T, dct_coeff)
     """
+
     def __init__(self, hidden_size, dct_coeff=1):
         super().__init__()
         self.linear_layer = nn.Linear(hidden_size, dct_coeff, bias=True)
 
-        if COMPILE: self.forward = compile_fn(self.forward)
+        if COMPILE:
+            self.forward = compile_fn(self.forward)
 
     def forward(self, x):
         return self.linear_layer(x)
-
-
 
 
 class FinalLayer(nn.Module):
     """
     The final layer of SiT.
     """
+
     def __init__(self, hidden_size, patch_size, out_channels):
         super().__init__()
         self.norm_final = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
-        self.linear = nn.Linear(hidden_size, patch_size * patch_size * out_channels, bias=True)
+        self.linear = nn.Linear(
+            hidden_size, patch_size * patch_size * out_channels, bias=True
+        )
         self.adaLN_modulation = nn.Sequential(
-            nn.SiLU(),
-            nn.Linear(hidden_size, 2 * hidden_size, bias=True)
+            nn.SiLU(), nn.Linear(hidden_size, 2 * hidden_size, bias=True)
         )
 
-        if COMPILE: self.forward = compile_fn(self.forward)
+        if COMPILE:
+            self.forward = compile_fn(self.forward)
 
     def forward(self, x, c):
         shift, scale = self.adaLN_modulation(c).chunk(2, dim=1)
         x = modulate(self.norm_final(x), shift, scale)
         x = self.linear(x)
         return x
-
 
 
 #################################################################################
@@ -286,10 +325,11 @@ class SiTDCT(SiT):
     """
     Diffusion model with a Transformer backbone.
     """
+
     def __init__(
         self,
         input_size=32,
-        patch_size=2,                       # block size of each DCT patch
+        patch_size=2,  # block size of each DCT patch
         in_channels=4,
         out_channels=None,
         hidden_size=1152,
@@ -300,7 +340,7 @@ class SiTDCT(SiT):
         num_classes=1000,
         learn_sigma=True,
         remove_low_freq_ratio=0.1,
-        dct_norm='ortho',                   # 'ortho' or None
+        dct_norm="ortho",  # 'ortho' or None
         load_from_ckpt=None,
         compile=False,
     ):
@@ -313,17 +353,23 @@ class SiTDCT(SiT):
         if learn_sigma:
             self.out_channels = in_channels * 2
         else:
-            self.out_channels = out_channels if out_channels is not None else in_channels
+            self.out_channels = (
+                out_channels if out_channels is not None else in_channels
+            )
         self.patch_size = patch_size
         self.num_heads = num_heads
 
         # DCT Patch Embedding
-        self.dct_embedder = DCTEmbedder(norm=dct_norm, remove_low_freq_ratio=remove_low_freq_ratio)
+        self.dct_embedder = DCTEmbedder(
+            norm=dct_norm, remove_low_freq_ratio=remove_low_freq_ratio
+        )
 
         # Token Embedding
         self.t_embedder = TimestepEmbedder(hidden_size)
         if num_classes > 0:
-            self.y_embedder = LabelEmbedder(num_classes, hidden_size, class_dropout_prob)
+            self.y_embedder = LabelEmbedder(
+                num_classes, hidden_size, class_dropout_prob
+            )
             uc = "+ unconditional" if class_dropout_prob > 0 else ""
             print(f"[DiT] Class-conditional ({num_classes} classes {uc})")
         else:
@@ -331,11 +377,16 @@ class SiTDCT(SiT):
 
         # Will use fixed sin-cos embedding:
         num_patches = self.dct_embedder.num_patches
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches, hidden_size), requires_grad=True)
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, num_patches, hidden_size), requires_grad=True
+        )
 
-        self.blocks = nn.ModuleList([
-            SiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                SiTBlock(hidden_size, num_heads, mlp_ratio=mlp_ratio)
+                for _ in range(depth)
+            ]
+        )
         self.final_layer = FinalLayer(hidden_size, patch_size, self.out_channels)
         self.initialize_weights()
 
@@ -351,11 +402,20 @@ class SiTDCT(SiT):
                 torch.nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
                     nn.init.constant_(module.bias, 0)
+
         self.apply(_basic_init)
 
         # Initialize (and freeze) pos_embed by sin-cos embedding:
-        cls_token, extra_tokens = bool(self.y_embedder), int(self.extras + self.tokens)  # 1 if class-conditional, 0 otherwise
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], int(self.x_embedder.num_patches ** 0.5), cls_token=cls_token, extra_tokens=extra_tokens)
+        cls_token, extra_tokens = (
+            bool(self.y_embedder),
+            int(self.extras + self.tokens),
+        )  # 1 if class-conditional, 0 otherwise
+        pos_embed = get_2d_sincos_pos_embed(
+            self.pos_embed.shape[-1],
+            int(self.x_embedder.num_patches**0.5),
+            cls_token=cls_token,
+            extra_tokens=extra_tokens,
+        )
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         # Initialize patch_embed like nn.Linear (instead of nn.Conv2d):
@@ -392,7 +452,7 @@ class SiTDCT(SiT):
         assert h * w == x.shape[1]
 
         x = x.reshape(shape=(x.shape[0], h, w, p, p, c))
-        x = torch.einsum('nhwpqc->nchpwq', x)
+        x = torch.einsum("nhwpqc->nchpwq", x)
         imgs = x.reshape(shape=(x.shape[0], c, h * p, h * p))
         return imgs
 
@@ -400,48 +460,56 @@ class SiTDCT(SiT):
         def ckpt_forward(*inputs):
             outputs = module(*inputs)
             return outputs
+
         return ckpt_forward
 
-
-    def forward(self, x, t, y=None,low_freg_sample=None):
+    def forward(self, x, t, y=None, low_freg_sample=None):
         """
         Forward pass of SiT.
         x: (N, C, H, W) tensor of spatial inputs (images or latent representations of images)
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
-        x = self.dct_embedder(x)                                    # (N, T, D) where T = H * W, D = number of frequency components per token
-        t = self.t_embedder(t)                                      # (N, D)
+        x = self.dct_embedder(
+            x
+        )  # (N, T, D) where T = H * W, D = number of frequency components per token
+        t = self.t_embedder(t)  # (N, D)
 
         if self.y_embedder is not None:
             # Add a null class label for unconditional generation
             if y is None:
-                unconditional_idx = self.num_classes if self.y_embedder.dropout_prob > 0 else self.num_classes - 1
-                y = torch.full((x.size(0),), unconditional_idx, dtype=torch.long, device=x.device)
+                unconditional_idx = (
+                    self.num_classes
+                    if self.y_embedder.dropout_prob > 0
+                    else self.num_classes - 1
+                )
+                y = torch.full(
+                    (x.size(0),), unconditional_idx, dtype=torch.long, device=x.device
+                )
 
             if y.ndim > 1:
                 y = y.squeeze(1)
 
-            y = self.y_embedder(y, self.training)                   # (N, D)
-            c = t + y                                               # (N, D)
+            y = self.y_embedder(y, self.training)  # (N, D)
+            c = t + y  # (N, D)
         else:
             c = t
 
             if y.ndim > 1:
                 y = y.squeeze(1)
 
-            y = self.y_embedder(y, self.training)                   # (N, D)
-            c = t + y                                               # (N, D)
-        else:
-            c = t
+            y = self.y_embedder(y, self.training)  # (N, D)
+            c = t + y  # (N, D)
+        # else:
+        #     c = t
 
-        x = x + self.pos_embed                                          # (N, T+1, D)
+        x = x + self.pos_embed  # (N, T+1, D)
 
         for block in self.blocks:
-            x = block(x, c)                                         # (N, T, D)
+            x = block(x, c)  # (N, T, D)
 
-        x = self.final_layer(x, c)                                  # (N, T, patch_size ** 2 * out_channels)
-        x = self.unpatchify(x)                                      # (N, out_channels, H, W)
+        x = self.final_layer(x, c)  # (N, T, patch_size ** 2 * out_channels)
+        x = self.unpatchify(x)  # (N, out_channels, H, W)
         if self.learn_sigma:
             x, _ = x.chunk(2, dim=1)
 
@@ -454,11 +522,18 @@ class SiTDCT(SiT):
 
         return x
 
-
     #####################################
     # Following DCTDiff in RGB pace     #
     #####################################
-    def RGB_to_DCT(self, img, block_sz=8, low_freqs=0, high_freqs=0, Y_bound=None, low2high_order=None):
+    def RGB_to_DCT(
+        self,
+        img,
+        block_sz=8,
+        low_freqs=0,
+        high_freqs=0,
+        Y_bound=None,
+        low2high_order=None,
+    ):
         B, C, H, W = img.shape
         assert C == 3
 
@@ -468,13 +543,19 @@ class SiTDCT(SiT):
         Y, Cb, Cr = self.rgb_to_ycbcr(img)
 
         # Step 2: Downsample Cb & Cr (factor 2)
-        Cb = F.interpolate(Cb, scale_factor=0.5, mode='bilinear', align_corners=False)
-        Cr = F.interpolate(Cr, scale_factor=0.5, mode='bilinear', align_corners=False)
+        Cb = F.interpolate(Cb, scale_factor=0.5, mode="bilinear", align_corners=False)
+        Cr = F.interpolate(Cr, scale_factor=0.5, mode="bilinear", align_corners=False)
 
         # Step 3: Split all channels into blocks
-        y_blocks = self.batch_split_blocks(Y, block_sz)       # (B, y_blocks, block_sz, block_sz)
-        cb_blocks = self.batch_split_blocks(Cb, block_sz)     # (B, cb_blocks, block_sz, block_sz)
-        cr_blocks = self.batch_split_blocks(Cr, block_sz)     # (B, cr_blocks, block_sz, block_sz)
+        y_blocks = self.batch_split_blocks(
+            Y, block_sz
+        )  # (B, y_blocks, block_sz, block_sz)
+        cb_blocks = self.batch_split_blocks(
+            Cb, block_sz
+        )  # (B, cb_blocks, block_sz, block_sz)
+        cr_blocks = self.batch_split_blocks(
+            Cr, block_sz
+        )  # (B, cr_blocks, block_sz, block_sz)
 
         # Step 4: Apply 2D DCT in batch
         dct_y = self.dct_2d(y_blocks)
@@ -512,9 +593,9 @@ class SiTDCT(SiT):
         tokens = []  # list of tensors to concat later
         for idx in range(dct_cb.shape[1]):
             y_start = idx * 4
-            y_tok = dct_y[:, y_start:y_start+4]  # (B, 4, freq_dim)
-            cb_tok = dct_cb[:, idx:idx+1]        # (B, 1, freq_dim)
-            cr_tok = dct_cr[:, idx:idx+1]        # (B, 1, freq_dim)
+            y_tok = dct_y[:, y_start : y_start + 4]  # (B, 4, freq_dim)
+            cb_tok = dct_cb[:, idx : idx + 1]  # (B, 1, freq_dim)
+            cr_tok = dct_cr[:, idx : idx + 1]  # (B, 1, freq_dim)
             token = torch.cat([y_tok, cb_tok, cr_tok], dim=1)  # (B, 6, freq_dim)
             tokens.append(token)
 
@@ -523,9 +604,17 @@ class SiTDCT(SiT):
 
         return tokens.reshape(B, T, C6 * F)  # (B, num_tokens, 6*freq_dim)
 
-
-    def DCT_to_RGB_torch(self, sample, tokens=0, low_freqs=0, block_sz=0, reverse_order=None, resolution=0, Y_bound=None):
-        device = sample.device if torch.is_tensor(sample) else 'cpu'
+    def DCT_to_RGB_torch(
+        self,
+        sample,
+        tokens=0,
+        low_freqs=0,
+        block_sz=0,
+        reverse_order=None,
+        resolution=0,
+        Y_bound=None,
+    ):
+        device = sample.device if torch.is_tensor(sample) else "cpu"
 
         # Step 1: Unpack shape
         num_y_blocks = tokens * 4
@@ -576,17 +665,33 @@ class SiTDCT(SiT):
             blocks = blocks.view(-1, block_sz, block_sz)
             blocks_per_row = W // block_sz
             for i in range(0, len(blocks), blocks_per_row):
-                row_blocks = blocks[i:i+blocks_per_row]
+                row_blocks = blocks[i : i + blocks_per_row]
                 rows.append(torch.cat(list(row_blocks), dim=1))
             return torch.cat(rows, dim=0)
 
-        y_reconstructed = combine_blocks(idct_y_blocks, resolution, resolution, block_sz)
-        cb_reconstructed = combine_blocks(idct_cb_blocks, resolution // 2, resolution // 2, block_sz)
-        cr_reconstructed = combine_blocks(idct_cr_blocks, resolution // 2, resolution // 2, block_sz)
+        y_reconstructed = combine_blocks(
+            idct_y_blocks, resolution, resolution, block_sz
+        )
+        cb_reconstructed = combine_blocks(
+            idct_cb_blocks, resolution // 2, resolution // 2, block_sz
+        )
+        cr_reconstructed = combine_blocks(
+            idct_cr_blocks, resolution // 2, resolution // 2, block_sz
+        )
 
         # Step 7: Upsample Cb/Cr to Y resolution
-        cb_up = F.interpolate(cb_reconstructed.unsqueeze(0).unsqueeze(0), size=(resolution, resolution), mode='bilinear', align_corners=False).squeeze()
-        cr_up = F.interpolate(cr_reconstructed.unsqueeze(0).unsqueeze(0), size=(resolution, resolution), mode='bilinear', align_corners=False).squeeze()
+        cb_up = F.interpolate(
+            cb_reconstructed.unsqueeze(0).unsqueeze(0),
+            size=(resolution, resolution),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze()
+        cr_up = F.interpolate(
+            cr_reconstructed.unsqueeze(0).unsqueeze(0),
+            size=(resolution, resolution),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze()
 
         # Step 8: YCbCr to RGB (all values expected in [0,255] scale)
         R = y_reconstructed + 1.402 * (cr_up - 128)
@@ -598,7 +703,6 @@ class SiTDCT(SiT):
 
         return rgb.permute(1, 2, 0)  # (H, W, 3)
 
-
     def rgb_to_ycbcr(self, img):
         R, G, B = img[:, 0:1], img[:, 1:2], img[:, 2:3]
         Y = 0.299 * R + 0.587 * G + 0.114 * B
@@ -607,9 +711,11 @@ class SiTDCT(SiT):
         return Y, Cb, Cr
 
     def batch_split_blocks(self, x, block_sz):
-        """ Splits batch tensor into (B, num_blocks, block_sz, block_sz) """
+        """Splits batch tensor into (B, num_blocks, block_sz, block_sz)"""
         B, H, W = x.shape[:3]
-        x = x.unfold(1, block_sz, block_sz).unfold(2, block_sz, block_sz)  # (B, H//block_sz, W//block_sz, block_sz, block_sz)
+        x = x.unfold(1, block_sz, block_sz).unfold(
+            2, block_sz, block_sz
+        )  # (B, H//block_sz, W//block_sz, block_sz, block_sz)
         x = x.contiguous().view(B, -1, block_sz, block_sz)
         return x
 
@@ -617,7 +723,9 @@ class SiTDCT(SiT):
         blocks = []
         for i in range(0, img.shape[0], block_sz):
             for j in range(0, img.shape[1], block_sz):
-                blocks.append(img[i:i + block_sz, j:j + block_sz])  # first row, then column
+                blocks.append(
+                    img[i : i + block_sz, j : j + block_sz]
+                )  # first row, then column
         return np.array(blocks)
 
     def combine_blocks(self, blocks, height, width, block_sz):
@@ -625,7 +733,7 @@ class SiTDCT(SiT):
         index = 0
         for i in range(0, height, block_sz):
             for j in range(0, width, block_sz):
-                img[i:i + block_sz, j:j + block_sz] = blocks[index]
+                img[i : i + block_sz, j : j + block_sz] = blocks[index]
                 index += 1
         return img
 
@@ -644,7 +752,6 @@ class SiTDCT(SiT):
             idct_block = idct_block + 128  # Shift back
             idct_blocks.append(idct_block)
         return np.array(idct_blocks)
-
 
     def forward_with_cfg(self, x, t, y, cfg_scale):
         """
@@ -670,6 +777,7 @@ class SiTDCT(SiT):
 #################################################################################
 # https://github.com/facebookresearch/mae/blob/main/util/pos_embed.py
 
+
 def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
     """
     grid_size: int of the grid height and width
@@ -684,7 +792,9 @@ def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=
     grid = grid.reshape([2, 1, grid_size, grid_size])
     pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
     if cls_token and extra_tokens > 0:
-        pos_embed = np.concatenate([np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0)
+        pos_embed = np.concatenate(
+            [np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0
+        )
     return pos_embed
 
 
@@ -695,7 +805,7 @@ def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
     emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
     emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
 
-    emb = np.concatenate([emb_h, emb_w], axis=1) # (H*W, D)
+    emb = np.concatenate([emb_h, emb_w], axis=1)  # (H*W, D)
     return emb
 
 
@@ -707,14 +817,14 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     """
     assert embed_dim % 2 == 0
     omega = np.arange(embed_dim // 2, dtype=np.float64)
-    omega /= embed_dim / 2.
-    omega = 1. / 10000**omega  # (D/2,)
+    omega /= embed_dim / 2.0
+    omega = 1.0 / 10000**omega  # (D/2,)
 
     pos = pos.reshape(-1)  # (M,)
-    out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
+    out = np.einsum("m,d->md", pos, omega)  # (M, D/2), outer product
 
-    emb_sin = np.sin(out) # (M, D/2)
-    emb_cos = np.cos(out) # (M, D/2)
+    emb_sin = np.sin(out)  # (M, D/2)
+    emb_cos = np.cos(out)  # (M, D/2)
 
     emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
     return emb
@@ -724,46 +834,66 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
 #                                   SiT Configs                                  #
 #################################################################################
 
+
 def SiT_XL_2(**kwargs):
     return SiT(depth=28, hidden_size=1152, patch_size=2, num_heads=16, **kwargs)
+
 
 def SiT_XL_4(**kwargs):
     return SiT(depth=28, hidden_size=1152, patch_size=4, num_heads=16, **kwargs)
 
+
 def SiT_XL_8(**kwargs):
     return SiT(depth=28, hidden_size=1152, patch_size=8, num_heads=16, **kwargs)
+
 
 def SiT_L_2(**kwargs):
     return SiT(depth=24, hidden_size=1024, patch_size=2, num_heads=16, **kwargs)
 
+
 def SiT_L_4(**kwargs):
     return SiT(depth=24, hidden_size=1024, patch_size=4, num_heads=16, **kwargs)
+
 
 def SiT_L_8(**kwargs):
     return SiT(depth=24, hidden_size=1024, patch_size=8, num_heads=16, **kwargs)
 
+
 def SiT_B_2(**kwargs):
     return SiT(depth=12, hidden_size=768, patch_size=2, num_heads=12, **kwargs)
+
 
 def SiT_B_4(**kwargs):
     return SiT(depth=12, hidden_size=768, patch_size=4, num_heads=12, **kwargs)
 
+
 def SiT_B_8(**kwargs):
     return SiT(depth=12, hidden_size=768, patch_size=8, num_heads=12, **kwargs)
+
 
 def SiT_S_2(**kwargs):
     return SiT(depth=12, hidden_size=384, patch_size=2, num_heads=6, **kwargs)
 
+
 def SiT_S_4(**kwargs):
     return SiT(depth=12, hidden_size=384, patch_size=4, num_heads=6, **kwargs)
+
 
 def SiT_S_8(**kwargs):
     return SiT(depth=12, hidden_size=384, patch_size=8, num_heads=6, **kwargs)
 
 
 SiT_models = {
-    'SiT-XL/2': SiT_XL_2,  'SiT-XL/4': SiT_XL_4,  'SiT-XL/8': SiT_XL_8,
-    'SiT-L/2':  SiT_L_2,   'SiT-L/4':  SiT_L_4,   'SiT-L/8':  SiT_L_8,
-    'SiT-B/2':  SiT_B_2,   'SiT-B/4':  SiT_B_4,   'SiT-B/8':  SiT_B_8,
-    'SiT-S/2':  SiT_S_2,   'SiT-S/4':  SiT_S_4,   'SiT-S/8':  SiT_S_8,
+    "SiT-XL/2": SiT_XL_2,
+    "SiT-XL/4": SiT_XL_4,
+    "SiT-XL/8": SiT_XL_8,
+    "SiT-L/2": SiT_L_2,
+    "SiT-L/4": SiT_L_4,
+    "SiT-L/8": SiT_L_8,
+    "SiT-B/2": SiT_B_2,
+    "SiT-B/4": SiT_B_4,
+    "SiT-B/8": SiT_B_8,
+    "SiT-S/2": SiT_S_2,
+    "SiT-S/4": SiT_S_4,
+    "SiT-S/8": SiT_S_8,
 }

@@ -3,108 +3,77 @@ import sys
 import gc
 import json
 import math
-import random
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 import torch
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
 from tqdm import tqdm
 
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 
-import torchvision
-from torchvision.utils import make_grid
-import torchvision.transforms.functional as TF
 from lightning import seed_everything
 
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import (
-    silhouette_score,
-    calinski_harabasz_score,
-    davies_bouldin_score,
     precision_score,
     recall_score,
-    adjusted_rand_score,
-    normalized_mutual_info_score,
 )
 from sklearn.model_selection import train_test_split
 from sklearn.manifold import TSNE
 from scipy.stats import gaussian_kde
 
-import json
-import random
-from pathlib import Path
-
-
-import json
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-import matplotlib.pyplot as plt
-from pathlib import Path
-from scipy.stats import gaussian_kde
-
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_blobs
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from pathlib import Path
 
 import umap
 
 # Helper utilities
-from jutils import denorm, ims_to_grid, exists, freeze, default
-from jutils.vision import tensor2im
+from jutils import freeze
 
 # Project root path setup
-project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../")
+)
 sys.path.append(project_root)
 
 # Project-specific modules
-from ldm.helpers import un_normalize_ims
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
 from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
 # Torch precision
-torch.set_float32_matmul_precision('high')
-
-
-
+torch.set_float32_matmul_precision("high")
 
 
 ##########################################################################
 #                   Find Directions with PCA                             #
 ##########################################################################
 
+
 @torch.no_grad()
-def find_pca_directions(module, dataloader, source_timestep=0.5, num_components=10, device=None):
-    device = device or (module.device if hasattr(module, 'device') else 'cpu')
+def find_pca_directions(
+    module, dataloader, source_timestep=0.5, num_components=10, device=None
+):
+    device = device or (module.device if hasattr(module, "device") else "cpu")
     print(f"[INFO] Collecting latents for PCA on device: {device}")
 
     all_latents = []
     for batch in tqdm(dataloader, desc="Evaluating", unit="batch"):
-        source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
+        source_latents = batch[f"latents_{source_timestep:.2f}"].to(
+            device, non_blocking=True
+        )
         encoded = module.model.encode(source_latents)
-        latents = encoded['latent_dist'].mode()
+        latents = encoded["latent_dist"].mode()
         all_latents.append(latents.detach().cpu().numpy())
 
     combined_latents = np.vstack(all_latents)
-    print(f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}.")
+    print(
+        f"[INFO] Collected {combined_latents.shape[0]} latent vectors of dim {combined_latents.shape[1]}."
+    )
 
     # Sorted by vairance (highest --> lowest)
     pca = PCA(n_components=num_components)
@@ -116,20 +85,25 @@ def find_pca_directions(module, dataloader, source_timestep=0.5, num_components=
     return pca.components_, pca.explained_variance_ratio_
 
 
-
-
 ############################################################################
 #                   Visualise most Important PCA Vectors                   #
 ############################################################################
 
-def plot_pca_2d_projection(pca_latents, labels=None, save_path=None, title="PCA 2D Projection"):
+
+def plot_pca_2d_projection(
+    pca_latents, labels=None, save_path=None, title="PCA 2D Projection"
+):
     plt.figure(figsize=(8, 6))
     if labels is not None:
         scatter = plt.scatter(
-            pca_latents[:, 0], pca_latents[:, 1], # first and second PCA components
-            c=labels, cmap='tab20', s=5, alpha=0.7
+            pca_latents[:, 0],
+            pca_latents[:, 1],  # first and second PCA components
+            c=labels,
+            cmap="tab20",
+            s=5,
+            alpha=0.7,
         )
-        plt.colorbar(scatter, label='Class label')
+        plt.colorbar(scatter, label="Class label")
     else:
         plt.scatter(pca_latents[:, 0], pca_latents[:, 1], s=5, alpha=0.7)
 
@@ -144,9 +118,6 @@ def plot_pca_2d_projection(pca_latents, labels=None, save_path=None, title="PCA 
     plt.show()
 
 
-
-
-
 def plot_latent_histograms(pca_latents, num_bins=50, save_dir=None):
     num_components = pca_latents.shape[1]
     n_cols = 5
@@ -157,8 +128,8 @@ def plot_latent_histograms(pca_latents, num_bins=50, save_dir=None):
 
     for i in range(num_components):
         ax = axes[i]
-        ax.hist(pca_latents[:, i], bins=num_bins, color='cornflowerblue', alpha=0.7)
-        ax.set_title(f"PCA Component {i+1}")
+        ax.hist(pca_latents[:, i], bins=num_bins, color="cornflowerblue", alpha=0.7)
+        ax.set_title(f"PCA Component {i + 1}")
         ax.set_yticks([])
         ax.set_xticks([])
 
@@ -177,9 +148,6 @@ def plot_latent_histograms(pca_latents, num_bins=50, save_dir=None):
     plt.show()
 
 
-
-
-
 ############################################################################
 #                   Custom Dataset for PCA samples                        #
 ############################################################################
@@ -192,14 +160,15 @@ class PCADataset(Dataset):
         return len(self.pca_latents)
 
     def __getitem__(self, idx):
-        item = {'pca': torch.tensor(self.pca_latents[idx], dtype=torch.float32)}
+        item = {"pca": torch.tensor(self.pca_latents[idx], dtype=torch.float32)}
         if self.labels is not None:
-            item['label'] = torch.tensor(self.labels[idx], dtype=torch.long)
+            item["label"] = torch.tensor(self.labels[idx], dtype=torch.long)
         return item
 
 
-
-def create_pca_dataloader(pca_latents, labels=None, batch_size=32, shuffle=True, num_workers=4):
+def create_pca_dataloader(
+    pca_latents, labels=None, batch_size=32, shuffle=True, num_workers=4
+):
     """
     Create a DataLoader for PCA latents.
 
@@ -214,14 +183,17 @@ def create_pca_dataloader(pca_latents, labels=None, batch_size=32, shuffle=True,
         DataLoader: A DataLoader instance for the PCA dataset.
     """
     pca_dataset = PCADataset(pca_latents, labels)
-    return DataLoader(pca_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-
+    return DataLoader(
+        pca_dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+    )
 
 
 ############################################################################
 #                   Linear Probe for Classifier Accuracy                    #
 ############################################################################
 """ Linear Probe for β-VAE PCA Features"""
+
+
 class LinearProbe(nn.Module):
     def __init__(self, hidden_size, num_classes):
         super().__init__()
@@ -235,29 +207,27 @@ class LinearProbe(nn.Module):
         return self.output_dim
 
 
-
 class TwoLayerProbe(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_classes):
         super().__init__()
         self.linear = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, num_classes)
+            nn.Linear(hidden_dim, num_classes),
         )
         self.output_dim = num_classes
 
     def forward(self, x):
         return self.linear(x)
 
-
     def get_output_dim(self):
         return self.output_dim
-
 
 
 #############################################################################
 #                       Custom Probe Trainer Module                       #
 ##############################################################################
+
 
 def train_linear_probe(
     linear_probe,
@@ -265,37 +235,41 @@ def train_linear_probe(
     val_loader,
     source_timestep,
     target_timestep,
-    label_key='label',
-    latent_key='pca',
+    label_key="label",
+    latent_key="pca",
     device=None,
     epochs=500,
     patience=10,
     lr=1e-4,
-    output_csv='linear_probe_metrics.csv',
-    beta_value=1e-4,    # default low beta value for β-VAE
-    model_name='',
-    output_dim=90
+    output_csv="linear_probe_metrics.csv",
+    beta_value=1e-4,  # default low beta value for β-VAE
+    model_name="",
+    output_dim=90,
 ):
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     linear_probe = linear_probe.to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(linear_probe.parameters(), lr=lr) # use AdamW for better generalization
+    optimizer = optim.AdamW(
+        linear_probe.parameters(), lr=lr
+    )  # use AdamW for better generalization
 
     history = []
-    best_val_acc = -float('inf')
+    best_val_acc = -float("inf")
     patience_counter = 0
 
     for epoch in range(epochs):
         linear_probe.train()
         train_loss, correct, total = 0.0, 0, 0
 
-        for batch in tqdm(train_loader, desc=f"[Train] Epoch {epoch+1}", leave=False):
+        for batch in tqdm(train_loader, desc=f"[Train] Epoch {epoch + 1}", leave=False):
             pca_vectors = batch[latent_key].to(device)
             labels = batch[label_key].to(device).view(-1)
 
             # Check if labels are within valid range
             if (labels < 0).any() or (labels >= linear_probe.get_output_dim()).any():
-                print(f"[WARNING] Skipping batch due to invalid labels: {labels.cpu().numpy()}")
+                print(
+                    f"[WARNING] Skipping batch due to invalid labels: {labels.cpu().numpy()}"
+                )
                 continue
 
             # Extra safeguard to ensure 1D shape
@@ -323,13 +297,15 @@ def train_linear_probe(
         all_preds, all_labels = [], []
 
         with torch.no_grad():
-            for batch in tqdm(val_loader, desc=f"[Val] Epoch {epoch+1}", leave=False):
+            for batch in tqdm(val_loader, desc=f"[Val] Epoch {epoch + 1}", leave=False):
                 pca_vectors = batch[latent_key].to(device)
                 labels = batch[label_key].to(device)
 
                 # Check if labels are within valid range
                 if (labels < 0).any() or (labels >= linear_probe.output_dim).any():
-                    print(f"[WARNING] Skipping batch due to invalid labels: {labels.cpu().numpy()}")
+                    print(
+                        f"[WARNING] Skipping batch due to invalid labels: {labels.cpu().numpy()}"
+                    )
                     continue
 
                 # Extra safeguard to ensure 1D shape
@@ -349,25 +325,26 @@ def train_linear_probe(
 
         val_acc = val_correct / val_total
         val_loss /= val_total
-        precision = precision_score(all_labels, all_preds, average='macro', zero_division=0)
-        recall = recall_score(all_labels, all_preds, average='macro', zero_division=0)
+        precision = precision_score(
+            all_labels, all_preds, average="macro", zero_division=0
+        )
+        recall = recall_score(all_labels, all_preds, average="macro", zero_division=0)
 
-        history.append({
-            'Epoch': epoch + 1,
-            'Train_Loss': train_loss,
-            'Train_Accuracy': train_acc,
-            'Val_Loss': val_loss,
-            'Val_Accuracy': val_acc,
-            'Precision': precision,
-            'Recall': recall,
-            'Beta'
-
-
-            : beta_value,
-            'Model': model_name,
-            'Source_Timestep': source_timestep,
-            'Target_Timestep': target_timestep,
-        })
+        history.append(
+            {
+                "Epoch": epoch + 1,
+                "Train_Loss": train_loss,
+                "Train_Accuracy": train_acc,
+                "Val_Loss": val_loss,
+                "Val_Accuracy": val_acc,
+                "Precision": precision,
+                "Recall": recall,
+                "Beta": beta_value,
+                "Model": model_name,
+                "Source_Timestep": source_timestep,
+                "Target_Timestep": target_timestep,
+            }
+        )
 
         # Early stopping
         if val_acc > best_val_acc:
@@ -376,10 +353,12 @@ def train_linear_probe(
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print(f"[EarlyStopping] Stopped at epoch {epoch+1}")
+                print(f"[EarlyStopping] Stopped at epoch {epoch + 1}")
                 break
 
-        print(f"[Epoch {epoch+1}] Train Acc: {train_acc:.3f}, Val Acc: {val_acc:.3f}, Precision: {precision:.3f}, Recall: {recall:.3f}")
+        print(
+            f"[Epoch {epoch + 1}] Train Acc: {train_acc:.3f}, Val Acc: {val_acc:.3f}, Precision: {precision:.3f}, Recall: {recall:.3f}"
+        )
 
     df = pd.DataFrame(history)
     os.makedirs(os.path.dirname(output_csv), exist_ok=True)
@@ -387,8 +366,6 @@ def train_linear_probe(
     print(f"[INFO] Saved: {output_csv}")
 
     return df
-
-
 
 
 ############################################################################
@@ -400,30 +377,34 @@ def set_plot_style():
     """
     # Set global style to match example
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,  # Set to True if you want full LaTeX rendering
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,  # Set to True if you want full LaTeX rendering
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
     sns.set_palette("Set2")  # Ensures consistent coloring for all plots
 
 
-def plot_validation_curve(df_metrics, source_timestep, target_timestep, beta, save_path=None):
+def plot_validation_curve(
+    df_metrics, source_timestep, target_timestep, beta, save_path=None
+):
     """
     Plot a polished validation accuracy curve using seaborn and consistent style.
     """
     set_plot_style()
 
-    epochs = df_metrics['Epoch']
-    val_acc = df_metrics['Val_Accuracy']
+    epochs = df_metrics["Epoch"]
+    val_acc = df_metrics["Val_Accuracy"]
 
     plt.figure(figsize=(10, 6))
     ax = plt.gca()
@@ -431,16 +412,29 @@ def plot_validation_curve(df_metrics, source_timestep, target_timestep, beta, sa
     # Use the first color from the Set2 palette
     color = sns.color_palette("Set2", n_colors=1)[0]
 
-    ax.plot(epochs, val_acc, marker='o', color=color, linewidth=2.5, markersize=7, label="Validation Accuracy")
+    ax.plot(
+        epochs,
+        val_acc,
+        marker="o",
+        color=color,
+        linewidth=2.5,
+        markersize=7,
+        label="Validation Accuracy",
+    )
 
     ax.text(
-        epochs.values[-1], val_acc.values[-1] + 0.01,
-        f"{val_acc.values[-1]*100:.1f}%", ha='center', fontsize=11, color=color
+        epochs.values[-1],
+        val_acc.values[-1] + 0.01,
+        f"{val_acc.values[-1] * 100:.1f}%",
+        ha="center",
+        fontsize=11,
+        color=color,
     )
 
     ax.set_title(
         rf"Validation Accuracy - β-VAE   (source={source_timestep:.2f} → target={target_timestep:.2f},  β={beta})",
-        fontsize=16, pad=20
+        fontsize=16,
+        pad=20,
     )
 
     ymax = math.ceil((val_acc.max() + 0.05) * 20) / 20
@@ -449,7 +443,9 @@ def plot_validation_curve(df_metrics, source_timestep, target_timestep, beta, sa
     ax.set_xlabel("Epoch", fontsize=14)
     ax.set_ylabel("Validation Accuracy", fontsize=14)
     ax.tick_params(labelsize=12)
-    ax.legend(fontsize=12, loc="upper right", title="Model", title_fontsize=13, frameon=False)
+    ax.legend(
+        fontsize=12, loc="upper right", title="Model", title_fontsize=13, frameon=False
+    )
 
     plt.tight_layout()
 
@@ -457,62 +453,68 @@ def plot_validation_curve(df_metrics, source_timestep, target_timestep, beta, sa
         save_path = f"validation_curve_{source_timestep:.2f}_{target_timestep:.2f}_beta{beta}.png"
         print(f"[INFO] No save path provided, using default: {save_path}")
 
-    plt.savefig(save_path, bbox_inches='tight', dpi=300)
+    plt.savefig(save_path, bbox_inches="tight", dpi=300)
     print(f"[INFO] Validation curve saved to: {save_path}")
     plt.show()
     plt.close()
 
 
-def plot_combined_validation_curve(df_combined, save_path, source_timestep, target_timestep, beta):
+def plot_combined_validation_curve(
+    df_combined, save_path, source_timestep, target_timestep, beta
+):
     """
     Plot a combined validation accuracy curve for multiple probes.
     """
     set_plot_style()
 
     plt.figure(figsize=(10, 6))
-    palette = sns.color_palette("Set2", n_colors=df_combined['Probe'].nunique())
+    palette = sns.color_palette("Set2", n_colors=df_combined["Probe"].nunique())
 
     ax = sns.lineplot(
-        data=df_combined, x='Epoch', y='Val_Accuracy',
-        hue='Probe', marker='o', palette=palette
+        data=df_combined,
+        x="Epoch",
+        y="Val_Accuracy",
+        hue="Probe",
+        marker="o",
+        palette=palette,
     )
 
-    for probe, sub_df in df_combined.groupby('Probe'):
+    for probe, sub_df in df_combined.groupby("Probe"):
         last_row = sub_df.iloc[-1]
         ax.text(
-            last_row['Epoch'] + 0.2,
-            last_row['Val_Accuracy'],
-            f"{last_row['Val_Accuracy']*100:.2f}%",
+            last_row["Epoch"] + 0.2,
+            last_row["Val_Accuracy"],
+            f"{last_row['Val_Accuracy'] * 100:.2f}%",
             fontsize=11,
-            color=ax.get_lines()[list(df_combined['Probe'].unique()).index(probe)].get_color(),
-            weight='bold'
+            color=ax.get_lines()[
+                list(df_combined["Probe"].unique()).index(probe)
+            ].get_color(),
+            weight="bold",
         )
 
-    ymax = math.ceil((df_combined['Val_Accuracy'].max() + 0.05) * 20) / 20
+    ymax = math.ceil((df_combined["Val_Accuracy"].max() + 0.05) * 20) / 20
     plt.ylim(0, ymax)
 
     plt.title(
         f"Validation Accuracy Comparison (β={beta}, source={source_timestep:.2f} → target={target_timestep:.2f})",
-        fontsize=16
+        fontsize=16,
     )
     plt.xlabel("Epoch", fontsize=14)
     plt.ylabel("Validation Accuracy", fontsize=14)
     plt.legend(title="Probe Type", fontsize=12, title_fontsize=13)
     plt.tight_layout()
 
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     print(f"[INFO] Combined validation curve saved to: {save_path}")
     plt.show()
     plt.close()
-
-
 
 
 ############################################################################
 #                       Plot UMAP 2D Cluster Plot                          #
 ############################################################################
 def plot_umap_pca(
-    pca_latents, # PCA-projected latents, shape (N, D)
+    pca_latents,  # PCA-projected latents, shape (N, D)
     labels=None,
     n_neighbors=20,
     min_dist=0.1,
@@ -521,7 +523,7 @@ def plot_umap_pca(
     save_to_path=None,
     title="UMAP projection of PCA latents",
     figsize=(10, 8),
-    random_state=42 # state of life s
+    random_state=42,  # state of life s
 ):
     """
     Plot a UMAP projection of PCA-projected latents, optionally colored by labels.
@@ -542,23 +544,24 @@ def plot_umap_pca(
     if pca_latents.shape[0] > max_data_samples:
         pca_latents = pca_latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
-        print(f"[INFO] PCA shape reduced to {pca_latents.shape[0]} samples for plotting.")
+        print(
+            f"[INFO] PCA shape reduced to {pca_latents.shape[0]} samples for plotting."
+        )
 
     reducer = umap.UMAP(
         n_neighbors=n_neighbors,
         min_dist=min_dist,
         n_components=n_components,
-        random_state=random_state
+        random_state=random_state,
     )
     embedding = reducer.fit_transform(pca_latents)
 
     plt.figure(figsize=figsize)
     if labels is not None:
         scatter = plt.scatter(
-            embedding[:, 0], embedding[:, 1],
-            c=labels, cmap='tab20', s=5, alpha=0.7
+            embedding[:, 0], embedding[:, 1], c=labels, cmap="tab20", s=5, alpha=0.7
         )
-        plt.colorbar(scatter, label='Class label')
+        plt.colorbar(scatter, label="Class label")
     else:
         plt.scatter(embedding[:, 0], embedding[:, 1], s=5, alpha=0.7)
 
@@ -572,10 +575,15 @@ def plot_umap_pca(
     plt.close()
 
 
-
-def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None, title="2D PCA Projection", figsize=(10, 8)):
-    """ Plot a 2D PCA projection of latents, optionally colored by labels.
-    """
+def plot_pca_2d(
+    latents,
+    labels=None,
+    max_data_samples=100000,
+    save_to_path=None,
+    title="2D PCA Projection",
+    figsize=(10, 8),
+):
+    """Plot a 2D PCA projection of latents, optionally colored by labels."""
 
     set_plot_style()
 
@@ -588,8 +596,10 @@ def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None
 
     plt.figure(figsize=figsize)
     if labels is not None:
-        scatter = plt.scatter(reduced[:, 0], reduced[:, 1], c=labels, cmap='tab20', s=5, alpha=0.7)
-        plt.colorbar(scatter, label='Class label')
+        scatter = plt.scatter(
+            reduced[:, 0], reduced[:, 1], c=labels, cmap="tab20", s=5, alpha=0.7
+        )
+        plt.colorbar(scatter, label="Class label")
     else:
         plt.scatter(reduced[:, 0], reduced[:, 1], s=5, alpha=0.7)
 
@@ -604,25 +614,32 @@ def plot_pca_2d(latents, labels=None, max_data_samples=100000, save_to_path=None
     plt.close()
 
 
-
-def plot_tsne_2d(latents, labels=None, max_data_samples=10000, perplexity=30, save_to_path=None, title="t-SNE Projection", figsize=(10, 8)):
-    """ Plot a 2D t-SNE projection of latents, optionally colored by labels.
-    """
+def plot_tsne_2d(
+    latents,
+    labels=None,
+    max_data_samples=10000,
+    perplexity=30,
+    save_to_path=None,
+    title="t-SNE Projection",
+    figsize=(10, 8),
+):
+    """Plot a 2D t-SNE projection of latents, optionally colored by labels."""
 
     set_plot_style()
-
 
     if latents.shape[0] > max_data_samples:
         latents = latents[:max_data_samples]
         labels = labels[:max_data_samples] if labels is not None else None
 
-    tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, init='pca')
+    tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42, init="pca")
     reduced = tsne.fit_transform(latents)
 
     plt.figure(figsize=figsize)
     if labels is not None:
-        scatter = plt.scatter(reduced[:, 0], reduced[:, 1], c=labels, cmap='tab20', s=5, alpha=0.7)
-        plt.colorbar(scatter, label='Class label')
+        scatter = plt.scatter(
+            reduced[:, 0], reduced[:, 1], c=labels, cmap="tab20", s=5, alpha=0.7
+        )
+        plt.colorbar(scatter, label="Class label")
     else:
         plt.scatter(reduced[:, 0], reduced[:, 1], s=5, alpha=0.7)
 
@@ -637,9 +654,13 @@ def plot_tsne_2d(latents, labels=None, max_data_samples=10000, perplexity=30, sa
     plt.close()
 
 
-
-
-def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=100000, figsize_per_plot=(5, 5), save_to_path=None):
+def plot_kmeans_grid(
+    pca_latents,
+    k_values=[2, 3, 5, 10],
+    max_data_samples=100000,
+    figsize_per_plot=(5, 5),
+    save_to_path=None,
+):
     """
     Plot k-Means clustering results over PCA-reduced latents (assumed to be already PCA'd).
 
@@ -662,7 +683,11 @@ def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=10000
     n_rows = 2
     n_cols = int(np.ceil(len(k_values) / n_rows))
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(figsize_per_plot[0]*n_cols, figsize_per_plot[1]*n_rows))
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows),
+    )
     axes = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
     for idx, k in enumerate(k_values):
@@ -670,12 +695,14 @@ def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=10000
         preds = kmeans.fit_predict(pca_latents)  # Cluster in full PCA space
 
         ax = axes[idx]
-        scatter = ax.scatter(reduced[:, 0], reduced[:, 1], c=preds, cmap='tab20', s=5, alpha=0.7)
+        scatter = ax.scatter(
+            reduced[:, 0], reduced[:, 1], c=preds, cmap="tab20", s=5, alpha=0.7
+        )
         ax.set_title(f"k-Means Clustering (k={k})")
         ax.axis("off")
 
     # Hide any extra unused subplots
-    for ax in axes[len(k_values):]:
+    for ax in axes[len(k_values) :]:
         ax.axis("off")
 
     plt.suptitle("k-Means Cluster Projections (PCA-reduced)", fontsize=16)
@@ -689,9 +716,16 @@ def plot_kmeans_grid(pca_latents, k_values=[2, 3, 5, 10], max_data_samples=10000
     plt.close()
 
 
-
-
-def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_components=2, save_path=None, max_data_samples=50000, random_state=None):
+def plot_umap_grid(
+    model_results,
+    group_name,
+    n_neighbors=15,
+    min_dist=0.1,
+    n_components=2,
+    save_path=None,
+    max_data_samples=50000,
+    random_state=None,
+):
     """
     Plot UMAP plots for multiple models in a grid.
 
@@ -707,7 +741,9 @@ def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_co
     n_cols = 3  # You can adjust
     n_rows = int(np.ceil(num_models / n_cols))
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 5 * n_rows), squeeze=False)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(5 * n_cols, 5 * n_rows), squeeze=False
+    )
 
     for idx, model_info in enumerate(model_results):
         row = idx // n_cols
@@ -715,18 +751,25 @@ def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_co
 
         latents = model_info["latents"]
         labels = model_info["labels"]
-        name    = model_info["name"]
+        name = model_info["name"]
 
         if latents.shape[0] > max_data_samples:
             latents = latents[:max_data_samples]
             labels = labels[:max_data_samples] if labels is not None else None
 
-        reducer = umap.UMAP(n_neighbors=n_neighbors, min_dist=min_dist, n_components=n_components, random_state=random_state)
+        reducer = umap.UMAP(
+            n_neighbors=n_neighbors,
+            min_dist=min_dist,
+            n_components=n_components,
+            random_state=random_state,
+        )
         embedding = reducer.fit_transform(latents)
 
         ax = axes[row][col]
         if labels is not None:
-            scatter = ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='tab20', s=3, alpha=0.7)
+            scatter = ax.scatter(
+                embedding[:, 0], embedding[:, 1], c=labels, cmap="tab20", s=3, alpha=0.7
+            )
         else:
             ax.scatter(embedding[:, 0], embedding[:, 1], s=3, alpha=0.7)
 
@@ -747,13 +790,6 @@ def plot_umap_grid(model_results, group_name, n_neighbors=15, min_dist=0.1, n_co
     plt.show()
     plt.close()
 
-
-
-
-
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
 
 def plot_probe_accuracy_grid(data_df, save_path):
     """
@@ -778,7 +814,7 @@ def plot_probe_accuracy_grid(data_df, save_path):
         sharex=False,
         despine=False,
         height=4,
-        aspect=1
+        aspect=1,
     )
 
     def box_with_mean(data, **kwargs):
@@ -790,7 +826,7 @@ def plot_probe_accuracy_grid(data_df, save_path):
             data=data,
             color="lightgray",
             fliersize=0,
-            **kwargs
+            **kwargs,
         )
         # Overlay red mean line
         means = data.groupby("BetaStr")["ValAccuracies"].mean()
@@ -811,8 +847,6 @@ def plot_probe_accuracy_grid(data_df, save_path):
     print(f"[INFO] Saved grid plot to: {save_path}")
 
 
-
-
 def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
     """
     Creates a 3-panel seaborn grid plot:
@@ -831,9 +865,13 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
 
     # --- LEFT: Linear Probe ---
     linear_df = df[df["ProbeType"] == "Linear"]
-    sns.boxplot(data=linear_df, x="BetaStr", y="ValAccuracies", ax=axs[0], color="lightgray")
+    sns.boxplot(
+        data=linear_df, x="BetaStr", y="ValAccuracies", ax=axs[0], color="lightgray"
+    )
     max_accs = linear_df.groupby("BetaStr")["ValAccuracies"].max()
-    axs[0].plot(range(len(max_accs)), max_accs.values, color="red", label="Max Acc", marker="o")
+    axs[0].plot(
+        range(len(max_accs)), max_accs.values, color="red", label="Max Acc", marker="o"
+    )
     axs[0].set_title("Linear Probe")
     axs[0].set_xlabel("β")
     axs[0].set_ylabel("Validation Accuracy")
@@ -841,9 +879,17 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
 
     # --- MIDDLE: Two-Layer Probe ---
     two_df = df[df["ProbeType"] == "Two-Layer"]
-    sns.boxplot(data=two_df, x="BetaStr", y="ValAccuracies", ax=axs[1], color="lightgray")
+    sns.boxplot(
+        data=two_df, x="BetaStr", y="ValAccuracies", ax=axs[1], color="lightgray"
+    )
     max_accs_two = two_df.groupby("BetaStr")["ValAccuracies"].max()
-    axs[1].plot(range(len(max_accs_two)), max_accs_two.values, color="red", label="Max Acc", marker="o")
+    axs[1].plot(
+        range(len(max_accs_two)),
+        max_accs_two.values,
+        color="red",
+        label="Max Acc",
+        marker="o",
+    )
     axs[1].set_title("Two-Layer Probe")
     axs[1].set_xlabel("β")
     axs[1].grid(True)
@@ -869,36 +915,33 @@ def plot_probe_accuracy_threepanel(plot_df, pca_num, save_path):
     plt.close()
 
 
-
-
-
-
-
 ######################################################################
 #                   Plot Visualizations                              #
 ######################################################################
 
+
 def plot_pca_kmeans_scatter_grid(df, project_path="test_outputs"):
     import matplotlib.pyplot as plt
     import seaborn as sns
-    import numpy as np
     from pathlib import Path
 
     # Set style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # Convert types for facetting
     df["PCA"] = df["PCA"].astype(str)
@@ -921,8 +964,16 @@ def plot_pca_kmeans_scatter_grid(df, project_path="test_outputs"):
         ax = plt.gca()
         ax.set_facecolor("#e8ecf0")
         sns.scatterplot(
-            data=data, x="x", y="y", hue="Cluster",
-            palette="tab10", s=20, linewidth=0, alpha=0.8, legend=False, ax=ax
+            data=data,
+            x="x",
+            y="y",
+            hue="Cluster",
+            palette="tab10",
+            s=20,
+            linewidth=0,
+            alpha=0.8,
+            legend=False,
+            ax=ax,
         )
         ax.set_xlim(*x_limits)
         ax.set_ylim(*y_limits)
@@ -942,12 +993,10 @@ def plot_pca_kmeans_scatter_grid(df, project_path="test_outputs"):
     plt.close()
 
 
-
-
-
-def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filter="Linear"):
-    """ Plot validation accuracy across PCA components for a specific probe type.
-    """
+def plot_probe_val_across_pca(
+    json_path, project_path="test_outputs", probe_filter="Linear"
+):
+    """Plot validation accuracy across PCA components for a specific probe type."""
     with open(json_path, "r") as f:
         data = json.load(f)
 
@@ -956,15 +1005,17 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracies": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracies": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df = df[df["ProbeType"] == probe_filter]
@@ -976,19 +1027,21 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
 
     # Global style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # Compute KDE-based global y-limits
     y_vals = df["ValAccuracies"].values
@@ -1012,25 +1065,39 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
         data["Beta"] = data["Beta"].astype(float)
 
         sns.violinplot(
-            data=data, x="Beta", y="ValAccuracies",
-            ax=ax, order=beta_order,
-            inner=None, linewidth=0,
-            color="#a0aab8", saturation=0.3
+            data=data,
+            x="Beta",
+            y="ValAccuracies",
+            ax=ax,
+            order=beta_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="Beta", y="ValAccuracies",
-            width=0.3, ax=ax, order=beta_order,
+            data=data,
+            x="Beta",
+            y="ValAccuracies",
+            width=0.3,
+            ax=ax,
+            order=beta_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
         # Medians
-        medians = data.groupby("Beta", observed=True)["ValAccuracies"].median().reindex(beta_order)
+        medians = (
+            data.groupby("Beta", observed=True)["ValAccuracies"]
+            .median()
+            .reindex(beta_order)
+        )
         x_vals = list(range(len(beta_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1039,14 +1106,16 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
         ax.set_xticklabels([f"{b:.4g}" for b in beta_order])
         ax.set_xlabel(r"$\beta$", fontsize=10)
         ax.set_ylabel(r"Validation Accuracy", fontsize=10)
-        ax.tick_params(axis='x', rotation=0)
+        ax.tick_params(axis="x", rotation=0)
         ax.grid(True, linestyle="--", alpha=0.4)
         ax.set_ylim(y_min, y_max)
 
     g.map_dataframe(draw_minimalist_boxplot)
     g.set_titles(col_template=r"PCA = {col_name}", size=10)
 
-    plt.suptitle(r"Validation Accuracy over Number of PCA Components", fontsize=12, y=1.05)
+    plt.suptitle(
+        r"Validation Accuracy over Number of PCA Components", fontsize=12, y=1.05
+    )
     plt.tight_layout()
 
     plot_path = Path(f"{project_path}/pca_beta_boxplot_style_matched.png")
@@ -1055,9 +1124,6 @@ def plot_probe_val_across_pca(json_path, project_path="test_outputs", probe_filt
     print(f"[INFO] Saved PCA plot to: {plot_path}")
     plt.show()
     plt.close()
-
-
-
 
 
 def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
@@ -1075,15 +1141,17 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracies": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracies": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df["Beta"] = df["Beta"].astype(float)
@@ -1093,33 +1161,39 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
 
     # Style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # Create row-wise y-axis limits
     y_limits = df.groupby("ProbeType")["ValAccuracies"].max().to_dict()
-    y_limits = {k: min(1.2, v * 1.1) for k, v in y_limits.items()}  # Add margin, clamp at 1.2
+    y_limits = {
+        k: min(1.2, v * 1.1) for k, v in y_limits.items()
+    }  # Add margin, clamp at 1.2
 
     # FacetGrid (don't share y!)
     g = sns.FacetGrid(
         df,
-        row="ProbeType", col="PCA",
-        height=2.8, aspect=1.2,
+        row="ProbeType",
+        col="PCA",
+        height=2.8,
+        aspect=1.2,
         sharey=False,
         row_order=probe_order,
         col_order=pca_order,
-        margin_titles=True
+        margin_titles=True,
     )
 
     def draw_boxplot_with_medians(data, **kwargs):
@@ -1128,23 +1202,38 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="Beta", y="ValAccuracies",
-            ax=ax, order=beta_order,
-            inner=None, linewidth=0, color="#a0aab8", saturation=0.3
+            data=data,
+            x="Beta",
+            y="ValAccuracies",
+            ax=ax,
+            order=beta_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="Beta", y="ValAccuracies",
-            width=0.3, ax=ax, order=beta_order,
+            data=data,
+            x="Beta",
+            y="ValAccuracies",
+            width=0.3,
+            ax=ax,
+            order=beta_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
-        medians = data.groupby("Beta", observed=True)["ValAccuracies"].median().reindex(beta_order)
+        medians = (
+            data.groupby("Beta", observed=True)["ValAccuracies"]
+            .median()
+            .reindex(beta_order)
+        )
         x_vals = list(range(len(beta_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1162,7 +1251,7 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
     # Row subtitles
     row_labels = {
         "Linear": "(a) Linear Probe Classifier Evaluation",
-        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation"
+        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation",
     }
 
     g.fig.subplots_adjust(top=0.92, hspace=0.35)
@@ -1175,12 +1264,18 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
         y_offset = 0.08 if i == len(probe_order) - 1 else 0.035
 
         g.fig.text(
-            center_x, bottom_y - y_offset,
+            center_x,
+            bottom_y - y_offset,
             row_labels[probe],
-            fontsize=11, fontweight="bold", ha="center", va="top"
+            fontsize=11,
+            fontweight="bold",
+            ha="center",
+            va="top",
         )
 
-    plt.suptitle(r"Validation Accuracy over Number of PCA Components", fontsize=14, y=1.05)
+    plt.suptitle(
+        r"Validation Accuracy over Number of PCA Components", fontsize=14, y=1.05
+    )
     plot_path = Path(f"{project_path}/combined_probe_accuracy_grid.png")
     plot_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
@@ -1189,9 +1284,9 @@ def plot_probe_comparison_grid(json_path, project_path="test_outputs"):
     plt.close()
 
 
-
-
-def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="Linear"):
+def plot_pca_across_betas(
+    json_path, project_path="test_outputs", probe_filter="Linear"
+):
     import json
     import numpy as np
     import pandas as pd
@@ -1208,15 +1303,17 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracies": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracies": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df = df[df["ProbeType"] == probe_filter]
@@ -1228,19 +1325,21 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
 
     # Global style
     sns.set_theme(style="whitegrid")
-    plt.rcParams.update({
-        "font.family": "serif",
-        "text.usetex": False,
-        "axes.facecolor": "#e8ecf0",
-        "axes.edgecolor": "#cccccc",
-        "axes.labelsize": 10,
-        "xtick.labelsize": 9,
-        "ytick.labelsize": 9,
-        "legend.fontsize": 9,
-        "grid.linestyle": "--",
-        "grid.alpha": 0.4,
-        "lines.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "text.usetex": False,
+            "axes.facecolor": "#e8ecf0",
+            "axes.edgecolor": "#cccccc",
+            "axes.labelsize": 10,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "grid.linestyle": "--",
+            "grid.alpha": 0.4,
+            "lines.linewidth": 1.2,
+        }
+    )
 
     # Compute KDE-based global y-limits for this probe type
     y_vals = df["ValAccuracies"].values
@@ -1260,10 +1359,13 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
 
     # FacetGrid with one subplot per Beta
     g = sns.FacetGrid(
-        df, col="Beta", col_wrap=4,
-        height=3.0, aspect=1.2,
+        df,
+        col="Beta",
+        col_wrap=4,
+        height=3.0,
+        aspect=1.2,
         sharey=True,  # consistent scale across all beta subplots
-        col_order=beta_order
+        col_order=beta_order,
     )
 
     def draw_pca_grouped_boxplot(data, **kwargs):
@@ -1271,24 +1373,38 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="PCA", y="ValAccuracies",
-            ax=ax, order=pca_order,
-            inner=None, linewidth=0,
-            color="#a0aab8", saturation=0.3
+            data=data,
+            x="PCA",
+            y="ValAccuracies",
+            ax=ax,
+            order=pca_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="PCA", y="ValAccuracies",
-            width=0.3, ax=ax, order=pca_order,
+            data=data,
+            x="PCA",
+            y="ValAccuracies",
+            width=0.3,
+            ax=ax,
+            order=pca_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
-        medians = data.groupby("PCA", observed=True)["ValAccuracies"].median().reindex(pca_order)
+        medians = (
+            data.groupby("PCA", observed=True)["ValAccuracies"]
+            .median()
+            .reindex(pca_order)
+        )
         x_vals = list(range(len(pca_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1302,7 +1418,11 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
 
     g.map_dataframe(draw_pca_grouped_boxplot)
     g.set_titles(col_template=r"$\beta$ = {col_name}", size=10)
-    plt.suptitle(f"Validation Accuracy by PCA Dimension\n({probe_filter} Probes)", fontsize=14, y=1.05)
+    plt.suptitle(
+        f"Validation Accuracy by PCA Dimension\n({probe_filter} Probes)",
+        fontsize=14,
+        y=1.05,
+    )
 
     plt.tight_layout()
     plot_path = Path(f"{project_path}/pca_over_beta_faceted_by_beta.png")
@@ -1311,8 +1431,6 @@ def plot_pca_across_betas(json_path, project_path="test_outputs", probe_filter="
     print(f"[INFO] Saved PCA-vs-Beta plot to: {plot_path}")
     plt.show()
     plt.close()
-
-
 
 
 def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
@@ -1324,15 +1442,17 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     for model in data:
         for res in model["Results"]:
             for acc in res["ValAccuracies"]:
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": model["Beta"],
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": res["PCA"],
-                    "ValAccuracies": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": model["Beta"],
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": res["PCA"],
+                        "ValAccuracies": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
     df["Beta"] = df["Beta"].astype(float)
@@ -1348,7 +1468,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     y_limits = {
         probe: (
             df[df["ProbeType"] == probe]["ValAccuracies"].min(),
-            df[df["ProbeType"] == probe]["ValAccuracies"].max()
+            df[df["ProbeType"] == probe]["ValAccuracies"].max(),
         )
         for probe in probe_order
     }
@@ -1356,12 +1476,14 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     # Use sharey=False for independent scaling
     g = sns.FacetGrid(
         df,
-        row="ProbeType", col="Beta",
-        height=2.8, aspect=1.2,
+        row="ProbeType",
+        col="Beta",
+        height=2.8,
+        aspect=1.2,
         sharey=False,
         row_order=probe_order,
         col_order=beta_order,
-        margin_titles=True
+        margin_titles=True,
     )
 
     def draw_pca_vs_accuracy_boxplot(data, **kwargs):
@@ -1370,23 +1492,38 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
         ax.set_facecolor("#e8ecf0")
 
         sns.violinplot(
-            data=data, x="PCA", y="ValAccuracies",
-            ax=ax, order=pca_order,
-            inner=None, linewidth=0, color="#a0aab8", saturation=0.3
+            data=data,
+            x="PCA",
+            y="ValAccuracies",
+            ax=ax,
+            order=pca_order,
+            inner=None,
+            linewidth=0,
+            color="#a0aab8",
+            saturation=0.3,
         )
 
         sns.boxplot(
-            data=data, x="PCA", y="ValAccuracies",
-            width=0.3, ax=ax, order=pca_order,
+            data=data,
+            x="PCA",
+            y="ValAccuracies",
+            width=0.3,
+            ax=ax,
+            order=pca_order,
             color="white",
-            fliersize=1.5, linewidth=0.7,
-            boxprops={'facecolor': 'white', 'edgecolor': '#333', 'zorder': 2},
-            whiskerprops={'linewidth': 0.7},
-            capprops={'linewidth': 0.7},
-            medianprops={'color': 'black', 'linewidth': 1}
+            fliersize=1.5,
+            linewidth=0.7,
+            boxprops={"facecolor": "white", "edgecolor": "#333", "zorder": 2},
+            whiskerprops={"linewidth": 0.7},
+            capprops={"linewidth": 0.7},
+            medianprops={"color": "black", "linewidth": 1},
         )
 
-        medians = data.groupby("PCA", observed=True)["ValAccuracies"].median().reindex(pca_order)
+        medians = (
+            data.groupby("PCA", observed=True)["ValAccuracies"]
+            .median()
+            .reindex(pca_order)
+        )
         x_vals = list(range(len(pca_order)))
         y_vals = medians.values
         ax.plot(x_vals, y_vals, color="red", linewidth=1.3, zorder=3)
@@ -1408,7 +1545,7 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
     # Row titles
     row_labels = {
         "Linear": "(a) Linear Probe Classifier Evaluation",
-        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation"
+        "Two-Layer": "(b) Two-Layer Probe Classifier Evaluation",
     }
 
     g.fig.subplots_adjust(top=0.92, hspace=0.35)
@@ -1422,20 +1559,24 @@ def plot_pca_comparison_by_beta_grid(json_path, project_path="test_outputs"):
         y_offset = 0.1 if i == len(probe_order) - 1 else 0.035
 
         g.fig.text(
-            center_x, bottom_y - y_offset,
+            center_x,
+            bottom_y - y_offset,
             row_labels[probe],
-            fontsize=11, fontweight="bold", ha="center", va="top"
+            fontsize=11,
+            fontweight="bold",
+            ha="center",
+            va="top",
         )
 
-    plt.suptitle("Validation Accuracy across PCA Dimensions per Beta Value", fontsize=14, y=1.05)
+    plt.suptitle(
+        "Validation Accuracy across PCA Dimensions per Beta Value", fontsize=14, y=1.05
+    )
     plot_path = Path(f"{project_path}/pca_vs_beta_combined_grid.png")
     plot_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     print(f"[INFO] Saved combined PCA/Beta grid plot to: {plot_path}")
     plt.show()
     plt.close()
-
-
 
 
 def plot_accuracy_grid_from_json(json_path, probe_filter="Linear"):
@@ -1458,16 +1599,18 @@ def plot_accuracy_grid_from_json(json_path, probe_filter="Linear"):
             if res["ProbeType"] != probe_filter:
                 continue
             for epoch_idx, acc in enumerate(res["ValAccuracies"]):
-                flat_records.append({
-                    "Model": model["Model"],
-                    "Beta": float(model["Beta"]),
-                    "SourceTimestep": model["SourceTimestep"],
-                    "TargetTimestep": model["TargetTimestep"],
-                    "ProbeType": res["ProbeType"],
-                    "PCA": int(res["PCA"]),
-                    "Epoch": epoch_idx,
-                    "ValAccuracy": acc
-                })
+                flat_records.append(
+                    {
+                        "Model": model["Model"],
+                        "Beta": float(model["Beta"]),
+                        "SourceTimestep": model["SourceTimestep"],
+                        "TargetTimestep": model["TargetTimestep"],
+                        "ProbeType": res["ProbeType"],
+                        "PCA": int(res["PCA"]),
+                        "Epoch": epoch_idx,
+                        "ValAccuracy": acc,
+                    }
+                )
 
     df = pd.DataFrame(flat_records)
 
@@ -1500,19 +1643,19 @@ def plot_accuracy_grid_from_json(json_path, probe_filter="Linear"):
         margin_titles=True,
         sharey=False,
         height=2.5,
-        aspect=1.5
+        aspect=1.5,
     )
     g.map_dataframe(adjust_ylim)
 
     g.set_axis_labels("Epoch", "Validation Accuracy")
     g.set_titles(row_template="β = {row_name}", col_template="PCA = {col_name}")
     g.fig.subplots_adjust(top=0.9)
-    g.fig.suptitle(f"Validation Accuracy for {probe_filter} Probes Across PCA Components", fontsize=14)
+    g.fig.suptitle(
+        f"Validation Accuracy for {probe_filter} Probes Across PCA Components",
+        fontsize=14,
+    )
 
     plt.show()
-
-
-
 
 
 ######################################################################
@@ -1529,7 +1672,7 @@ def collect_latents_from_dataloader(
     model_name,
     beta_vae_module,
     device=None,
-    max_samples=50000
+    max_samples=50000,
 ):
     # Set device
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -1546,10 +1689,12 @@ def collect_latents_from_dataloader(
         group_name=group,
     )
     data.setup(stage="fit" if group == "validation" else "test")
-    dataloader = data.val_dataloader() if group == "validation" else data.test_dataloader()
+    dataloader = (
+        data.val_dataloader() if group == "validation" else data.test_dataloader()
+    )
 
     # Results directory
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     base_results_dir = Path(results_root) / project_path / model_name / timestamp
     base_results_dir.mkdir(parents=True, exist_ok=True)
     print(f"[INFO] Results will be saved to: {base_results_dir}")
@@ -1562,46 +1707,43 @@ def collect_latents_from_dataloader(
             if curr_samples >= max_samples:
                 break
 
-            source_latents = batch[f'latents_{source_timestep:.2f}'].to(device, non_blocking=True)
+            source_latents = batch[f"latents_{source_timestep:.2f}"].to(
+                device, non_blocking=True
+            )
             encoded = beta_vae_module.model.encode(source_latents)
-            latents = encoded['latent_dist'].mode()
+            latents = encoded["latent_dist"].mode()
             all_latents.append(latents.detach().cpu().numpy())
 
-            if 'label' in batch:
-                all_labels.append(batch['label'].detach().cpu().numpy())
+            if "label" in batch:
+                all_labels.append(batch["label"].detach().cpu().numpy())
             curr_samples += latents.shape[0]
 
     all_latents = np.vstack(all_latents)
     all_labels = np.concatenate(all_labels, axis=0) if all_labels else None
     print(f"[INFO] Collected latents shape: {all_latents.shape}")
-    print(f"[INFO] Collected labels shape: {all_labels.shape if all_labels is not None else 'N/A'}")
+    print(
+        f"[INFO] Collected labels shape: {all_labels.shape if all_labels is not None else 'N/A'}"
+    )
 
     return all_latents, all_labels
-
-
 
 
 ######################################################################
 #                   Full PCA Evaluation Pipeline                      #
 ######################################################################
 
-from pathlib import Path
-import json
 import torch
-import gc
-import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
+
 
 def run_pca_over_beta(
     source_timestep=0.20,
     target_timestep=1.00,
     beta=1.0,
-    dataset_name='imagenet256-dataset',
+    dataset_name="imagenet256-dataset",
     group="validation",
     checkpoint=None,
-    data_path=None,           # Should be Path or str
-    project_path=None,        # Should be Path object!
+    data_path=None,  # Should be Path or str
+    project_path=None,  # Should be Path object!
     model_name=None,
     num_components=20,
     max_data_samples=50000,
@@ -1612,7 +1754,7 @@ def run_pca_over_beta(
     patience=10,
     lr=1e-4,
     device=None,
-    results_root=None         # Not used for saving in this function
+    results_root=None,  # Not used for saving in this function
 ):
     # Ensure correct path types up front
     if isinstance(data_path, str):
@@ -1627,7 +1769,9 @@ def run_pca_over_beta(
     torch.cuda.empty_cache()
     gc.collect()
 
-    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location='cpu')
+    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(
+        checkpoint, map_location="cpu"
+    )
     beta_vae_module.eval().to(device)
     freeze(beta_vae_module.model)
 
@@ -1642,7 +1786,7 @@ def run_pca_over_beta(
         model_name,
         beta_vae_module,
         device=device,
-        max_samples=max_data_samples
+        max_samples=max_data_samples,
     )
 
     pca = PCA(n_components=num_components)
@@ -1670,7 +1814,7 @@ def run_pca_over_beta(
         "Beta": beta,
         "Source_TS": source_timestep,
         "Target_TS": target_timestep,
-        "Results": []
+        "Results": [],
     }
 
     for pca_num in pca_latent_numbers:
@@ -1684,11 +1828,18 @@ def run_pca_over_beta(
 
         # Split data
         X_train, X_val, y_train, y_val = train_test_split(
-            pca_latents_subset, all_labels_mapped,
-            test_size=0.2, random_state=42, stratify=all_labels_mapped
+            pca_latents_subset,
+            all_labels_mapped,
+            test_size=0.2,
+            random_state=42,
+            stratify=all_labels_mapped,
         )
-        train_loader = DataLoader(PCADataset(X_train, y_train), batch_size=batch_size, shuffle=True)
-        val_loader = DataLoader(PCADataset(X_val, y_val), batch_size=batch_size, shuffle=False)
+        train_loader = DataLoader(
+            PCADataset(X_train, y_train), batch_size=batch_size, shuffle=True
+        )
+        val_loader = DataLoader(
+            PCADataset(X_val, y_val), batch_size=batch_size, shuffle=False
+        )
 
         print("Training Linear Probe...")
         linear_probe = LinearProbe(hidden_size=pca_num, num_classes=num_classes)
@@ -1704,16 +1855,20 @@ def run_pca_over_beta(
             source_timestep=source_timestep,
             target_timestep=target_timestep,
             beta_value=beta,
-            model_name=model_name
+            model_name=model_name,
         )
-        structured_results["Results"].append({
-            "ProbeType": "Linear",
-            "PCA": pca_num,
-            "ValAccuracies": df_linear["Val_Accuracy"].tolist()
-        })
+        structured_results["Results"].append(
+            {
+                "ProbeType": "Linear",
+                "PCA": pca_num,
+                "ValAccuracies": df_linear["Val_Accuracy"].tolist(),
+            }
+        )
 
         print("Training Two-Layer Probe...")
-        two_layer_probe = TwoLayerProbe(input_dim=pca_num, hidden_dim=128, num_classes=num_classes)
+        two_layer_probe = TwoLayerProbe(
+            input_dim=pca_num, hidden_dim=128, num_classes=num_classes
+        )
         df_two = train_linear_probe(
             linear_probe=two_layer_probe,
             train_loader=train_loader,
@@ -1726,13 +1881,15 @@ def run_pca_over_beta(
             source_timestep=source_timestep,
             target_timestep=target_timestep,
             beta_value=beta,
-            model_name=model_name + "_TwoLayer"
+            model_name=model_name + "_TwoLayer",
         )
-        structured_results["Results"].append({
-            "ProbeType": "Two-Layer",
-            "PCA": pca_num,
-            "ValAccuracies": df_two["Val_Accuracy"].tolist()
-        })
+        structured_results["Results"].append(
+            {
+                "ProbeType": "Two-Layer",
+                "PCA": pca_num,
+                "ValAccuracies": df_two["Val_Accuracy"].tolist(),
+            }
+        )
 
         # Save PCA outputs
         np.save(result_dir / "pca_latents.npy", pca_latents_subset)
@@ -1746,19 +1903,16 @@ def run_pca_over_beta(
     return structured_results
 
 
-
-
 ######################################################################
 #                   Full PCA Evaluation Pipeline                      #
 ######################################################################
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
+
 
 def run_pca_for_kmeans_and_plot_scatter_grid(
     source_timestep=0.20,
     target_timestep=1.00,
     beta=1.0,
-    dataset_name='imagenet256-dataset',
+    dataset_name="imagenet256-dataset",
     group="validation",
     checkpoint=None,
     data_path=None,
@@ -1770,16 +1924,18 @@ def run_pca_for_kmeans_and_plot_scatter_grid(
     k_values=[2, 3, 5, 10, 15, 20],
     batch_size=32,
     device=None,
-    results_root="results"
+    results_root="results",
 ):
-    """ Run PCA on β-VAE latents and plot K-Means clustering scatter grid."""
+    """Run PCA on β-VAE latents and plot K-Means clustering scatter grid."""
 
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     seed_everything(2025)
     torch.cuda.empty_cache()
     gc.collect()
 
-    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(checkpoint, map_location="cpu")
+    beta_vae_module = TrainerModuleLatentBetaVae.load_from_checkpoint(
+        checkpoint, map_location="cpu"
+    )
     beta_vae_module.eval().to(device)
     freeze(beta_vae_module.model)
 
@@ -1794,7 +1950,7 @@ def run_pca_for_kmeans_and_plot_scatter_grid(
         model_name,
         beta_vae_module,
         device=device,
-        max_samples=max_data_samples
+        max_samples=max_data_samples,
     )
 
     pca = PCA(n_components=num_components)
@@ -1810,49 +1966,49 @@ def run_pca_for_kmeans_and_plot_scatter_grid(
         pca_subset = pca_latents[:, :pca_num]
 
         for k in k_values:
-            kmeans = KMeans(n_clusters=k, n_init='auto', random_state=42)
+            kmeans = KMeans(n_clusters=k, n_init="auto", random_state=42)
             clusters = kmeans.fit_predict(pca_subset)
 
             for i in range(len(pca_subset)):
-                scatter_data.append({
-                    "x": pca_subset[i, 0],
-                    "y": pca_subset[i, 1],
-                    "PCA": pca_num,
-                    "K": k,
-                    "Cluster": clusters[i]
-                })
+                scatter_data.append(
+                    {
+                        "x": pca_subset[i, 0],
+                        "y": pca_subset[i, 1],
+                        "PCA": pca_num,
+                        "K": k,
+                        "Cluster": clusters[i],
+                    }
+                )
 
     # After collecting data for scatter
     df_scatter = pd.DataFrame(scatter_data)
-    plot_pca_kmeans_scatter_grid(df_scatter, project_path=project_path or "test_outputs")
-
-
-
+    plot_pca_kmeans_scatter_grid(
+        df_scatter, project_path=project_path or "test_outputs"
+    )
 
 
 if __name__ == "__main__":
     #####################################
     # Shared Parameters
     #####################################
-    dataset_name        = 'imagenet256-dataset-T000006'
-    group               = "validation"
-    num_components      = 5 #50
-    max_data_samples    = 50 # 100000
-    batch_size          = 64
-    data_path           = './dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5'
-    results_path        = './results/PCA_BetaVAE_Eval'
+    dataset_name = "imagenet256-dataset-T000006"
+    group = "validation"
+    num_components = 5  # 50
+    max_data_samples = 50  # 100000
+    batch_size = 64
+    data_path = "./dataset/processed/trainset-256/imagenet256-dataset-T000006.hdf5"
+    results_path = "./results/PCA_BetaVAE_Eval"
 
+    n_neighbors = 50
+    min_dist = 0.1
+    max_umap_samples = 50  # 25000
+    random_state = 42  # state of life
+    epochs = 500
+    patience = 10
+    lr = 1e-4
 
-    n_neighbors         = 50
-    min_dist            = 0.1
-    max_umap_samples    = 50 #25000
-    random_state        = 42 # state of life
-    epochs              = 500
-    patience            = 10
-    lr                  = 1e-4
-
-    pca_latent_numbers  = [4] # [2, 5, 9, 15, 20, 30, 50]
-    k_means_n_values    = [4] #[2, 5, 9, 15, 20, 30, 50]
+    pca_latent_numbers = [4]  # [2, 5, 9, 15, 20, 30, 50]
+    k_means_n_values = [4]  # [2, 5, 9, 15, 20, 30, 50]
 
     #####################################
     # Device + Seed Setup
@@ -1860,7 +2016,6 @@ if __name__ == "__main__":
     seed_everything(2025)
     torch.cuda.empty_cache()
     gc.collect()
-
 
     # --------------------------------------
     # Set base results directory with date
@@ -1876,28 +2031,98 @@ if __name__ == "__main__":
 
     model_configs_v0 = [
         # mixed beta = {1e-4, 0.1, 0.5, 1.0, 2.0, 3.0, 5.0}
-        {"name": "Beta02x10x_1e4b", "beta": 1e-4, "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt'},
-        {"name": "Beta02x10x_01b",  "beta": 0.1,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt'},
-        {"name": "Beta02x10x_05b",  "beta": 0.5,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.0x-0.5b/2025-06-30/manual/V2/2025-07-03/101646/checkpoints/last.ckpt'},
-        {"name": "Beta02x10x_1b",   "beta": 1.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt'},
-        {"name": "Beta02x10x_2b",   "beta": 2.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.0x-2.0b/V2/2025-07-06/101646/checkpoints/last.ckpt'},
-        {"name": "Beta02x10x_3b",   "beta": 3.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt'},
-        {"name": "Beta02x10x_5b",   "beta": 5.0,  "source_ts": 0.20, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt'},
+        {
+            "name": "Beta02x10x_1e4b",
+            "beta": 1e-4,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-0.0001b/2025-06-21/manual/V0/2025-06-27/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta02x10x_01b",
+            "beta": 0.1,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-0.1b/2025-06-21/manual/V0/2025-07-06/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta02x10x_05b",
+            "beta": 0.5,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.0x-0.5b/2025-06-30/manual/V2/2025-07-03/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta02x10x_1b",
+            "beta": 1.0,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.00x-1.0b/2025-06-17/29812/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta02x10x_2b",
+            "beta": 2.0,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.0x-2.0b/V2/2025-07-06/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta02x10x_3b",
+            "beta": 3.0,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.20x-1.00x-3.0b/2025-06-21/manual/V0/2025-06-30/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta02x10x_5b",
+            "beta": 5.0,
+            "source_ts": 0.20,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v0/0.20x-1.0x-5.0b/2025-06-21/manual/V0/2025-07-02/101646/checkpoints/last.ckpt",
+        },
     ]
     model_configs_v1 = [
         # mixed beta = {1e-4, 0.1, 0.5, 1.0, 2.0, 3.0, 5.0}
-        {"name": "Beta05x10x_01b", "beta": 0.1,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-08-04/manual/V2/2025-08-04/100001/checkpoints/last.ckpt'},
-        {"name": "Beta05x10x_05b", "beta": 0.5,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'},
-        {"name": "Beta05x10x_1b",  "beta": 1.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt'},
-        {"name": "Beta05x10x_2b",  "beta": 2.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt'},
-        {"name": "Beta05x10x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 1.00, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt'},
+        {
+            "name": "Beta05x10x_01b",
+            "beta": 0.1,
+            "source_ts": 0.50,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-08-04/manual/V2/2025-08-04/100001/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta05x10x_05b",
+            "beta": 0.5,
+            "source_ts": 0.50,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta05x10x_1b",
+            "beta": 1.0,
+            "source_ts": 0.50,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-1.0b/2025-06-21/manual/V2/2025-06-21/29807/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta05x10x_2b",
+            "beta": 2.0,
+            "source_ts": 0.50,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-2b/2025-06-30-1435/manual/V2/2025-07-31/101646/checkpoints/last.ckpt",
+        },
+        {
+            "name": "Beta05x10x_5b",
+            "beta": 5.0,
+            "source_ts": 0.50,
+            "target_ts": 1.00,
+            "ckpt": "./logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-5.0b/2025-06-21/manual/V2/2025-06-21/101101/checkpoints/last.ckpt",
+        },
     ]
 
     all_config_groups = [
-        {"group_name": "All_BetaVAE_0.2x1.0x",
-         "configs": model_configs_v0},
-        {"group_name": "All_BetaVAE_0.5x1.0x",
-         "configs": model_configs_v1},
+        {"group_name": "All_BetaVAE_0.2x1.0x", "configs": model_configs_v0},
+        {"group_name": "All_BetaVAE_0.5x1.0x", "configs": model_configs_v1},
     ]
 
     # --------------------------------------
@@ -1911,18 +2136,20 @@ if __name__ == "__main__":
         print(f"\n=== Running group: {group_name} ===")
 
         for config in configs:
-            beta        = config["beta"]
-            checkpoint  = config["ckpt"]
-            source_ts   = config["source_ts"]
-            target_ts   = config["target_ts"]
-            model_tag   = config["name"]
-            model_name  = f"{model_tag}_{dataset_name}"
+            beta = config["beta"]
+            checkpoint = config["ckpt"]
+            source_ts = config["source_ts"]
+            target_ts = config["target_ts"]
+            model_tag = config["name"]
+            model_name = f"{model_tag}_{dataset_name}"
 
             # Use experiment_root here
             model_path = experiment_root / f"PCA_Quantitative_{group_name}" / model_tag
             model_path.mkdir(parents=True, exist_ok=True)
 
-            print(f"\n[INFO] Running model: {model_tag} (β={beta}, source={source_ts:.2f}, target={target_ts:.2f})")
+            print(
+                f"\n[INFO] Running model: {model_tag} (β={beta}, source={source_ts:.2f}, target={target_ts:.2f})"
+            )
 
             structured_results = run_pca_over_beta(
                 source_timestep=source_ts,
@@ -1944,17 +2171,20 @@ if __name__ == "__main__":
                 results_root=experiment_root,
             )
 
-            assert isinstance(structured_results.get("Results", None), list), f"Results missing or malformed in {model_tag}"
+            assert isinstance(structured_results.get("Results", None), list), (
+                f"Results missing or malformed in {model_tag}"
+            )
 
-            structured_results.update({
-                "Model": model_tag,
-                "Beta": beta,
-                "SourceTimestep": source_ts,
-                "TargetTimestep": target_ts,
-            })
+            structured_results.update(
+                {
+                    "Model": model_tag,
+                    "Beta": beta,
+                    "SourceTimestep": source_ts,
+                    "TargetTimestep": target_ts,
+                }
+            )
 
             model_results.append(structured_results)
-
 
         # Save JSON
         group_path = experiment_root / f"{group_name}_PCA"
@@ -1965,33 +2195,26 @@ if __name__ == "__main__":
         print(f"[INFO] Saved results to: {out_path}")
 
         # Plotting
-        print(f"==" * 50)
-        print(f"[INFO] Generating plots...")
-        plot_accuracy_grid_from_json(
-            json_path=out_path,
-            probe_filter="Linear"
-        )
+        print("==" * 50)
+        print("[INFO] Generating plots...")
+        plot_accuracy_grid_from_json(json_path=out_path, probe_filter="Linear")
 
         plot_probe_val_across_pca(
-            json_path=out_path,
-            project_path=group_path,
-            probe_filter="Linear"
+            json_path=out_path, project_path=group_path, probe_filter="Linear"
         )
         plot_probe_comparison_grid(
             json_path=out_path,
             project_path=group_path,
         )
         plot_pca_across_betas(
-            json_path=out_path,
-            project_path=group_path,
-            probe_filter="Linear"
+            json_path=out_path, project_path=group_path, probe_filter="Linear"
         )
         plot_pca_comparison_by_beta_grid(
             json_path=out_path,
             project_path=group_path,
         )
         print(f"[INFO] Completed group: {group_name}\n")
-        print(f"==" * 50)s
+        print("==" * 50)
 
     # --------------------------------------
     # K-Means PCA Scatter Grid (Fixed)
@@ -2003,15 +2226,17 @@ if __name__ == "__main__":
         print(f"\n=== Running K-Means visualisation for group: {group_name} ===")
 
         for config in configs:
-            beta        = config["beta"]
-            checkpoint  = config["ckpt"]
-            source_ts   = config["source_ts"]
-            target_ts   = config["target_ts"]
-            model_tag   = config["name"]
-            model_name  = f"{model_tag}_{dataset_name}"
+            beta = config["beta"]
+            checkpoint = config["ckpt"]
+            source_ts = config["source_ts"]
+            target_ts = config["target_ts"]
+            model_tag = config["name"]
+            model_name = f"{model_tag}_{dataset_name}"
 
             # use experiment_root
-            project_path = experiment_root / f"PCA_Quantitative_{group_name}" / model_tag
+            project_path = (
+                experiment_root / f"PCA_Quantitative_{group_name}" / model_tag
+            )
             kmeans_output_path = project_path / f"kmeans_pca_{model_tag}"
             kmeans_output_path.mkdir(parents=True, exist_ok=True)
 
@@ -2035,22 +2260,12 @@ if __name__ == "__main__":
                 results_root=kmeans_output_path,
             )
 
-
-
     # CUDA_VISIBLE_DEVICES=2 python ...
-
-
-
-
-
-
 
     # -------------------------------------------------------
     # B: Reconstruction + Varying ß-Parameter
     # All models under Denoising Objective
     # -------------------------------------------------------
-
-
 
     # # All models under Reconstruction Objective
     # # -------------------------------------------------------
@@ -2064,7 +2279,6 @@ if __name__ == "__main__":
     #     # beta: 5.0
     #      {"name": "Beta05x05x_5b",  "beta": 5.0,  "source_ts": 0.50, "target_ts": 0.50, "ckpt": './logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-0.50x-5.0b/2025-06-21/manual/V2/2025-06-21/29852/checkpoints/last.ckpt' },  # Open
     # ]
-
 
     # # All models with b:0.1
     # model_configs_v2 = [
