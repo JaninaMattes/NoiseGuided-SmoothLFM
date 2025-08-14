@@ -27,7 +27,7 @@
 
 - 🌀 Augments diffusion/flow-based latent spaces .
 - 🚀 Built on **Scalable Interpolant Transformers (SiT)** and the principles of Latent Image Diffusion.
-- 🔬 Quantitative evaluations: PCA, UMAP, linear probes.
+- 🔬 Quantitative evaluations: PCA, UMAP, Linear classifier probes.
 - 🎥 Supports image metrics: FID, Inception Score, LPIPS, SSIM, PSNR, and custom smoothness metrics (ISTD, PPL aligned metrics).
 - 💥 Enables smoatent structures, editing, and representation-based self-guidance.
 
