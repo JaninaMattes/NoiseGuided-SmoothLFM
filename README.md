@@ -25,11 +25,11 @@
 
 ## ✨ Highlights
 
-- 🌀 **Noise-guided latent smoothness** for continuous morphing and perceptually stable interpolations.
-- 🚀 Built on **Scalable Interpolant Transformers (SiT)** and latent diffusion.
-- 🔬 Extensive quantitative evaluations: PCA, UMAP, linear probes, ISTD, LDPL metrics.
-- 🎥 Supports advanced metrics: FID, Inception Score, LPIPS, SSIM, PSNR, and custom smoothness metrics.
-- 💥 Enables **creative editing**, seamless transitions, and robust self-guidance.
+- 🌀 Augments diffusion/flow-based latent spaces .
+- 🚀 Built on **Scalable Interpolant Transformers (SiT)** and the principles of Latent Image Diffusion.
+- 🔬 Quantitative evaluations: PCA, UMAP, linear probes.
+- 🎥 Supports image metrics: FID, Inception Score, LPIPS, SSIM, PSNR, and custom smoothness metrics (ISTD, PPL aligned metrics).
+- 💥 Enables smoatent structures, editing, and representation-based self-guidance.
 
 ---
 
@@ -101,6 +101,17 @@ pip install git+https://github.com/joh-schb/jutils.git#egg=jutils
 # Run training
 python train.py --config configs/your_config.yaml
 ```
+
+
+## 📦 Model Weights
+The model weights can be downloaded under: 
+
+| Model       | Variants                                                                                 |
+|-------------|------------------------------------------------------------------------------------------|
+| **BetaVAE** | B-07x10x01b • B-05x10x01b • B-02x10x01b<br>B-05x10x05b • B-02x10x05b<br>B-05x10x1b • B-02x10x1b<br>B-05x10x2b • B-02x10x2b<br>B-05x10x3b • B-02x10x3b |
+| **DiT/XL-2**| B-05x10x01b • B-02x10x01b<br>B-05x10x05b • B-02x10x05b<br>B-05x10x1b • B-02x10x1b<br>B-05x10x2b • B-02x10x2b |
+
+   
 ---
 
 ## Rsource
