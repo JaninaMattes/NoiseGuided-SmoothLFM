@@ -50,7 +50,7 @@
 - 🌀 <a href="https://github.com/joh-schb/image-ldm" title="Built by Johannes Schusterbauer"><strong>Latent Diffusion Model (Image-LDM)</strong></a>
 - 🌊 <a href="https://github.com/willisma/SiT" title="Developed by William Peebles and collaborators"><strong>SiT (Scalable Interpolant Transformers)</strong></a>
 - 🎨 **Hydra**, **WandB**, TensorBoard
-- 🛠️ Extras: torchdiffeq, xformers, albumentations, UMAP
+- 🛠️ Extras: torchdiffeq, xformers, UMAP
 
 ---
 
@@ -72,7 +72,7 @@ Our framework is lightweight, architecture-agnostic, and directly applicable to 
 
 ## 💡 Motivation
 
-This framework tackles core trade-offs in generative modeling- **sample quality, diversity, and inference speed** —while introducing a principled path to greater **interpretability and controllability** without relying on annotated datasets. It achieves this by integrating an auxiliary Bayesian β-VAE encoder and leveraging deterministic continuous flows instead of stochastic noise schedules, yielding smoother, more structured, and more controllable outputs.
+This framework addresses fundamental trade-offs in generative modelling—sample quality, diversity, and inference speed—while providing a principled route to improved interpretability and controllability without the need for annotated datasets. It integrates an auxiliary Bayesian β-VAE encoder and employs deterministic continuous flows in place of stochastic noise schedules, producing smoother, more structured, and more controllable outputs.
 
 ---
 
