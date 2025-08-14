@@ -103,8 +103,6 @@ python train.py --config configs/your_config.yaml
 ```
 
 
-## 📦 Model Weights
-The model weights can be downloaded under: 
 
 ## 📦 Model Weights
 The model weights can be downloaded under: 
