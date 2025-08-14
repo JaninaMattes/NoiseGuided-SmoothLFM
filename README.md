@@ -106,10 +106,13 @@ python train.py --config configs/your_config.yaml
 ## 📦 Model Weights
 The model weights can be downloaded under: 
 
+## 📦 Model Weights
+The model weights can be downloaded under: 
+
 | Model       | Variants                                                                                 |
 |-------------|------------------------------------------------------------------------------------------|
-| **BetaVAE** | B-07x10x01b • B-05x10x01b • B-02x10x01b<br>B-05x10x05b • B-02x10x05b<br>B-05x10x1b • B-02x10x1b<br>B-05x10x2b • B-02x10x2b<br>B-05x10x3b • B-02x10x3b |
-| **DiT/XL-2**| B-05x10x01b • B-02x10x01b<br>B-05x10x05b • B-02x10x05b<br>B-05x10x1b • B-02x10x1b<br>B-05x10x2b • B-02x10x2b |
+| **BetaVAE** | [B-07x10x01b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-05x10x01b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x01b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x05b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x05b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x1b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x1b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x2b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x2b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x3b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x3b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) |
+| **DiT/XL-2**| [B-05x10x01b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x01b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x05b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x05b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x1b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x1b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link)<br>[B-05x10x2b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) • [B-02x10x2b](https://drive.google.com/file/d/1GJOqbm9aGekdF3TtbQOUA7zdHZCbiDfo/view?usp=drive_link) |
 
    
 ---
