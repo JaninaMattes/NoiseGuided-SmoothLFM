@@ -72,7 +72,7 @@ Our framework is lightweight, architecture-agnostic, and directly applicable to 
 
 ## 💡 Motivation
 
-This framework addresses fundamental trade-offs in generative modelling—sample quality, diversity, and inference speed—while providing a principled route to improved interpretability and controllability without the need for annotated datasets. It integrates an auxiliary Bayesian β-VAE encoder and employs deterministic continuous flows in place of stochastic noise schedules, producing smoother, more structured, and more controllable outputs.
+This framework addresses fundamental trade-offs in generative modelling—sample quality, diversity, and inference speed—while providing a principled route to improved interpretability and controllability with classifier-free guidance, based on self-supervised representation learning. It integrates an auxiliary Bayesian β-VAE encoder for high-level semantic representation learning and employs deterministic continuous flows in place of stochastic noise schedules, producing high-fidelity outputs. The auxiliary, smooth Bayesian latent space with a deterministic flow-based decoder allows for perturbations in latent space to correspond to modifications in pixel-based outputs, e.g. via linear morphs (or latent space walks).
 
 ---
 
