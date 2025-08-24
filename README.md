@@ -25,11 +25,11 @@
 
 ## ✨ Highlights
 
-- 🌀 Augments diffusion/flow-based latent spaces .
+- 🌀 Augments diffusion/flow-based latent spaces.
 - 🚀 Built on **Scalable Interpolant Transformers (SiT)** and the principles of Latent Image Diffusion.
 - 🔬 Quantitative evaluations: PCA, UMAP, Linear classifier probes.
 - 🎥 Supports image metrics: FID, Inception Score, LPIPS, SSIM, PSNR, and custom smoothness metrics (ISTD, PPL aligned metrics).
-- 💥 Enables smoatent structures, editing, and representation-based self-guidance.
+- 💥 Enables smooth latent spaces, which permit improved semantic editing and representation-based self-guidance.
 
 ---
 
@@ -60,9 +60,11 @@ Large-scale generative models such as Diffusion Models and the recent Flow Match
 
 By design, Diffusion and Flow-based models lack explicit architectural constraints or dedicated modules for enforcing smooth, disentangled feature extraction. While this choice preserves sample fidelity and diversity, it inherently limits interpretability and fine-grained control (Fuest et al., 2024).
 
+Thereby, novel representation learning-based methods, such as the utilisation of an auxiliary ß-Variational Autoencoder in Flow Matching-based latent space, allowing to enhance the interpretability of the latent space of such high-performance, but multi-step models, can improve generation control and benefit a wide range of recognition tasks.
+
 In contrast to supervised or heavily engineered methods, our approach introduces a fully self-supervised, representation-learning-based guidance mechanism. By integrating a tunable β-VAE encoder, we extract compact, smooth latent codes directly from pretrained generative backbones. This enables semantically coherent interpolations without external annotations or handcrafted constraints, providing a scalable and interpretable solution.
 
-Evaluating interpolation behavior — for example, via linear interpolations or latent space walks — offers an intuitive and interpretable means of assessing representation quality. While prior works have explored smoother latent traversals and morphing capabilities (Guo et al., 2024; Zhang et al., 2024), these typically rely on explicit supervision, complex augmentation pipelines, or auxiliary conditioning networks, which introduce additional complexity and reduce scalability.
+Evaluating interpolation behaviour, for example, via linear interpolations or latent space walks, offers an intuitive and interpretable means of assessing representation quality. While prior works have explored smoother latent traversals and morphing capabilities (Guo et al., 2024; Zhang et al., 2024), these typically rely on explicit supervision, complex augmentation pipelines, or auxiliary conditioning networks, which introduce additional complexity and reduce scalability.
 
 Our framework is lightweight, architecture-agnostic, and directly applicable to a wide range of Diffusion and Flow-based backbones without retraining.
 
