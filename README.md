@@ -117,10 +117,10 @@ The model weights can be downloaded under:
    
 ---
 
-## Rsource
+## Resource
 [0] Dhariwal & Nichol (2021), "Diffusion Models Beat GANs on Image Synthesis."
 
-[1] Ma et al. (2024), "SiT: Stochastic interpolant transport for generative modeling."
+[1] Ma et al. (2024), "SiT: Exploring Flow and Diffusion-based Generative Models with Scalable Interpolant Transformers."
 
 [2] Guo et al. (2024), "Smooth Diffusion: Crafting Smooth Latent Spaces in Diffusion Models."
 
@@ -131,4 +131,6 @@ The model weights can be downloaded under:
 [5] Lipman et al. (2023), "Flow Matching for Generative Modeling."
 
 [7] Albergo et al. (2023), "Stochastic Interpolants: A Unifying Framework for Flows and Diffusions."
+
+[8] Ho and Salimans (2022), "Classifier-Free Diffusion Guidance."
 
