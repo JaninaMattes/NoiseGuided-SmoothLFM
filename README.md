@@ -60,7 +60,7 @@ Large-scale generative models such as Diffusion Models and the recent Flow Match
 
 By design, Diffusion and Flow-based models lack explicit architectural constraints or dedicated modules for enforcing smooth, disentangled feature extraction. While this choice preserves sample fidelity and diversity, it inherently limits interpretability and fine-grained control (Fuest et al., 2024).
 
-Thereby, novel representation learning-based methods, such as the utilisation of an auxiliary ß-Variational Autoencoder in Flow Matching-based latent space, allowing to enhance the interpretability of the latent space of such high-performance, but multi-step models, can improve generation control and benefit a wide range of recognition tasks.
+Thereby, novel representation-learning-based methods, such as the utilisation of an auxiliary ß-Variational Autoencoder in Flow Matching-based latent space, allowing to enhance the interpretability of the latent space of such high-performance, but multi-step models, can improve generation control and benefit a wide range of recognition tasks.
 
 In contrast to supervised or heavily engineered methods, our approach introduces a fully self-supervised, representation-learning-based guidance mechanism. By integrating a tunable β-VAE encoder, we extract compact, smooth latent codes directly from pretrained generative backbones. This enables semantically coherent interpolations without external annotations or handcrafted constraints, providing a scalable and interpretable solution.
 
@@ -74,7 +74,7 @@ Our framework is lightweight, architecture-agnostic, and directly applicable to 
 
 ## 💡 Motivation
 
-This framework addresses fundamental trade-offs in generative modelling—sample quality, diversity, and inference speed—while providing a principled route to improved interpretability and controllability with classifier-free guidance, based on self-supervised representation learning. It integrates an auxiliary Bayesian β-VAE encoder for high-level semantic representation learning and employs deterministic continuous flows in place of stochastic noise schedules, producing high-fidelity outputs. The auxiliary, smooth Bayesian latent space with a deterministic flow-based decoder allows for perturbations in latent space to correspond to modifications in pixel-based outputs, e.g. via linear morphs (or latent space walks).
+This framework addresses fundamental trade-offs in generative modelling (e.g. sample quality, diversity, and inference speed) while providing a principled route to improved interpretability and controllability utilising classifier-free guidance, based on self-supervised representation learning (or self-guidance). It integrates an auxiliary Bayesian β-VAE encoder for high-level semantic representation learning and employs deterministic continuous flows in place of stochastic noise schedules, producing high-fidelity outputs. The auxiliary, smooth Bayesian latent space with a deterministic flow-based decoder allows for perturbations in latent space to correspond to modifications in pixel-based outputs, e.g. via linear morphs (or latent space walks).
 
 ---
 
