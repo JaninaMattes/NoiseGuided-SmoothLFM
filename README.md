@@ -54,6 +54,12 @@
 
 ---
 
+## 💡 Motivation
+
+This framework addresses fundamental trade-offs in generative modelling (e.g. sample quality, diversity, and inference speed) while providing a principled route to improved interpretability and controllability utilising classifier-free guidance, based on self-supervised representation learning (or self-guidance). It integrates an auxiliary Bayesian β-VAE encoder for high-level semantic representation learning and employs deterministic continuous flows in place of stochastic noise schedules, producing high-fidelity outputs. The auxiliary, smooth Bayesian latent space with a deterministic flow-based decoder allows for perturbations in latent space to correspond to modifications in pixel-based outputs, e.g. via linear morphs (or latent space walks).
+
+---
+
 ## 🌊 Smooth Interpolations
 
 Large-scale generative models such as Diffusion Models and the recent Flow Matching (FM) paradigm have demonstrated remarkable synthesis capabilities (Dhariwal & Nichol, 2021; Lipman et al., 2023; Albergo et al., 2023). However, their capacity for robust and structured representation learning remains largely underexplored. Continuous-time architectures, including Scalable Interpolant Transformers (SiT) (Ma et al., 2024), have yet to be rigorously evaluated regarding their ability to learn compact, semantically meaningful latent spaces.
@@ -69,12 +75,6 @@ Evaluating interpolation behaviour, for example, via linear interpolations or la
 Our framework is lightweight, architecture-agnostic, and directly applicable to a wide range of Diffusion and Flow-based backbones without retraining.
 
 > 🎯 **Our method enables smooth, continuous transitions between images while preserving fine-grained semantic details and global structure.** This facilitates creative interpolations, intuitive attribute editing, and robust exploratory latent space walks — all while maintaining high sample quality and diversity.
-
----
-
-## 💡 Motivation
-
-This framework addresses fundamental trade-offs in generative modelling (e.g. sample quality, diversity, and inference speed) while providing a principled route to improved interpretability and controllability utilising classifier-free guidance, based on self-supervised representation learning (or self-guidance). It integrates an auxiliary Bayesian β-VAE encoder for high-level semantic representation learning and employs deterministic continuous flows in place of stochastic noise schedules, producing high-fidelity outputs. The auxiliary, smooth Bayesian latent space with a deterministic flow-based decoder allows for perturbations in latent space to correspond to modifications in pixel-based outputs, e.g. via linear morphs (or latent space walks).
 
 ---
 
