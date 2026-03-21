@@ -120,9 +120,12 @@ An open-source, pre-trained, Stable Diffusion CNN-VAE encoder and decoder are ut
 
 Both the Flow Matching module and the β-Variational Autoencoder operate entirely within the fixed autoencoder latent space, thereby shaping the prior distribution. Together the CFM module allows for abstract feature information extraction and detailed object appearance recovery. 
 
+#### Building "Guidance-Free" Noise Spaces
 <p align="center">
   <img src="assets/diagrams/forward_ode_noise.png" alt="Framework Architecture Diagram" width="50%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
 </p>
+
+The idea of this work is founded on the idea of deterministically learned noise spaces, referred to as “Guidance-Free”, since we are able to reconstruct high-quality images from such noise samples without requiring additional classifier-free guidance.
 
 #### Results after Forward Diffusion
 
@@ -265,3 +268,4 @@ python train.py --config configs/your_config.yaml
 [Bootstrap-url]: https://getbootstrap.com
 [JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
 [JQuery-url]: https://jquery.com 
+
