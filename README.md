@@ -345,6 +345,84 @@ While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot
 This limitation motivates the use of decoupled design, utilising **Self-Guidance** in a subsequent step: a separate Flow Matching model conditioned on the non-spatial $\beta$-VAE vector code bridges the gap between coarse semantic structure and sharp, high-fidelity output.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Self-Guidance Algorithm
+
+
+<p align="center">
+  <img src="assets/diagrams/algorithm_self_guidance.png" alt="Ground truth vs beta-VAE reconstructions" width="80%">
+</p>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+## Ablation
+
+To evaluate the model quality a suit of quantitative (e.g. PCA, t-SNE, Linear Probing, Latent Smoothness(L-PPL, L-ISTD), Error evaluation (global/local F1 score, KLD, MSE, PSNR, CosSim)) and qualitative methods (e.g. linear interpolation, visual confusion matrix) is used.
+
+#### Evaluation of Reconstruction Output Fidelity & Latent Smoothness
+
+<p align="center">
+  <img src="assets/diagrams/table_reconstruction_bvae.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+<p align="center">
+  <img src="assets/diagrams/table_reconstruction_smooth_bvae.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+
+#### Evaluation of Denoising Output Fidelity
+
+<p align="center">
+  <img src="assets/diagrams/table_denoising_bvae.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+<p align="center">
+  <img src="assets/diagrams/table_denoising_smooth_bvae.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+#### Evaluation of increasing ß Regularisation Strength
+
+<p align="center">
+  <img src="assets/diagrams/table_beta_bvae.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+<p align="center">
+  <img src="assets/diagrams/table_beta_smooth_bvae.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+<p align="center">
+  <img src="assets/diagrams/table_beta_smooth_bvae_vis.png" alt="Ground truth vs beta-VAE reconstructions" width="50%">
+</p>
+
+#### Generated Samples with Self-Conditioned DiT/XL-2 Velocity Decoder 
+
+<p align="center">
+  <img src="assets/diagrams/visual_generated_samples.png" alt="Ground truth vs beta-VAE reconstructions" width="100%">
+</p>
+
+#### Linear Interpolation
+
+Linear interpolation is a key qualitative method for evaluating the geometric structure of the auxiliary Bayesian latent space learned by the $\beta$-VAE. It rests on the assumption that this space is **locally linear and Euclidean**: two noisy latent codes, each corresponding to a real image at a specific timestep, are encoded by the pre-trained $\beta$-VAE encoder to produce their respective Self-Guidance codes, between which we interpolate.
+
+A well-structured latent space should naturally embed semantically similar images nearby. For example, a tiger and a leopard should cluster closer to each other than to unrelated classes. The interpolation between any two such codes should produce smooth, semantically consistent transitions rather than abrupt or incoherent outputs.
+
+<p align="center">
+  <img src="assets/diagrams/algorithm_lerp.png" width="70%">
+</p>
+
+<p align="center">
+  <img src="assets/diagrams/diagram_linear_interpolation.png" width="70%">
+</p>
+
+The results below illustrate the smoothness and disentanglement of learned concepts in the latent space. Interpolating between a **lion** and a **leopard** in latent space produces consistent, semantically meaningful transitions when decoded back to image space, confirming that the $\beta$-VAE has learned a structured and navigable representation.
+
+<p align="center">
+  <img src="assets/diagrams/visual_linear_interpolation.png" width="70%">
+</p>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ### Built With
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.5.1-%23ee4c2c?logo=pytorch)
