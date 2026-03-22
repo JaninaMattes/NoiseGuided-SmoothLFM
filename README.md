@@ -367,13 +367,13 @@ To evaluate model quality, a suite of quantitative methods (PCA, t-SNE, Linear P
 To analyse the impact of architectural choices on the quality of the Self-Guidance codes, ablation studies are performed along two axes: **(1) Output Fidelity**, measured by MSE and PSNR, and **(2) Latent Path Smoothness**, measured by L-PPL and L-ISTD. To avoid negative effects on output fidelity, the $\beta$-hyperparameter is fixed to a small value throughout.
 
 <p align="center">
- <img src="assets/diagrams/table_reconstruction_bvae.png" width="50%">
+ <img src="assets/diagrams/table_reconstruction_bvae.png" width="40%">
 </p>
 
 As shown in the table, the best results are achieved at **medium noise levels**, where recovering structure from residual patterns in the input is easier than reconstructing samples at lower timesteps, where large levels of stochasticity must be resolved.
 
 <p align="center">
- <img src="assets/diagrams/table_reconstruction_smooth_bvae.png" width="50%">
+ <img src="assets/diagrams/table_reconstruction_smooth_bvae.png" width="40%">
 </p>
 
 Latent path smoothness is measured via L-PPL and L-ISTD, which compute perceptual differences between two randomly selected images defining a short path segment, as well as the variance between an adjacent pair.
@@ -385,13 +385,13 @@ Latent path smoothness is measured via L-PPL and L-ISTD, which compute perceptua
 A second ablated task is denoising, where the model is asked not to reproduce its noisy input but to map it back to the clean image manifold under varying noise levels.
 
 <p align="center">
- <img src="assets/diagrams/table_denoising_bvae.png" width="50%">
+ <img src="assets/diagrams/table_denoising_bvae.png" width="40%">
 </p>
 
 Similarly, **medium noise levels** yield the best denoising fidelity. More corrupted samples are pushed further from the latent image manifold, making the task increasingly difficult for the $\beta$-VAE.
 
 <p align="center">
- <img src="assets/diagrams/table_denoising_smooth_bvae.png" width="50%">
+ <img src="assets/diagrams/table_denoising_smooth_bvae.png" width="40%">
 </p>
 
 As observed in the reconstruction experiment, higher input noise levels produce better smoothness values , though this may partly stem from implicit over-smoothing of the latent manifold.
@@ -403,7 +403,7 @@ As observed in the reconstruction experiment, higher input noise levels produce 
 Finally, the effect of increasing $\beta$-hyperparameter pressure on bottleneck capacity , and with it output fidelity and latent smoothness , is analysed.
 
 <p align="center">
- <img src="assets/diagrams/table_beta_bvae.png" width="50%">
+ <img src="assets/diagrams/table_beta_bvae.png" width="40%">
 </p>
 
 The results confirm the known **disentanglement–fidelity trade-off** of $\beta$-VAEs: the highest output fidelity is achieved under the lowest $\beta$-pressures, allowing the encoder to capture more fine-grained information about its input.
@@ -411,13 +411,13 @@ The results confirm the known **disentanglement–fidelity trade-off** of $\beta
 Latent smoothness, however, responds differently to $\beta$-pressure. The best smoothness values are achieved at a **medium $\beta = 2.0$**, with both lower and higher values degrading smoothness.
 
 <p align="center">
- <img src="assets/diagrams/table_beta_smooth_bvae.png" width="50%">
+ <img src="assets/diagrams/table_beta_smooth_bvae.png" width="40%">
 </p>
 
 This trend is visualised below, revealing a characteristic **U-shaped curve** over $\beta$ values:
 
 <p align="center">
- <img src="assets/diagrams/table_beta_smooth_bvae_vis.png" width="50%">
+ <img src="assets/diagrams/table_beta_smooth_bvae_vis.png" width="40%">
 </p>
 
 
