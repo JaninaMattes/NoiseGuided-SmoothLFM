@@ -219,11 +219,10 @@ The figure compares ground-truth ImageNet samples (pixel space) with their CNN-V
 ### Stage 2: Latent Conditional Flow Matching (CFM)
 
 <p align="center">
-  <img src="assets/diagrams/framework_stage2.png" alt="Framework Architecture Diagram" width="80%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
+  <img src="assets/diagrams/framework_stage2.png" alt="Framework Architecture Diagram" width="80%">
 </p>
 
-This work is build on SiT framework learning ODE-based models to follow the straight paths connecting a Gaussian source distribution (π0) and the ImageNet 256x256 target distribution (π1) as much as possible. 
-
+This work is built on the SiT framework, learning ODE-based models to follow straight trajectories connecting a Gaussian source distribution $\pi_0$ and the ImageNet $256 \times 256$ target distribution $\pi_1$ as directly as possible.
 
 
 #### Flow Matching Decoder (DiT-XL/2)
