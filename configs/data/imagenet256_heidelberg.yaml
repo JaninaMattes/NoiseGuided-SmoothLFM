@@ -1,0 +1,46 @@
+name: ImageNet_256
+num_classes: 1000
+target: ldm.dataloader.dataloader.dataloader.WebDataModuleFromConfig
+params:
+  tar_base:
+    - /export/compvis-nfs/user/jfischer/dataset/imagenet_shards
+  batch_size: 16
+  num_workers: 4
+  val_num_workers: 2
+  multinode: True
+  train:
+    shards: 'train-{000000..000105}.tar'
+    image_key: image.jpg
+    rename:
+      image: image.jpg
+      label_str: label
+      label: class.cls
+    image_transforms:
+      - target: torchvision.transforms.RandomHorizontalFlip
+        params:
+          p: 0.5
+      - target: torchvision.transforms.Resize
+        params:
+          size: 256
+          interpolation: 2
+          antialias: True
+      - target: torchvision.transforms.CenterCrop
+        params:
+          size: 256
+
+  validation:
+    shards: 'val-{000000..000009}.tar'
+    image_key: image.jpg
+    rename:
+      image: image.jpg
+      label_str: label
+      label: class.cls
+    image_transforms:
+      - target: torchvision.transforms.Resize
+        params:
+          size: 256
+          interpolation: 2
+          antialias: True
+      - target: torchvision.transforms.CenterCrop
+        params:
+          size: 256
