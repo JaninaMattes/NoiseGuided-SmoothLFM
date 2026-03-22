@@ -186,11 +186,12 @@ This work builds on the **SiT (Scalable Interpolant Transformer)** architecture 
 > Both samplers trace different trajectories but share the same marginal density $\rho(t)$ at every timestep $t$ — a result established by Song et al. This means ODE and SDE samplers are interchangeable without retraining.
 
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 ## Architectural Improvements
 
-The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder follows a Vision Transformer (ViT)-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
+The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder (ß-VAE) follows a ViT-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
 
 ### Stage 1: Semantic Compression
 
@@ -218,10 +219,11 @@ The figure compares ground-truth ImageNet samples (pixel space) with their CNN-V
 ### Stage 2: Latent Conditional Flow Matching (CFM)
 
 <p align="center">
-  <img src="assets/diagrams/framework_stage2.png" alt="Framework Architecture Diagram" width="80%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
+  <img src="assets/diagrams/framework_stage2.png" alt="Framework Architecture Diagram" width="80%">
 </p>
 
-This work is build on SiT framework learning ODE-based models to follow the straight paths connecting a Gaussian source distribution (π0) and the ImageNet 256x256 target distribution (π1) as much as possible. 
+This work is built on the SiT framework, learning ODE-based models to follow straight trajectories connecting a Gaussian source distribution $\pi_0$ and the ImageNet $256 \times 256$ target distribution $\pi_1$ as directly as possible.
+
 
 #### Flow Matching Decoder (DiT-XL/2)
 
@@ -249,8 +251,12 @@ The modules additionally introduces cross-attention skip connections in encoder 
 Preserves fine-grained input details, especially under high input noise settings.
 
 
+Both the Flow Matching module and the β-VAE operate entirely within the fixed CNN-VAE autoencoder latent space, thereby shaping the prior distribution. Together the CFM module allows for abstract high-level feature information extraction and detailed object appearance recovery. 
 
-Both the Flow Matching module and the β-Variational Autoencoder operate entirely within the fixed autoencoder latent space, thereby shaping the prior distribution. Together the CFM module allows for abstract high-level feature information extraction and detailed object appearance recovery. 
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
 
 #### Building "Guidance-Free" Noise Spaces
 
@@ -274,23 +280,24 @@ Applying the ODE-based forward process to a compressed latent code $\mathbf{z}_0
 
 > **Note:** The visualisations above are not representative of the true latent space as the 4th channel is dropped for RGB plotting purposes only. Alternatively convolution can be used to enforce a 3-channel output.
 
-
 #### Latent Denoising via $\beta$-VAE
 
-To learn structure within this noise space, a **$\beta$-VAE** built on a Vision Transformer (ViT) backbone receives a noisy latent sample $\mathbf{z}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution (including location, shape, colour, and silhouette), producing a compressed, non-spatial vector code.
+To learn structure within this learned Flow Matching noise space, a custom **$\beta$-VAE** built on a ViT backbone receives a noisy latent sample $\mathbf{z}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution, including location, shape, colour, and silhouette, thereby producing a compressed, non-spatial vector code.
 
-The figure below compares ground-truth ImageNet 256×256 samples against reconstructions from the $\beta$-VAE, illustrating what semantic information the model has learned to retain:
+The figure below compares ground-truth ImageNet 256×256 samples against clean $\beta$-VAE reconstructions decoded back to image space by a fixed CNN-VAE decoder. Even though we should account for decoding errors, this image broadly illustrates what semantic information the model retains:
 
 <p align="center">
   <img src="assets/diagrams/latent_representations.png" alt="Ground truth vs beta-VAE reconstructions" width="80%">
 </p>
 
-While the $\beta$-VAE correctly recovers coarse semantic structure, it discards **high-frequency detail** by design — textures, fine edges, and sharp boundaries are lost in the bottleneck. This means the reconstructed latent is semantically close to $\mathbf{z}_0$ but not identical, and a Flow Matching decoder conditioned on it cannot faithfully recover the original.
+While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot reintroduce **high-frequency detail** destroyed during the forward corruption process. Even with a bottleneck size of 1024, object textures, fine edges, and sharp boundaries remain insufficiently recoverable. The right panel illustrates, that the reconstructed, clean latent sample is semantically close to $\mathbf{z}_0$ but not identical. Hence, the CNN-VAE decoder cannot faithfully map it back into the pixel space. As visible in the output, decoded samples are blurry, retaining only object location, light distribution, and colour while losing all stochastic, fine-grained structure.
+
 
 > [!NOTE]
 > This approach does not work as-is. The loss of high-frequency information in the $\beta$-VAE bottleneck together with the already corrupted noise input is irrecoverable at the decoding stage, even when denoising is accurate at the semantic level.
 
 This limitation motivates the use of **Self-Guidance** in a subsequent step: a separate Flow Matching model is conditioned on the non-spatial $\beta$-VAE vector code to bridge the gap between coarse semantic structure and sharp, high-fidelity output.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
