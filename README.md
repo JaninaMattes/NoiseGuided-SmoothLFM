@@ -186,11 +186,12 @@ This work builds on the **SiT (Scalable Interpolant Transformer)** architecture 
 > Both samplers trace different trajectories but share the same marginal density $\rho(t)$ at every timestep $t$ — a result established by Song et al. This means ODE and SDE samplers are interchangeable without retraining.
 
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 ## Architectural Improvements
 
-The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder follows a ViT-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
+The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder (ß-VAE) follows a ViT-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
 
 ### Stage 1: Semantic Compression
 
@@ -223,6 +224,8 @@ The figure compares ground-truth ImageNet samples (pixel space) with their CNN-V
 
 This work is build on SiT framework learning ODE-based models to follow the straight paths connecting a Gaussian source distribution (π0) and the ImageNet 256x256 target distribution (π1) as much as possible. 
 
+
+
 #### Flow Matching Decoder (DiT-XL/2)
 
 To address the high-frequency information loss (e.g. fine-grained stochastic details, hair strains etc.) inherent when using a $\beta$-Variational Autoeoncder (VAE) when operating within the learned Flow Matching latent noise space, this work adopts a **decoupled two-model design**:
@@ -249,8 +252,12 @@ The modules additionally introduces cross-attention skip connections in encoder 
 Preserves fine-grained input details, especially under high input noise settings.
 
 
+Both the Flow Matching module and the β-VAE operate entirely within the fixed CNN-VAE autoencoder latent space, thereby shaping the prior distribution. Together the CFM module allows for abstract high-level feature information extraction and detailed object appearance recovery. 
 
-Both the Flow Matching module and the β-Variational Autoencoder operate entirely within the fixed autoencoder latent space, thereby shaping the prior distribution. Together the CFM module allows for abstract high-level feature information extraction and detailed object appearance recovery. 
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
 
 #### Building "Guidance-Free" Noise Spaces
 
@@ -291,6 +298,7 @@ While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot
 > This approach does not work as-is. The loss of high-frequency information in the $\beta$-VAE bottleneck together with the already corrupted noise input is irrecoverable at the decoding stage, even when denoising is accurate at the semantic level.
 
 This limitation motivates the use of **Self-Guidance** in a subsequent step: a separate Flow Matching model is conditioned on the non-spatial $\beta$-VAE vector code to bridge the gap between coarse semantic structure and sharp, high-fidelity output.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
