@@ -189,9 +189,30 @@ This work builds on the **SiT (Scalable Interpolant Transformer)** architecture 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-## Architectural Improvements
+## Architecture
 
 The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder (ß-VAE) follows a ViT-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
+
+### Hybrid Representation Learning Framework
+
+The core motivation behind this framework is to jointly optimise for three desirable properties:
+
+**Representation Quality**
+- A lower-dimensional latent space that is both decodable and semantically meaningful
+- Disentangled, smooth latent codes that improve human interpretability and with it model behaviour steerability
+
+**Controllable Generation**
+Controllability is one of the most important characteristics of generative models, as it allows synthesis to be closely conditioned on a guidance signal — here, the non-spatial Self-Guidance code extracted by the $\beta$-VAE encoder.
+
+**Inference Efficiency**
+High-fidelity generation is only practically useful if inference is fast enough for real-world deployment. This framework targets both simultaneously.
+
+<p align="center">
+  <img src="assets/diagrams/diagram_representation_learning.png" alt="Hybrid Representation Learning Framework diagram" width="60%">
+</p>
+
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Stage 1: Semantic Compression
 
