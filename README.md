@@ -33,7 +33,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM.git">
-    <img src="assets/logo/img2.png" alt="Logo" width="80" height="80">
+    <img src="assets/logo/img2.png" alt="Logo" width="100" height="100">
   </a>
 
 <h3 align="center">Exploring Self-Supervised Representation Learning for Interpretability and Control in Flow and Diffusion-based Generative Models</h3>
