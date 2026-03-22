@@ -190,7 +190,7 @@ This work builds on the **SiT (Scalable Interpolant Transformer)** architecture 
 
 ## Architectural Improvements
 
-The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder follows a Vision Transformer (ViT)-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
+The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder follows a ViT-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
 
 ### Stage 1: Semantic Compression
 
@@ -274,18 +274,18 @@ Applying the ODE-based forward process to a compressed latent code $\mathbf{z}_0
 
 > **Note:** The visualisations above are not representative of the true latent space as the 4th channel is dropped for RGB plotting purposes only. Alternatively convolution can be used to enforce a 3-channel output.
 
-
 #### Latent Denoising via $\beta$-VAE
 
-To learn structure within this noise space, a **$\beta$-VAE** built on a Vision Transformer (ViT) backbone receives a noisy latent sample $\mathbf{z}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution (including location, shape, colour, and silhouette), producing a compressed, non-spatial vector code.
+To learn structure within this learned Flow Matching noise space, a custom **$\beta$-VAE** built on a ViT backbone receives a noisy latent sample $\mathbf{z}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution, including location, shape, colour, and silhouette, thereby producing a compressed, non-spatial vector code.
 
-The figure below compares ground-truth ImageNet 256×256 samples against reconstructions from the $\beta$-VAE, illustrating what semantic information the model has learned to retain:
+The figure below compares ground-truth ImageNet 256×256 samples against clean $\beta$-VAE reconstructions decoded back to image space by a fixed CNN-VAE decoder. Even though we should account for decoding errors, this image broadly illustrates what semantic information the model retains:
 
 <p align="center">
   <img src="assets/diagrams/latent_representations.png" alt="Ground truth vs beta-VAE reconstructions" width="80%">
 </p>
 
-While the $\beta$-VAE correctly recovers coarse semantic structure, it discards **high-frequency detail** by design — textures, fine edges, and sharp boundaries are lost in the bottleneck. This means the reconstructed latent is semantically close to $\mathbf{z}_0$ but not identical, and a Flow Matching decoder conditioned on it cannot faithfully recover the original.
+While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot reintroduce **high-frequency detail** destroyed during the forward corruption process. Even with a bottleneck size of 1024, object textures, fine edges, and sharp boundaries remain insufficiently recoverable. The right panel illustrates, that the reconstructed, clean latent sample is semantically close to $\mathbf{z}_0$ but not identical. Hence, the CNN-VAE decoder cannot faithfully map it back into the pixel space. As visible in the output, decoded samples are blurry, retaining only object location, light distribution, and colour while losing all stochastic, fine-grained structure.
+
 
 > [!NOTE]
 > This approach does not work as-is. The loss of high-frequency information in the $\beta$-VAE bottleneck together with the already corrupted noise input is irrecoverable at the decoding stage, even when denoising is accurate at the semantic level.
