@@ -148,7 +148,7 @@ This recovers the diffusion forward process under the schedule $\alpha_t = 1-t,\
 where $\mathbf{u} = \boldsymbol{\epsilon} - \mathbf{x}$ is the **velocity field**. Rather than predicting noise (as in DDPM), **our model learns to predict this velocity directly**, tracing a straight-line path from data to noise. Such trajectories are smoother and hence reduce path curvature compared to curved diffusion paths, which is advantageous at inference.
 
 > [!NOTE]
-> Lower curvature means fewer NFE (Number of Function Evaluations) — faster and computationally cheaper generation, with less accumulated numerical error during discretisation.
+> Lower curvature means fewer NFE (Number of Function Evaluations) , faster and computationally cheaper generation, with less accumulated numerical error during discretisation.
 ### Probability Flow ODE
 
 Song et al. show that any stochastic diffusion Stochastic Differential Equation (SDE) can be reformulated as a deterministic **probability flow ODE**, while preserving identical marginal densities $p_t(\mathbf{x})$ at every timestep. This means noise injection is not required during generation.
@@ -329,7 +329,7 @@ This is possible because samples $\mathbf{x}_t$ generated deterministically alon
 
 #### Latent Denoising via $\beta$-VAE
 
-To learn structure within the learned Flow Matching noise space, the **$\beta$-VAE** receives a noisy latent sample $\mathbf{x}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution — including location, shape, colour, and silhouette — producing a compressed, non-spatial vector code.
+To learn structure within the learned Flow Matching noise space, the **$\beta$-VAE** receives a noisy latent sample $\mathbf{x}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution , including location, shape, colour, and silhouette , producing a compressed, non-spatial vector code.
 
 The figure below compares ground-truth ImageNet 256×256 samples against clean $\beta$-VAE reconstructions decoded back to image space by a fixed CNN-VAE decoder. Accounting for CNN-VAE decoding errors, this broadly illustrates what semantic information the model retains:
 
@@ -337,7 +337,7 @@ The figure below compares ground-truth ImageNet 256×256 samples against clean $
   <img src="assets/diagrams/latent_representations.png" alt="Ground truth vs beta-VAE reconstructions" width="80%">
 </p>
 
-While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot reintroduce **high-frequency detail** destroyed during the forward corruption process. Even with a bottleneck size of 1024, object textures, fine edges, and sharp boundaries remain irrecoverable. The right panel illustrates that the reconstructed latent $\hat{\mathbf{z}}_0$ is semantically close to $\mathbf{x}_0$ but not identical — and the CNN-VAE decoder cannot faithfully map it back to pixel space. Decoded samples are blurry, retaining only object location, light distribution, and colour while losing all fine-grained, stochastic structure.
+While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot reintroduce **high-frequency detail** destroyed during the forward corruption process. Even with a bottleneck size of 1024, object textures, fine edges, and sharp boundaries remain irrecoverable. The right panel illustrates that the reconstructed latent $\hat{\mathbf{z}}_0$ is semantically close to $\mathbf{x}_0$ but not identical , and the CNN-VAE decoder cannot faithfully map it back to pixel space. Decoded samples are blurry, retaining only object location, light distribution, and colour while losing all fine-grained, stochastic structure.
 
 > [!Note]
 > The loss of high-frequency information in the $\beta$-VAE bottleneck, compounded by the already-corrupted noise input, is irrecoverable at the decoding stage, even when semantic denoising is accurate.
@@ -394,13 +394,13 @@ Similarly, **medium noise levels** yield the best denoising fidelity. More corru
  <img src="assets/diagrams/table_denoising_smooth_bvae.png" width="50%">
 </p>
 
-As observed in the reconstruction experiment, higher input noise levels produce better smoothness values — though this may partly stem from implicit over-smoothing of the latent manifold.
+As observed in the reconstruction experiment, higher input noise levels produce better smoothness values , though this may partly stem from implicit over-smoothing of the latent manifold.
 
 ---
 
 #### Effect of Increasing $\beta$ Regularisation Strength
 
-Finally, the effect of increasing $\beta$-hyperparameter pressure on bottleneck capacity — and with it output fidelity and latent smoothness — is analysed.
+Finally, the effect of increasing $\beta$-hyperparameter pressure on bottleneck capacity , and with it output fidelity and latent smoothness , is analysed.
 
 <p align="center">
  <img src="assets/diagrams/table_beta_bvae.png" width="50%">
@@ -419,6 +419,7 @@ This trend is visualised below, revealing a characteristic **U-shaped curve** ov
 <p align="center">
  <img src="assets/diagrams/table_beta_smooth_bvae_vis.png" width="50%">
 </p>
+
 
 #### Generated Samples with Self-Conditioned DiT/XL-2 Velocity Decoder 
 
@@ -653,11 +654,11 @@ By design, Diffusion and Flow-based models lack explicit architectural constrain
 
 In contrast to supervised or heavily engineered methods, our approach introduces a fully self-supervised, representation-learning-based guidance mechanism. By integrating a tunable β-VAE encoder, we extract compact, smooth latent codes directly from pretrained generative backbones. This enables semantically coherent interpolations without external annotations or handcrafted constraints, providing a scalable and interpretable solution.
 
-Evaluating interpolation behavior — for example, via linear interpolations or latent space walks — offers an intuitive and interpretable means of assessing representation quality. While prior works have explored smoother latent traversals and morphing capabilities (Guo et al., 2024; Zhang et al., 2024), these typically rely on explicit supervision, complex augmentation pipelines, or auxiliary conditioning networks, which introduce additional complexity and reduce scalability.
+Evaluating interpolation behavior , for example, via linear interpolations or latent space walks , offers an intuitive and interpretable means of assessing representation quality. While prior works have explored smoother latent traversals and morphing capabilities (Guo et al., 2024; Zhang et al., 2024), these typically rely on explicit supervision, complex augmentation pipelines, or auxiliary conditioning networks, which introduce additional complexity and reduce scalability.
 
 Our framework is lightweight, architecture-agnostic, and directly applicable to a wide range of Diffusion and Flow-based backbones without retraining.
 
-> 🎯 **Our method enables smooth, continuous transitions between images while preserving fine-grained semantic details and global structure.** This facilitates creative interpolations, intuitive attribute editing, and robust exploratory latent space walks — all while maintaining high sample quality and diversity. -->
+> 🎯 **Our method enables smooth, continuous transitions between images while preserving fine-grained semantic details and global structure.** This facilitates creative interpolations, intuitive attribute editing, and robust exploratory latent space walks , all while maintaining high sample quality and diversity. -->
 
 <!-- ---
 
