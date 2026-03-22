@@ -52,9 +52,6 @@
 </div>
 
 
-This repo contains PyTorch model definitions, pre-trained weights and training/sampling code for experiments over ImageNet 256 × 256.
-
-
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary>Table of Contents</summary>
@@ -130,6 +127,9 @@ This repo contains PyTorch model definitions, pre-trained weights and training/s
 </table>
 
 </div>
+
+This repo contains PyTorch model definitions, pre-trained weights and training/sampling code for experiments over ImageNet 256 × 256.
+
 
 ## Background: Diffusion Models & Gaussian Flow Matching
 
