@@ -22,7 +22,6 @@
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
 
 
 
@@ -195,7 +194,11 @@ The framework follows the standard Latent Diffusion Model architecture introduce
 
 ### Hybrid Representation Learning Framework
 
-The core motivation behind this framework is to jointly optimise for three desirable properties:
+The core motivation behind this framework is to jointly optimise for three desirable properties.
+
+<p align="center">
+  <img src="assets/diagrams/diagram_representation_learning.png" alt="Hybrid Representation Learning Framework diagram" width="70%">
+</p>
 
 **Representation Quality**
 - A lower-dimensional latent space that is both decodable and semantically meaningful
@@ -207,9 +210,6 @@ Controllability is one of the most important characteristics of generative model
 **Inference Efficiency**
 High-fidelity generation is only practically useful if inference is fast enough for real-world deployment. This framework targets both simultaneously.
 
-<p align="center">
-  <img src="assets/diagrams/diagram_representation_learning.png" alt="Hybrid Representation Learning Framework diagram" width="60%">
-</p>
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -258,7 +258,7 @@ Rather than relying on a single module to both denoise and reconstruct, each mod
 The two models are coupled via a **Self-Guidance** mechanism, which acts as an information channel between encoder and decoder during synthesis. Self-Guidance extends classical classifier-free guidance [(Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598) beyond discrete class labels, conditioning the decoder not only on class information but also on the **continuous embedding vector** extracted by the pre-trained and frozen $\beta$-VAE encoder. This allows the decoder to recover structural and perceptual detail that the $\beta$-VAE bottleneck would otherwise discard. The learned conditional probability paths are illustrated below.
 
 <p align="center">
-  <img src="assets/diagrams/framework_flow_matching_decoder.png" alt="Flow Matching Decoder architecture diagram" width="60%">
+  <img src="assets/diagrams/framework_flow_matching_decoder.png" alt="Flow Matching Decoder architecture diagram" width="50%">
 </p>
 
 #### $\beta$-Variational Autoencoder ($\beta$-VAE)
@@ -299,9 +299,9 @@ The $\beta$-VAE training data is derived from the pre-trained Flow Matching mode
 Applying the ODE-based forward process to a compressed latent code $\mathbf{x}_0$ produces a sequence of progressively noisier latent representations $\mathbf{x}_t$ at increasing timesteps $t \in [0, 1]$:
 
 <p align="center">
-  <img src="assets/diagrams/latent_noise_codes1.png" width="80%">
-  <img src="assets/diagrams/latent_noise_codes2.png" width="80%">
-  <img src="assets/diagrams/latent_noise_codes3.png" width="80%">
+  <img src="assets/diagrams/latent_noise_codes1.png" width="70%">
+  <img src="assets/diagrams/latent_noise_codes2.png" width="70%">
+  <img src="assets/diagrams/latent_noise_codes3.png" width="70%">
 </p>
 
 For temporal coverage, pairs $(\mathbf{x}_t, \mathbf{x}_0)$ are collected at subsampled timesteps:
@@ -346,21 +346,15 @@ This limitation motivates the use of decoupled design, utilising **Self-Guidance
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Self-Guidance Algorithm
-
-
-<p align="center">
-  <img src="assets/diagrams/algorithm_self_guidance.png" alt="Ground truth vs beta-VAE reconstructions" width="80%">
-</p>
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 ## Ablation
 
 To evaluate model quality, a suite of quantitative methods (PCA, t-SNE, Linear Probing, Latent Smoothness (L-PPL, L-ISTD), and error metrics (F1, KLD, MSE, PSNR, CosSim)) and qualitative methods (linear interpolation, visual confusion matrix) is used.
 
----
+<details>
+<summary><b>Further Analysis</b></summary>
+<br>
 
 #### Reconstruction Output Fidelity & Latent Smoothness
 
@@ -378,7 +372,7 @@ As shown in the table, the best results are achieved at **medium noise levels**,
 
 Latent path smoothness is measured via L-PPL and L-ISTD, which compute perceptual differences between two randomly selected images defining a short path segment, as well as the variance between an adjacent pair.
 
----
+
 
 #### Denoising Output Fidelity
 
@@ -396,7 +390,7 @@ Similarly, **medium noise levels** yield the best denoising fidelity. More corru
 
 As observed in the reconstruction experiment, higher input noise levels produce better smoothness values , though this may partly stem from implicit over-smoothing of the latent manifold.
 
----
+
 
 #### Effect of Increasing $\beta$ Regularisation Strength
 
@@ -420,22 +414,31 @@ This trend is visualised below, revealing a characteristic **U-shaped curve** ov
  <img src="assets/diagrams/table_beta_smooth_bvae_vis.png" width="40%">
 </p>
 
+</details>
 
-#### Generated Samples with Self-Conditioned DiT/XL-2 Velocity Decoder 
+#### Generated Samples with Self-Conditioned DiT-XL/2 Velocity Decoder
+
+The suitability and content of the Self-Guidance code can be further assessed through selected qualitative results generated with the conditional DiT-XL/2 Velocity Decoder.
 
 <p align="center">
-  <img src="assets/diagrams/visual_generated_samples.png" alt="Ground truth vs beta-VAE reconstructions" width="100%">
+ <img src="assets/diagrams/visual_generated_samples.png" alt="Generated samples from Self-Conditioned DiT-XL/2 Velocity Decoder" width="100%">
 </p>
+
+The reconstructed images are not only high-quality, but also highly faithful in their characteristics to the ground truth. However, fine-grained stochastic patterns remain difficult to fully recover — for example, background elements such as leaves and branches, or subtle fur textures in the Snow Leopard sample.
+
+This may be attributed to the loss of high-frequency information at high noise corruption levels in the $\beta$-VAE encoder input, due to which the aggregated Self-Guidance code retains less high-frequency and class-specific detail.
+
 
 #### Linear Interpolation
 
 Linear interpolation is a key qualitative method for evaluating the geometric structure of the auxiliary Bayesian latent space learned by the $\beta$-VAE. It rests on the assumption that this space is **locally linear and Euclidean**: two noisy latent codes, each corresponding to a real image at a specific timestep, are encoded by the pre-trained $\beta$-VAE encoder to produce their respective Self-Guidance codes, between which we interpolate.
 
-A well-structured latent space should naturally embed semantically similar images nearby. For example, a tiger and a leopard should cluster closer to each other than to unrelated classes. The interpolation between any two such codes should produce smooth, semantically consistent transitions rather than abrupt or incoherent outputs.
-
 <p align="center">
   <img src="assets/diagrams/algorithm_lerp.png" width="70%">
 </p>
+
+A well-structured latent space should naturally embed semantically similar images nearby. For example, a tiger and a leopard should cluster closer to each other than to unrelated classes. The interpolation between any two such codes should produce smooth, semantically consistent transitions rather than abrupt or incoherent outputs.
+
 
 <p align="center">
   <img src="assets/diagrams/diagram_linear_interpolation.png" width="70%">
@@ -444,10 +447,37 @@ A well-structured latent space should naturally embed semantically similar image
 The results below illustrate the smoothness and disentanglement of learned concepts in the latent space. Interpolating between a **lion** and a **leopard** in latent space produces consistent, semantically meaningful transitions when decoded back to image space, confirming that the $\beta$-VAE has learned a structured and navigable representation.
 
 <p align="center">
-  <img src="assets/diagrams/visual_linear_interpolation.png" width="70%">
+  <img src="assets/diagrams/visual_linear_interpolation.png" width="100%">
+</p>
+
+Other simpler interpolation samples can be observed in the following between two butterly species. 
+
+<p align="center">
+  <img src="assets/diagrams/visual_linear_interpolation_btfly.png" width="100%">
 </p>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+## Self-Guidance Algorithm
+
+The Self-Guidance algorithm extends classifier-free guidance [(Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598). During training, a standard **10% random dropout** is applied, where the conditional signal is replaced with a learnable null token.
+
+<p align="center">
+ <img src="assets/diagrams/algorithm_self_guidance.png" alt="Self-Guidance algorithm diagram" width="70%">
+</p>
+
+At inference, the guidance scale $w$ controls the influence of the conditioning signal:
+
+| $w$ | Setting | Effect |
+|-----|---------|--------|
+| $w = 0$ | Unconditional | The conditioning signal does not contribute to the output prediction |
+| $w = 1$ | Conditional | Standard conditional model |
+| $w > 1$ | Guided | Focuses sampling on high-probability modes, avoiding poorly modelled regions of the conditional data distribution |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
 
 ### Built With
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
@@ -565,7 +595,7 @@ Project Link: [https://github.com/JaninaMattes/NoiseGuided-SmoothLFM](https://gi
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
----
+
 
 ## Rsource
 <!-- @inproceedings{Song2020score,
@@ -610,7 +640,7 @@ Project Link: [https://github.com/JaninaMattes/NoiseGuided-SmoothLFM](https://gi
 [issues-shield]: https://img.shields.io/github/issues/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
 [issues-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/issues
 [license-shield]: https://img.shields.io/github/license/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
-[license-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/blob/master/LICENSE.txt
+[license-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/blob/main/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/linkedin_username
 [product-screenshot]: images/screenshot.png
@@ -667,4 +697,3 @@ Our framework is lightweight, architecture-agnostic, and directly applicable to 
 This framework tackles core trade-offs in generative modeling- **sample quality, diversity, and inference speed** —while introducing a principled path to greater **interpretability and controllability** without relying on annotated datasets. It achieves this by integrating an auxiliary Bayesian β-VAE encoder and leveraging deterministic continuous flows instead of stochastic noise schedules, yielding smoother, more structured, and more controllable outputs.
 
 --- -->
-s
