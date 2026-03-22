@@ -39,7 +39,7 @@
 <h3 align="center">Exploring Self-Supervised Representation Learning for Interpretability and Control in Flow and Diffusion-based Generative Models</h3>
 
   <p align="center">
-    The purpose of this work is to explore how self-supervised representation learning methods can be utilised for interpreting and guiding the behaviour of state-of-the-art Flow and Diffusion-based generative models.
+    The purpose of this work is to explore how established self-supervised representation learning methods can be utilised for interpreting and guiding the behaviour of state-of-the-art Flow and Diffusion-based generative models.
     <br />
     <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM"><strong>Explore the docs »</strong></a>
     <br />
@@ -68,29 +68,109 @@
   <img src="assets/readme/pair_07.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
 </p> -->
 
-This repo contains PyTorch model definitions, pre-trained weights and training/sampling code.
+This repo contains PyTorch model definitions, pre-trained weights and training/sampling code for experiments over ImageNet 256 × 256.
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-<table style="width: 100%; table-layout: fixed;">
+<div align="center">
 
+<table>
   <tr>
-    <td colspan="2"><img src="assets/readme/pair_08.gif" width="100%"></td>
-    <td colspan="2"><img src="assets/readme/pair_04.gif" width="100%"></td>
+    <td colspan="2" align="center">
+      <img src="assets/readme/pair_08.gif" width="100%">
+    </td>
+    <td colspan="2" align="center">
+      <img src="assets/readme/pair_04.gif" width="100%">
+    </td>
   </tr>
   <tr>
-      <td><img src="assets/readme/pair_010.gif" width="100%"></td>
-    <td><img src="assets/readme/pair_06.gif" width="100%"></td>
-    <td><img src="assets/readme/pair_05.gif" width="100%"></td>
-    <td><img src="assets/readme/pair_09.gif" width="100%"></td>
+    <td align="center"><img src="assets/readme/pair_010.gif" width="100%"></td>
+    <td align="center"><img src="assets/readme/pair_23.gif" width="100%"></td>
+    <td align="center"><img src="assets/readme/pair_06.gif" width="100%"></td>
+    <td align="center"><img src="assets/readme/pair_35.gif" width="100%"></td>
   </tr>
 </table>
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `project_title`, `project_description`
+</div>
+
+## Background: Diffusion Models & Gaussian Flow Matching
+
+Flow Matching and Diffusion Models are two dominant frameworks for generative modeling in vision. This work treats them as interchangeable — a choice that is mathematically justified: **ODE-based Diffusion Models and Gaussian Flow Matching are equivalent** when the source distribution is Gaussian. Different parameterizations yield different noise schedules and loss weightings, but they define the same generative model.
+
+---
+
+### Diffusion Models
+
+A diffusion process gradually corrupts a data point $\mathbf{x}$ (e.g. an image) by progressively mixing it with Gaussian noise:
+```math
+\mathbf{z}_t = \alpha_t\,\mathbf{x} + \sigma_t\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+```
+
+where $\alpha_t$ and $\sigma_t$ define the **noise schedule** — this work uses the **variance-preserving** schedule ($\alpha_t^2 + \sigma_t^2 = 1$), ensuring the process transitions smoothly from clean data at $t=0$ to pure noise at $t=1$.
+
+<details>
+<summary><b>Reverse Process & DDIM Sampler</b></summary>
+<br>
+
+To generate new samples, we reverse the forward process:
+
+1. **Initialize** $\mathbf{z}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$
+2. **Denoise** — predict the clean sample with a neural network (denoiser): $\hat{\mathbf{x}} = \hat{\mathbf{x}}(\mathbf{z}_t;\, t)$
+3. **Project back** to a lower noise level $s < t$:
+```math
+\mathbf{z}_{s} = \alpha_{s}\,\hat{\mathbf{x}} + \sigma_{s}\,\hat{\boldsymbol{\epsilon}}, \qquad \hat{\boldsymbol{\epsilon}} = \frac{\mathbf{z}_t - \alpha_t\,\hat{\mathbf{x}}}{\sigma_t}
+```
+
+4. **Repeat** steps 2–3 from $t=1$ toward $t=0$ until $\hat{\mathbf{x}}$ is recovered.
+
+> [!NOTE]
+> This is the **DDIM sampler**. All stochasticity is concentrated in the initial sample $\mathbf{z}_1$ — the entire reverse process is deterministic.
+
+</details>
+
+---
+
+### Flow Matching
+
+The forward process is a **linear interpolation** between data $\mathbf{x}$ and noise $\boldsymbol{\epsilon}$:
+```math
+\mathbf{z}_t = (1 - t)\,\mathbf{x} + t\,\boldsymbol{\epsilon}, \qquad t \in [0, 1]
+```
+
+This recovers the diffusion forward process under the schedule $\alpha_t = 1-t,\; \sigma_t = t$. The evolution between timesteps $s < t$ is then **linear**:
+```math
+\mathbf{z}_t = \mathbf{z}_s + \mathbf{u}\,(t - s)
+```
+
+where $\mathbf{u} = \boldsymbol{\epsilon} - \mathbf{x}$ is the **velocity field**. Rather than predicting noise (as in DDPM), **our model learns to predict this velocity directly** — the straight-line path from data to noise.
+
+> [!NOTE]
+> Straight-line trajectories between source (e.g. _Gaussian noise_) and target distribution (e.g. _real ImageNet 256 x 256 image data_) reduce curvature, requiring fewer NFE (Number of Function Evaluations) at inference compared to curved diffusion paths which makes generation cheaper and faster.
+
+---
+
+### Probability Flow ODE
+
+Song et al. show that any stochastic diffusion Stochastic Differential Equation (SDE) can be reformulated as a deterministic **probability flow ODE**, while preserving identical marginal densities $p_t(\mathbf{x})$ at every timestep. This means noise injection is not required during generation.
+
+<p align="center">
+  <img src="assets/diagrams/diagram_ode_sde_sampling.png" alt="SDE vs ODE sampling diagram" width="50%">
+</p>
+
+<details>
+<summary><b>SDE → ODE Equivalence</b></summary>
+<br>
+
+*(Add your derivation or Song et al. formulation here.)*
+
+</details>
+
+New samples are generated from $\mathbf{z}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ by discretising the reverse-time ODE with a numerical solver — this work uses the **first-order Euler method**.
+
+---
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 
 ## Architecture
 
@@ -101,7 +181,7 @@ The framework follows the standard Latent Diffusion Model architecture introduce
 <p align="center">
   <img src="assets/diagrams/framework_stage1.png" alt="Framework Architecture Diagram" width="80%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
 </p>
-An open-source, pre-trained, Stable Diffusion CNN-VAE encoder and decoder are utilised for semantic compression and decompression, defining the fixed latent space in which the Conditional Flow Matching module is then trained. Operating in a slightly compressed latent space reduces not only computational complexity, but also benefits from a lower-variance, more regularised Gaussian latent space.
+An open-source, pre-trained, Stable Diffusion CNN-VAE encoder and decoder are utilised for semantic compression and decompression over ImageNet 256 × 256. Together, they are defining the fixed latent space in which the Conditional Flow Matching module is then trained. Operating in a slightly compressed latent space reduces not only computational complexity, but also benefits from a lower-variance, more regularised Gaussian latent space.
 
 #### Results after CNN-VAE Compression
 <p align="center">
@@ -221,6 +301,21 @@ python train.py --config configs/your_config.yaml
 ---
 
 ## Rsource
+@inproceedings{Song2020score,
+  author    = {Yang Song and Jascha Sohl-Dickstein and Diederik P. Kingma and Abhishek Kumar and Stefano Ermon and Ben Poole},
+  title     = {Score-Based Generative Modeling through Stochastic Differential Equations},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2020}
+}
+
+@book{Murphy2023probabilistic,
+  author    = {Kevin P. Murphy},
+  title     = {Probabilistic Machine Learning: Advanced Topics},
+  publisher = {MIT Press},
+  year      = {2023}
+}
+
+
 [0] Dhariwal & Nichol (2021), "Diffusion Models Beat GANs on Image Synthesis."
 
 [1] Ma et al. (2024), "SiT: Stochastic interpolant transport for generative modeling."
@@ -268,4 +363,5 @@ python train.py --config configs/your_config.yaml
 [Bootstrap-url]: https://getbootstrap.com
 [JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
 [JQuery-url]: https://jquery.com 
+
 
