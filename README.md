@@ -52,22 +52,60 @@
 </div>
 
 
-
-<!-- <p align="center">
-  <img src="assets/readme/pair_010.gif" alt="Interpolation 1" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_04.gif" alt="Interpolation 2" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_06.gif" alt="Interpolation 3" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_05.gif" alt="Interpolation 4" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-</p>
-
-<p align="center">
-  <img src="assets/readme/pair_09.gif" alt="Interpolation 5" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_10.gif" alt="Interpolation 6" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_08.gif" alt="Interpolation 7" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-  <img src="assets/readme/pair_07.gif" alt="Interpolation 8" width="22%" style="margin:10px; background-color:#f0f0f0; border-radius:10px; padding:5px;">
-</p> -->
-
 This repo contains PyTorch model definitions, pre-trained weights and training/sampling code for experiments over ImageNet 256 × 256.
+
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li>
+      <a href="#background-diffusion-models--gaussian-flow-matching">Background</a>
+      <ul>
+        <li><a href="#diffusion-models">Diffusion Models</a></li>
+        <li><a href="#flow-matching">Flow Matching</a></li>
+        <li><a href="#probability-flow-ode">Probability Flow ODE</a></li>
+        <li><a href="#stochastic-interpolant-framework">Stochastic Interpolant Framework</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#architecture">Architecture</a>
+      <ul>
+        <li><a href="#stage-1-semantic-compression">Stage 1: Semantic Compression</a></li>
+        <li><a href="#stage-2-latent-conditional-flow-matching-cfm">Stage 2: Latent CFM</a></li>
+        <li><a href="#-variational-autoencoder--vae">β-Variational Autoencoder</a></li>
+        <li><a href="#self-guidance-algorithm">Self-Guidance Algorithm</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#training-dataset">Training Dataset</a>
+      <ul>
+        <li><a href="#building-guidance-free-noise-spaces">Guidance-Free Noise Spaces</a></li>
+        <li><a href="#latent-denoising-via-vae">Latent Denoising via β-VAE</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#ablation">Ablation</a>
+      <ul>
+        <li><a href="#linear-interpolation">Linear Interpolation</a></li>
+        <li><a href="#generated-samples-with-self-conditioned-dit-xl2-velocity-decoder">Generated Samples</a></li>
+      </ul>
+    </li>
+    <li><a href="#built-with">Built With</a></li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
+
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
