@@ -96,7 +96,7 @@ This repo contains PyTorch model definitions, pre-trained weights and training/s
 
 ## Background: Diffusion Models & Gaussian Flow Matching
 
-Flow Matching and Diffusion Models are two dominant frameworks for generative modeling in vision. This work treats them as interchangeable — a choice that is mathematically justified: **ODE-based Diffusion Models and Gaussian Flow Matching are equivalent** when the source distribution is Gaussian. Different parameterizations yield different noise schedules and loss weightings, but they define the same generative model.
+Flow Matching and Diffusion Models are two dominant frameworks for generative modeling in vision. This work treats them as interchangeable, a choice that is mathematically justified: **ODE-based Diffusion Models and Gaussian Flow Matching are equivalent** when the source distribution is Gaussian. Different parameterizations yield different noise schedules and loss weightings, but they define the same generative model.
 
 ---
 
@@ -107,7 +107,7 @@ A diffusion process gradually corrupts a data point $\mathbf{x}$ (e.g. an image)
 \mathbf{z}_t = \alpha_t\,\mathbf{x} + \sigma_t\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
 ```
 
-where $\alpha_t$ and $\sigma_t$ define the **noise schedule** — this work uses the **variance-preserving** schedule ($\alpha_t^2 + \sigma_t^2 = 1$), ensuring the process transitions smoothly from clean data at $t=0$ to pure noise at $t=1$.
+where $\alpha_t$ and $\sigma_t$ define the **noise schedule**, whereby this work uses the **variance-preserving** schedule ($\alpha_t^2 + \sigma_t^2 = 1$), ensuring the process transitions smoothly from clean data at $t=0$ to pure noise at $t=1$.
 
 <details>
 <summary><b>Reverse Process & DDIM Sampler</b></summary>
@@ -116,7 +116,7 @@ where $\alpha_t$ and $\sigma_t$ define the **noise schedule** — this work uses
 To generate new samples, we reverse the forward process:
 
 1. **Initialize** $\mathbf{z}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$
-2. **Denoise** — predict the clean sample with a neural network (denoiser): $\hat{\mathbf{x}} = \hat{\mathbf{x}}(\mathbf{z}_t;\, t)$
+2. **Denoise**: predict the clean sample with a neural network (denoiser): $\hat{\mathbf{x}} = \hat{\mathbf{x}}(\mathbf{z}_t;\, t)$
 3. **Project back** to a lower noise level $s < t$:
 ```math
 \mathbf{z}_{s} = \alpha_{s}\,\hat{\mathbf{x}} + \sigma_{s}\,\hat{\boldsymbol{\epsilon}}, \qquad \hat{\boldsymbol{\epsilon}} = \frac{\mathbf{z}_t - \alpha_t\,\hat{\mathbf{x}}}{\sigma_t}
@@ -125,7 +125,7 @@ To generate new samples, we reverse the forward process:
 4. **Repeat** steps 2–3 from $t=1$ toward $t=0$ until $\hat{\mathbf{x}}$ is recovered.
 
 > [!NOTE]
-> This is the **DDIM sampler**. All stochasticity is concentrated in the initial sample $\mathbf{z}_1$ — the entire reverse process is deterministic.
+> This is the **DDIM sampler**. All stochasticity is concentrated in the initial sample $\mathbf{z}_1$, the entire reverse process is deterministic.
 
 </details>
 
