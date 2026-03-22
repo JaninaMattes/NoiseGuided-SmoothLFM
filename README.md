@@ -594,10 +594,14 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+- [x] using Flash Attention in ViT model
+- [x] using ```torch.compile```in PyTorch 2.0
+- [x] monitor global and local FID (over 50k images) and other metrics (PCA, t-SNE, MSE, CosSim etc.)
+- [x] use half-precison and AMP/bfloat16 support
+- [ ] refactor project structure
+
+Precision in likelihood calculation could likely be improved by:
+- [ ] Uniform / Gaussian Dequantization
 
 See the [open issues](https://github.com/github_username/repo_name/issues) for a full list of proposed features (and known issues).
 
