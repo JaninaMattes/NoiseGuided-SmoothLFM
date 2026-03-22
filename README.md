@@ -161,7 +161,7 @@ Song et al. show that any stochastic diffusion Stochastic Differential Equation 
 <summary><b>SDE to ODE Equivalence</b></summary>
 <br>
 
-*(Add derivation or Song et al. formulation here.)*
+*(TODO: Add derivation or Song et al. formulation here.)*
 
 </details>
 
