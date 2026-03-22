@@ -588,9 +588,8 @@ Project Link: [https://github.com/JaninaMattes/NoiseGuided-SmoothLFM](https://gi
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* []()
-* []()
-* []()
+* [SiT Framework - GitHub Repository](https://github.com/willisma/SiT)
+* [LDM Framework - GitHub Repository](https://github.com/joh-schb/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
