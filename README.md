@@ -273,6 +273,7 @@ A **Variational Autoencoder (VAE)** [(Kingma & Welling, 2014)](https://arxiv.org
 If each variable in the inferred latent representation 
  is only sensitive to one single generative factor and relatively invariant to other factors, we will say this representation is disentangled or factorized. One benefit that often comes with disentangled representation is good interpretability and easy generalization to a variety of tasks.
 
+##### ß-VAE Architecture & Vision Transformer
 
 The architecture is based on a highly scalable Vision Transformer (ViT) architecture design which makes use of patch embeddings and Transformer blocks. 
 
