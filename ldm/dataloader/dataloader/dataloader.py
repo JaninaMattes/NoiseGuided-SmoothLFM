@@ -433,75 +433,88 @@ class HDF5LatentIterableDataset(IterableDataset):
 
                 yield {'image': image, 'label': label, 'latent': latent}
 
-
-
-
 class HDF5MultiLatentsDataset(Dataset):
     def __init__(
         self, 
         base_dir: str, 
-        group_name: str = 'train', 
-        timestep: list = [0.00, 0.50], 
+        group_name: str='train', 
+        source_timestep: float = 0.0,
+        target_timestep: float = 1.0,
         transform=None, 
         norm_transform=None, 
-        lazy_loading=False
+        lazy_loading=True
     ):
         """
-        HDF5-based PyTorch Dataset supporting multiple timestep.
+        HDF5-based PyTorch Dataset.
 
         Args:
-            base_dir (str): Path to the HDF5 file.
+            file_path (str): Path to the HDF5 file.
             group_name (str): 'train', 'validation', or 'test'.
-            timestep (list): List of timestep of latents to load.
+            timestep (float): The timestep of latents to load (e.g., 0.0, 0.25).
             transform (callable, optional): Transformations for images.
             lazy_loading (bool): Load data on-the-fly or pre-load into memory.
+        
+        Returns:
+            dict: A dictionary containing the image, latent, and label.
         """
         self.base_dir = base_dir
         self.group_name = group_name
-        self.timestep = timestep
+        self.source_timestep = source_timestep
+        self.target_timestep = target_timestep
         self.transform = transform
         self.norm_transform = norm_transform
         self.lazy_loading = lazy_loading
-        self.current_index = 0
+        self.current_index = 0                      # Track current index
         self.dataset = None
 
-        self.latent_keys = []
-        self.latent_data = {}
-        self.pixel_space = False
-
         with h5py.File(self.base_dir, 'r') as h5_file:
-            self.dataset_size = h5_file[group_name]['images'].shape[0]
+            self.dataset_size = h5_file[group_name]['images'].shape[0]  # Get total no samples
 
             # Find available keys
-            available_latents = [
+            self.available_latents = [
                 key for key in h5_file[group_name].keys() if 'latents' in key
             ]
 
-            # Validate timestep
-            for timestep in self.timestep:
-                latent_key = f'latents_{timestep:.2f}'
-                if latent_key not in available_latents:
+            """ Load latent at specific timesteps"""
+            if self.source_timestep <= 1.0:
+                # Check timestep availability
+                latent_key = f'latents_{self.source_timestep:.2f}'
+                if latent_key not in self.available_latents:
                     raise ValueError(
-                        f"Latent timestep {timestep} not found in the dataset. "
-                        f"Available latents: {available_latents}"
-                    )
-                self.latent_keys.append(latent_key)
-                
-                if timestep > 1.0:
-                    self.pixel_space = True
+                        f"Latent timestep {self.source_timestep} not found in the dataset. Available latents: {self.available_latents}")
+                self.source_latent_key = latent_key
+            else:
+                self.source_latent_key = 'images'
 
-            # --- Eager Loading ---
+            if self.target_timestep <= 1.0:
+                # Check timestep availability
+                latent_key = f'latents_{self.target_timestep:.2f}'
+                if latent_key not in self.available_latents:
+                    raise ValueError(
+                        f"Latent timestep {self.target_timestep} not found in the dataset. Available latents: {self.available_latents}")
+                self.target_latent_key = latent_key
+            else:
+                self.target_latent_key = 'images'
+                
+
+            # --- Eager loading ---
+            # Load entire dataset into memory            
+            # Works only with small dataset! 
             if not self.lazy_loading:
+                print(f"[HDF5LatentsDataset] Loading dataset into memory...")
                 self.labels = h5_file[group_name]['labels'][:]
                 self.images = h5_file[group_name]['images'][:]
+                self.source_latents = h5_file[group_name][self.source_latent_key][:]
+                self.target_latents = h5_file[group_name][self.target_latent_key][:]
+        
+        
+        print(f"[HDF5LatentsDataset] Dataset size: {self.dataset_size}")     
                 
-                for key in self.latent_keys:
-                    self.latent_data[key] = h5_file[group_name][key][:]
-
     def __len__(self):
         """ Get dataset size. """
         return self.dataset_size
-
+    
+    
     def __getitem__(self, idx):    
         """ Get sample from HDF5 file. """
         self.current_index = idx  # Store current index for resuming
@@ -510,38 +523,33 @@ class HDF5MultiLatentsDataset(Dataset):
             # --- Eager loading ---
             image = self.images[idx] 
             label = self.labels[idx]
-            sample = {'image': image, 'label': label}
-
-            for key in self.latent_keys:
-                sample[key] = self.latent_data[key][idx]
+            latent = self.latents[idx]
+            
         else:
             # --- Lazy loading ---
-            if self.dataset is None:
-                self.dataset = h5py.File(self.base_dir, 'r')[self.group_name]
-            
+            self.dataset = h5py.File(self.base_dir, 'r')[self.group_name] \
+                if self.dataset is None else self.dataset
+                
             image = self.dataset['images'][idx]
             label = self.dataset['labels'][idx]
-            sample = {'image': image, 'label': label}
-
-            for key in self.latent_keys:
-                sample[key] = self.dataset[key][idx]
-
-        # Convert to PyTorch tensors
-        sample['image'] = torch.from_numpy(sample['image']).to(torch.float32)
-        sample['label'] = torch.tensor(sample['label'], dtype=torch.long)
-
-        for key in self.latent_keys:
-            sample[key] = torch.from_numpy(sample[key]).to(torch.float32)
+            source_latent = self.dataset[self.source_latent_key][idx]
+            target_latent = self.dataset[self.target_latent_key][idx]
+    
+        image = torch.from_numpy(image).to(torch.float32)
+        source_latent = torch.from_numpy(source_latent).to(torch.float32)
+        target_latent = torch.from_numpy(target_latent).to(torch.float32)
+        label = torch.tensor(label).to(torch.long)
 
         # Normalize image
-        if self.norm_transform and self.pixel_space:
-            sample['image'] = self.norm_transform(sample['image'])
+        if self.norm_transform:
+            image = self.norm_transform(image)
 
-        # Apply transformation
-        if self.transform:
-            sample = self.transform(sample)
-        return sample
-
+        return {
+            'image': image,
+            f'latents_{self.source_timestep:.2f}': source_latent,  # assuming latent is source_latent
+            f'latents_{self.target_timestep:.2f}': target_latent,  # or replace with actual target_latent if different
+            'label': label
+        }
 
     def state_dict(self):
         """ Save dataset state (current iteration). """
@@ -550,10 +558,10 @@ class HDF5MultiLatentsDataset(Dataset):
     def load_state_dict(self, state_dict):
         """ Restore dataset state. """
         self.current_index = state_dict.get('current_index', 0)
+        
+        
 
-
-
-class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
+class HDF5MultiDataModule(pl.LightningDataModule):
     def __init__(self,
                  base_dir: str,                     # Directory containing the numpy files
                  batch_size: int,
@@ -563,22 +571,24 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
                  test: bool = False,
                  num_workers: int = 4,
                  val_num_workers: int = None,
-                 timestep: list = [0.00, 0.50],     # Default timestep
+                 source_timestep: float = 0.0,      # Source sample
+                 target_timestep: float = 0.5,      # Target sample
                  pin_memory: bool = True,           # Optimize GPU memory
                  multinode: bool = True,            # Multi-node training
                  prefetch_factor: int = 2,          # Prefetch data
                  remove_keys: list = None,          # Keys to remove from sample
                  drop_last:bool = False,            # Drop last batch
-                 lazy_loading:bool = False,         # Lazy loading
+                 lazy_loading:bool = True,         # Lazy loading
                  transform=None,                    # Transformation pipeline
                  norm_transform=None                # Normalization pipeline
                 ):
         super().__init__()
-        self.base_dir = os.path.abspath(base_dir) if isinstance(base_dir, str) else self._resolve_base_dir(base_dir)
-        print(f'[WebDataModuleFromNumpyConfig] Setting base directory to {self.base_dir}')
-
+        self.base_dir = os.path.abspath(base_dir) if isinstance(base_dir, str) else self.resolve_base_dir(base_dir)
+        print(f'[HDF5DataModule] Setting base directory to {self.base_dir}')
         self.batch_size = batch_size
-        self.timestep = timestep
+        self.source_timestep = source_timestep
+        self.target_timestep = target_timestep
+        
         # -------------------------
         # Dataset loading based on config
         self.train = train
@@ -598,33 +608,27 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
         self.val_num_workers = val_num_workers if val_num_workers is not None else num_workers
         self.rm_keys = remove_keys if remove_keys is not None else []
 
+
     def setup(self, stage=None):
         """Set up datasets for different stages. Called from all processes."""   
     
-        target_transform = None     
-        
-        # TODO: Needs Fix
-        # transforms.Compose([
-        #     CustomMultiRandSiTFlip(prob=0.5),
-        # ])
-        
+        target_transform = None     # TOOD: Needs Fix
+        # Normalize [0, 255] to [-1, 1]
         mean = (127.0, 127.0, 127.0)
         std = (127.0, 127.0, 127.0)
-        
-        target_norm_transform = transforms.Compose([
+        img_transform = transforms.Compose([
             torchvision.transforms.Normalize(mean, std),
         ])
-        
-        # -------------------------------------------------------
         # Setup datasets
         if stage == 'fit':
             if self.train:
                 self.train_dataset = HDF5MultiLatentsDataset(
                     base_dir=self.base_dir, 
                     group_name='train', 
-                    timestep=self.timestep, 
+                    source_timestep=self.source_timestep, 
+                    target_timestep=self.target_timestep,
                     transform=target_transform,
-                    norm_transform=target_norm_transform,
+                    norm_transform=img_transform,
                     lazy_loading=self.lazy_loading
                 )
                 
@@ -632,9 +636,10 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
                 self.val_dataset = HDF5MultiLatentsDataset(
                     base_dir=self.base_dir, 
                     group_name='validation', 
-                    timestep=self.timestep, 
+                    source_timestep=self.source_timestep, 
+                    target_timestep=self.target_timestep,
                     transform=None,
-                    norm_transform=target_norm_transform,
+                    norm_transform=img_transform,
                     lazy_loading=self.lazy_loading
                 )
         
@@ -642,7 +647,8 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
             self.test_dataset = HDF5MultiLatentsDataset(
                 base_dir=self.base_dir, 
                 group_name='test', 
-                timestep=self.timestep, 
+                source_timestep=self.source_timestep, 
+                target_timestep=self.target_timestep,
                 transform=None,
                 norm_transform=None,
                 lazy_loading=self.lazy_loading
@@ -652,7 +658,6 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
         """Create train dataloader."""
         if self.train_dataset is None:
             raise ValueError("Train dataset is not initialized. Did you call `setup(stage='fit')`?")
-        
         use_multiprocessing = self.num_workers > 0
         train_data = DataLoader(
             self.train_dataset, 
@@ -671,7 +676,6 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
         """Create validation dataloader."""
         if self.val_dataset is None:
             raise ValueError("Validation dataset is not initialized. Did you call `setup(stage='fit')`?")
-        
         use_multiprocessing = self.num_workers > 0
         val_data = DataLoader(
             self.val_dataset, 
@@ -690,7 +694,6 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
         """Create test dataloader."""
         if self.test_dataset is None:
             raise  ValueError("Test dataset is not initialized. Did you call `setup(stage='test')`?")
-        
         use_multiprocessing = self.num_workers > 0
         test_data = DataLoader(
             self.test_dataset, 
@@ -705,6 +708,7 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
         
         return test_data
 
+
     def set_timestep(self, new_timestep: float):
         """ Dynamically update the timestep for loading latents. """
         self.timestep = new_timestep
@@ -718,7 +722,7 @@ class WebDataMultiModuleFromHDF5(pl.LightningDataModule):
             self.test_dataset.timestep = self.timestep
 
 
-    def _resolve_base_dir(self, base_dir_list):
+    def resolve_base_dir(self, base_dir_list):
         for path in base_dir_list:
             abs_path = os.path.abspath(path)
             if os.path.exists(abs_path):
@@ -774,7 +778,8 @@ class HDF5LatentsDataset(Dataset):
                 # Check timestep availability
                 latent_key = f'latents_{self.timestep:.2f}'
                 if latent_key not in self.available_latents:
-                    raise ValueError(f"Latent timestep {self.timestep} not found in the dataset. Available latents: {self.available_latents}")
+                    raise ValueError(
+                        f"Latent timestep {self.timestep} not found in the dataset. Available latents: {self.available_latents}")
                 self.latent_key = latent_key
             else:
                 self.latent_key = 'images'
@@ -788,11 +793,12 @@ class HDF5LatentsDataset(Dataset):
                 self.labels = h5_file[group_name]['labels'][:]
                 self.images = h5_file[group_name]['images'][:]
                 self.latents = h5_file[group_name][self.latent_key][:]
-                
+        
+        
+        print(f"[HDF5LatentsDataset] Dataset size: {self.dataset_size}")     
                 
     def __len__(self):
         """ Get dataset size. """
-        print(f"[HDF5LatentsDataset] Dataset size: {self.dataset_size}")
         return self.dataset_size
     
     
@@ -859,7 +865,7 @@ class HDF5DataModule(pl.LightningDataModule):
                  norm_transform=None                # Normalization pipeline
                 ):
         super().__init__()
-        self.base_dir = os.path.abspath(base_dir) if isinstance(base_dir, str) else self._resolve_base_dir(base_dir)
+        self.base_dir = os.path.abspath(base_dir) if isinstance(base_dir, str) else self.resolve_base_dir(base_dir)
         print(f'[HDF5DataModule] Setting base directory to {self.base_dir}')
         self.batch_size = batch_size
         self.timestep = timestep
@@ -889,7 +895,7 @@ class HDF5DataModule(pl.LightningDataModule):
         # Normalize [0, 255] to [-1, 1]
         mean = (127.0, 127.0, 127.0)
         std = (127.0, 127.0, 127.0)
-        target_norm_transform = transforms.Compose([
+        img_transform = transforms.Compose([
             torchvision.transforms.Normalize(mean, std),
         ])
         # Setup datasets
@@ -900,7 +906,7 @@ class HDF5DataModule(pl.LightningDataModule):
                     group_name='train', 
                     timestep=self.timestep, 
                     transform=target_transform,
-                    norm_transform=target_norm_transform,
+                    norm_transform=img_transform,
                     lazy_loading=self.lazy_loading
                 )
                 
@@ -910,7 +916,7 @@ class HDF5DataModule(pl.LightningDataModule):
                     group_name='validation', 
                     timestep=self.timestep, 
                     transform=None,
-                    norm_transform=target_norm_transform,
+                    norm_transform=img_transform,
                     lazy_loading=self.lazy_loading
                 )
         
@@ -992,7 +998,7 @@ class HDF5DataModule(pl.LightningDataModule):
             self.test_dataset.timestep = self.timestep
 
 
-    def _resolve_base_dir(self, base_dir_list):
+    def resolve_base_dir(self, base_dir_list):
         for path in base_dir_list:
             abs_path = os.path.abspath(path)
             if os.path.exists(abs_path):
@@ -1181,7 +1187,7 @@ class WebDataModuleFromNumpyConfig(pl.LightningDataModule):
                  drop_last:bool = False             # Drop last batch
                 ):
         super().__init__()
-        self.base_dir = base_dir if isinstance(base_dir, str) else self._resolve_base_dir(base_dir)
+        self.base_dir = base_dir if isinstance(base_dir, str) else self.resolve_base_dir(base_dir)
         print(f'[WebDataModuleFromNumpyConfig] Setting base directory to {self.base_dir}')
 
         self.batch_size = batch_size
@@ -1318,7 +1324,7 @@ class WebDataModuleFromNumpyConfig(pl.LightningDataModule):
         
         
             
-    def _resolve_base_dir(self, base_dir_list):
+    def resolve_base_dir(self, base_dir_list):
         for path in base_dir_list:
             if os.path.exists(path):
                 return path
@@ -1396,6 +1402,149 @@ class WebDataModuleFromNumpy(pl.LightningDataModule):
 
 
 
+class WebDataModuleFromHDF5(pl.LightningDataModule):
+    def __init__(self,
+                 base_dir: str,                     # Directory containing the numpy files
+                 batch_size: int,
+                 val_batch_size: int = None,
+                 train: bool = True,
+                 validation: bool = True,
+                 test: bool = False,
+                 num_workers: int = 4,
+                 val_num_workers: int = None,
+                 timestep: float = 0.0,             # Default timestep
+                 pin_memory: bool = True,           # Optimize GPU memory
+                 multinode: bool = True,            # Multi-node training
+                 prefetch_factor: int = 2,          # Prefetch data
+                 remove_keys: list = None,          # Keys to remove from sample
+                 drop_last:bool = False,            # Drop last batch
+                 lazy_loading:bool = False          # Lazy loading
+                ):
+        super().__init__()
+        self.base_dir = base_dir if isinstance(base_dir, str) else self.resolve_base_dir(base_dir)
+        print(f'[WebDataModuleFromNumpyConfig] Setting base directory to {self.base_dir}')
+
+        self.batch_size = batch_size
+        self.timestep = timestep
+        # -------------------------
+        # Dataset loading based on config
+        self.train = train
+        self.validation = validation
+        self.test = test
+        # -------------------------
+        self.multinode = multinode
+        self.pin_memory = pin_memory
+        self.drop_last = drop_last
+        self.lazy_loading = lazy_loading
+        self.prefetch_factor = prefetch_factor
+        self.num_workers = num_workers
+        self.val_batch_size = val_batch_size if val_batch_size is not None else batch_size
+        self.val_num_workers = val_num_workers if val_num_workers is not None else num_workers
+        self.rm_keys = remove_keys or []
+
+    def setup(self, stage=None):
+        """Set up datasets for different stages. Called from all processes."""
+        transform = transforms.Compose([
+            CustomRandHorizontalFlip(prob=0.5)
+            # Optional others
+        ])
+        
+        if stage == 'fit':
+            if self.train:
+                self.train_dataset = HDF5LatentsDataset(
+                    base_dir=self.base_dir, 
+                    group_name='train', 
+                    timestep=self.timestep, 
+                    transform=transform,
+                    lazy_loading=self.lazy_loading
+                )
+            if self.validation:
+                self.val_dataset = HDF5LatentsDataset(
+                    base_dir=self.base_dir, 
+                    group_name='validation', 
+                    timestep=self.timestep, 
+                    transform=None,
+                    lazy_loading=self.lazy_loading
+                )
+        
+        if stage == 'test' and self.test:
+            self.test_dataset = HDF5LatentsDataset(
+                base_dir=self.base_dir, 
+                group_name='test', 
+                timestep=self.timestep, 
+                transform=None,
+                lazy_loading=self.lazy_loading
+            )
+
+    def train_dataloader(self) -> DataLoader:
+        """Create train dataloader."""
+        if self.train_dataset is None:
+            raise ValueError("Train dataset is not initialized. Did you call `setup(stage='fit')`?")
+        
+        return DataLoader(
+            self.train_dataset, 
+            batch_size=self.batch_size, 
+            shuffle=True, 
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            prefetch_factor=self.prefetch_factor,
+            persistent_workers=self.num_workers > 0,
+            drop_last=self.drop_last
+        )
+
+    def val_dataloader(self) -> DataLoader:
+        """Create validation dataloader."""
+        if self.val_dataset is None:
+            raise ValueError("Validation dataset is not initialized. Did you call `setup(stage='fit')`?")
+        
+        return DataLoader(
+            self.val_dataset, 
+            batch_size=self.val_batch_size, 
+            shuffle=False, 
+            num_workers=self.val_num_workers,
+            pin_memory=self.pin_memory,
+            prefetch_factor=self.prefetch_factor,
+            persistent_workers=self.num_workers > 0,
+            drop_last=self.drop_last
+        )
+
+    def test_dataloader(self) -> DataLoader:
+        """Create test dataloader."""
+        if self.test_dataset is None:
+            raise  ValueError("Test dataset is not initialized. Did you call `setup(stage='test')`?")
+
+        return DataLoader(
+            self.test_dataset, 
+            batch_size=self.val_batch_size, 
+            shuffle=False, 
+            num_workers=self.val_num_workers,
+            pin_memory=self.pin_memory,
+            prefetch_factor=self.prefetch_factor,
+            persistent_workers=self.num_workers > 0,
+            drop_last=self.drop_last
+        )
+
+    def set_timestep(self, new_timestep: float):
+        """ Dynamically update the timestep for loading latents. """
+        self.timestep = new_timestep
+
+        # Reinitialize datasets with the new timestep
+        if self.train_dataset:
+            self.train_dataset.timestep = self.timestep
+        if self.val_dataset:
+            self.val_dataset.timestep = self.timestep
+        if self.test_dataset:
+            self.test_dataset.timestep = self.timestep
+
+
+    def resolve_base_dir(self, base_dir_list):
+        for path in base_dir_list:
+            if os.path.exists(path):
+                return path
+        raise FileNotFoundError("Could not find a valid base directory.")
+                                        
+
+
 
 
 
@@ -1452,7 +1601,7 @@ class LatentDummyDataset(Dataset):
 
 
 class ImageNet256MultiDummyDataset(Dataset):
-    def __init__(self, classes, timestep=None, num_samples=2000, transform=None, **kwargs):
+    def __init__(self, classes, target_timestep=0.0, source_timestep=1.0, num_samples=2000, transform=None, **kwargs):
         """
         Args:
             classes (list): List of class labels.
@@ -1462,7 +1611,8 @@ class ImageNet256MultiDummyDataset(Dataset):
             kwargs: Additional keys and their corresponding tensor shapes.
         """
         self.classes = classes
-        self.timestep = timestep if timestep else [0.00]  # Default to a single timestep
+        self.source_timestep = source_timestep
+        self.target_timestep = target_timestep
         self.num_samples = num_samples
         self.keys_shapes = {k: tuple(map(int, v)) for k, v in kwargs.items()}
         self.transform = transform
@@ -1477,8 +1627,8 @@ class ImageNet256MultiDummyDataset(Dataset):
         sample["image"] = torch.randn(3, 256, 256, dtype=torch.float32)
 
         # Generate latents for each timestep
-        for timestep in self.timestep:
-            sample[f"latents_{timestep:.2f}"] = torch.randn(4, 32, 32, dtype=torch.float32)
+        sample[f"latents_{self.source_timestep:.2f}"] = torch.randn(4, 32, 32, dtype=torch.float32)
+        sample[f"latents_{self.target_timestep:.2f}"] = torch.randn(4, 32, 32, dtype=torch.float32)
 
         # Generate label
         sample["label"] = torch.tensor(random.choice(self.classes), dtype=torch.long)
