@@ -45,7 +45,7 @@ checkpoint_params:              # filename refers to number of gradient updates
 # ----------------------------------------
 # train logics
 trainer_module:
-  target: ldm.trainer_rf_vae.TrainerModuleLatentFlow
+  target: ldm.trainer.TrainerModuleLatentFlow
   params:
     lr: 1e-4
     weight_decay: 0.0
