@@ -7,12 +7,14 @@ import torch.nn as nn
 from torchvision.datasets.utils import download_url
 from functools import partial
 
+# import from j-utils module
 from jutils import freeze
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
 sys.path.append(project_root)
 
-from ldm.models.context_diffusion.sit_context import SiT_models
+# custom imports
+from ldm.models.smooth_diffusion.sit_context import SiT_models
 
     
     
