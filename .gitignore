@@ -211,3 +211,4 @@ data/dataset/interpol-imnet256/*.hdf5
 data/dataset/imagenet-256/*.hdf5
 data/dataset/imagenet-256/test/*.hdf5
 data/dataset/imagenet-256/train/*.hdf5
+*.hdf5
