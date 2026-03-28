@@ -133,9 +133,9 @@ This repo contains PyTorch model definitions, pre-trained weights and training/s
 
 ## Background: Diffusion Models & Gaussian Flow Matching
 
-Flow Matching and Diffusion Models are two dominant frameworks for generative modeling in vision. This work treats them as interchangeable, a choice that is mathematically justified: **ODE-based Diffusion Models and Gaussian Flow Matching are equivalent** when the source distribution is Gaussian. Different parameterizations yield different noise schedules and loss weightings, but they define the same generative model.
+Flow Matching and Diffusion Models are two dominant frameworks for generative modelling in vision. This work treats them as interchangeable, a choice that is mathematically justified: **ODE-based Diffusion Models and Gaussian Flow Matching are equivalent** when the source distribution is Gaussian. Different parameterisations yield different noise schedules and loss weightings, but they define the same generative model.
 
-
+Diffusion transformers first encode the noisy inputs to extract the lower-frequency semantic components, then employ identical modules to decode the higher-frequency details. 
 
 ### Diffusion Models
 
@@ -157,9 +157,7 @@ To generate new samples, we reverse the forward process:
 3. **Project back** to a lower noise level $s < t$:
 ```math
 \mathbf{z}_{s} = \alpha_{s}\,\hat{\mathbf{x}} + \sigma_{s}\,\hat{\boldsymbol{\epsilon}}, \qquad \hat{\boldsymbol{\epsilon}} = \frac{\mathbf{x}_t - \alpha_t\,\hat{\mathbf{x}}}{\sigma_t}
-```
-
-4. **Repeat** steps 2–3 from $t=1$ toward $t=0$ until $\hat{\mathbf{x}}$ is recovered.
+``` 
 
 > [!NOTE]
 > This is the **DDIM sampler**. All stochasticity is concentrated in the initial sample $\mathbf{z}_1$, the entire reverse process is deterministic.
@@ -594,10 +592,14 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+- [x] using Flash Attention in ViT model
+- [x] using ```torch.compile```in PyTorch 2.0
+- [x] monitor global and local FID (over 50k images) and other metrics (PCA, t-SNE, MSE, CosSim etc.)
+- [x] use half-precison and AMP/bfloat16 support
+- [ ] refactor project structure
+
+Precision in likelihood calculation could likely be improved by:
+- [ ] Uniform / Gaussian Dequantization
 
 See the [open issues](https://github.com/github_username/repo_name/issues) for a full list of proposed features (and known issues).
 

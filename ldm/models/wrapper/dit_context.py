@@ -4,12 +4,14 @@ import torch
 import torch.nn as nn
 from torchvision.datasets.utils import download_url
 
+# import external module
 from jutils import freeze
 
 # Add project root to path for local imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
 sys.path.append(project_root)
 
+# import custom modules
 from ldm.models.transformer.dit_context import DiT
 
 
