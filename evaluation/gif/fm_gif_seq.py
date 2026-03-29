@@ -12,6 +12,7 @@ from sklearn.cluster import KMeans
 
 import gc
 import torch
+from torch import nn
 import torchvision
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
@@ -31,8 +32,8 @@ from jutils import tensor2im, ims_to_grid
 project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../../'))
 sys.path.append(project_root)
 
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
-from ldm.trainer import TrainerModuleLatentFlow
+from dataprocessing.tools.norm import denorm_metrics_tensor, denorm_tensor
+from ldm.trainer_rf_vae import TrainerModuleLatentFlow
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
 torch.set_float32_matmul_precision('high')
