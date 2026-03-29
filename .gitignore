@@ -209,3 +209,19 @@ __marimo__/
 
 # Exclude large dataset files
 *.hdf5
+data/
+outputs/
+checkpoints/
+wandb/
+
+# Excluse large model files
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+data/
+assets/results/
+
+# Exclude large notebooks
+*.ipynb
