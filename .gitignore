@@ -206,5 +206,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-data/dataset/testset-imnet256/*.hdf5
-data/dataset/interpol-imnet256/*.hdf5
+
+# Exclude large dataset files
+*.hdf5

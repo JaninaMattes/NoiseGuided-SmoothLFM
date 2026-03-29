@@ -27,19 +27,15 @@ from lightning.pytorch.strategies import DDPStrategy
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from torch.distributed.algorithms.ddp_comm_hooks import default_hooks
 
-# jutils
 from jutils import instantiate_from_config
 from jutils import count_parameters, exists
 
 # ldm stuff
-from ldm.utils.helpers import load_model_weights
+from ldm.helpers import load_model_weights
+
 
 torch.set_float32_matmul_precision('high')
 
-
-#################################
-# Flow Matching Training Script
-#################################
 
 def check_config(cfg):
     if cfg.get("auto_requeue", False):
@@ -53,7 +49,7 @@ def check_config(cfg):
     
     
 
-@hydra.main(config_path="configs", config_name="rf_config", version_base=None)
+@hydra.main(config_path="configs", config_name="rf_config_v01", version_base=None)
 def main(cfg: DictConfig):
     seed_everything(2025)
 
