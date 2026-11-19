@@ -18,6 +18,8 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TF
 from torchvision.utils import make_grid
 
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity as LPIPS
+
 from tqdm import tqdm
 import numpy as np
 

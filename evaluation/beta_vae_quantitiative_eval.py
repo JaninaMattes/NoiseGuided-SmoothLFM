@@ -33,8 +33,6 @@ from torchmetrics.image import StructuralSimilarityIndexMeasure as SSIM
 from lightning import seed_everything
 
 
-from elatentlpips import ELatentLPIPS
-
 from jutils import denorm
 from jutils import ims_to_grid
 from jutils.vision import tensor2im
@@ -50,7 +48,7 @@ from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
 from ldm.utils.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
+from dataprocessing.tools.norm import denorm_metrics_tensor, denorm_tensor
 
 
 
@@ -558,7 +556,7 @@ def interpolate_latents_with_smoothness_eval(
         plt.close(fig)
 
         del grid, grid_np, fig, ax, all_rows
-        del generated_rows, row_images, real_start, real_end, real_start_padded, real_end_padded, row_images_padded
+        del generated_rows
         torch.cuda.empty_cache()
         gc.collect()
 
