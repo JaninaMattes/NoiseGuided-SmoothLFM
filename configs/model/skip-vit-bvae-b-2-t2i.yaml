@@ -1,0 +1,45 @@
+name: Beta-Vae-SkipViT-B-2
+# Thesis β-VAE (~80M params): symmetric Skip-ViT encoder/decoder, 12 + 12 blocks, patch size 2,
+# non-spatial bottleneck token z_t with D_btn = 1024 and cross-attention long-range skips.
+# Hyper-parameters match the hparams stored in the trained 0.50x-1.00x checkpoints.
+target: ldm.frameworks.beta_vae.bvae_model.BetaVAEModel
+params:
+  beta: 0.1                             # β regularisation strength (ablated in {1e-4, 0.1, 0.5, 1, 2, 3, 5})
+  loss_type: 'H'                        # 'H' (Higgins β-VAE) or 'B' (Burgess capacity-annealed)
+  kld_weight: 1.0
+
+  encoder_cfg:
+    target: ldm.models.autoencoder.encoder.skip_vit_t2i.SkipViTEncoder
+    params:
+      in_channels: 4
+      image_size: 32
+      patch_size: 2
+      embed_dim: 512
+      num_layers: 12
+      num_heads: 8
+      mlp_ratio: 4.0
+      latent_dim: 1024                  # bottleneck size D_btn
+      use_bottleneck_layer: True
+      moments_factor: 2.0               # predicts mean and log-variance
+      skip: True
+      skip_indices: [3, 6, 9, 11]
+      skip_layer_type: 'cross_attn'     # cross-attention fusion of skip features (default strategy)
+      compile: True
+
+  decoder_cfg:
+    target: ldm.models.autoencoder.decoder.skip_vit_t2i.SkipViTDecoder
+    params:
+      in_channels: 4
+      image_size: 32
+      patch_size: 2
+      latent_dim: 1024
+      embed_dim: 512
+      num_layers: 12
+      num_heads: 8
+      mlp_ratio: 4.0
+      skip: True
+      skip_indices: [3, 6, 9, 11]
+      skip_layer_type: 'cross_attn'
+      use_act_layer: False
+      refine_output: True
+      compile: True

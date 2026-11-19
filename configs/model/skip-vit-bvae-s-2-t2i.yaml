@@ -1,0 +1,42 @@
+name: Beta-Vae-SkipViT-S-2
+# Small Skip-ViT β-VAE for debugging and smoke tests (same architecture family as skip-vit-bvae-b-2-t2i).
+# Without a bottleneck layer the class token (embed_dim=512) is split into mean/log-variance -> z_t in R^256.
+target: ldm.frameworks.beta_vae.bvae_model.BetaVAEModel
+params:
+  beta: 1e-4
+  loss_type: 'H'
+  kld_weight: 1.0
+
+  encoder_cfg:
+    target: ldm.models.autoencoder.encoder.skip_vit_t2i.SkipViTEncoder
+    params:
+      in_channels: 4
+      image_size: 32
+      patch_size: 2
+      embed_dim: 512
+      num_layers: 7
+      num_heads: 4
+      mlp_ratio: 4.0
+      latent_dim: null
+      use_bottleneck_layer: False
+      skip: True
+      skip_indices: [3, 5]
+      skip_layer_type: 'cross_attn'
+      compile: False
+
+  decoder_cfg:
+    target: ldm.models.autoencoder.decoder.skip_vit_t2i.SkipViTDecoder
+    params:
+      in_channels: 4
+      image_size: 32
+      patch_size: 2
+      latent_dim: 256
+      embed_dim: 512
+      num_layers: 7
+      num_heads: 4
+      mlp_ratio: 4.0
+      skip: True
+      skip_indices: [3, 5]
+      skip_layer_type: 'cross_attn'
+      use_act_layer: False
+      compile: False

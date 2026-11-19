@@ -1,6 +1,6 @@
 name: DiT-XL-2
 # Flow Model (SiT)
-target: ldm.frameworks.rectified_flow.fm.RectifiedFlowModel
+target: ldm.frameworks.flow.fm.FlowModel
 params:
   schedule: linear
   sigma_min: 0.0
