@@ -9,7 +9,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 sys.path.append(project_root)
 
 
-from ldm.frameworks.beta_vae.bvae_model_t2i import BetaVAEModel
+from ldm.frameworks.beta_vae.bvae_model import BetaVAEModel
 
 
 """ Wrapper to automatically load an LDM-based Beta-VAE model. """
