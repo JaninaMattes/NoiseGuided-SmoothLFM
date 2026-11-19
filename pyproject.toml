@@ -30,8 +30,17 @@ dev = [
     "pandas==2.2.3",
     "tensorboard==2.18.0",
     "scikit-learn==1.8.0",
+    "pytorch-fid==0.3.0",
     "jutils", # unpinned
+    "mlflow==2.19.0",
+    "opencv-python-headless==4.10.0.84",
+    "pywavelets==1.8.0",
 ]
 
 [tool.uv.sources]
 jutils = { git = "https://github.com/joh-schb/jutils.git" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::SyntaxWarning"]
