@@ -209,3 +209,30 @@ __marimo__/
 
 # Exclude large dataset files
 *.hdf5
+data/
+outputs/
+checkpoints/
+wandb/
+
+# Excluse large model files
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+data/
+assets/results/
+
+# Exclude large notebooks
+*.ipynb
+
+# Exclude other files 
+*.zip
+
+# Experiment runs and tracking stores (see ldm/tracking.py)
+logs_dir/
+mlruns/
+multirun/
+
+# Thesis LaTeX sources (428 MB archive, exceeds GitHub's file limit)
+docs/thesis/
