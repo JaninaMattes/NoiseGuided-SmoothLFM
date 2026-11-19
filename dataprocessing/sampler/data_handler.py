@@ -27,7 +27,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')
 sys.path.append(project_root)
 
 from ldm.dataloader.dataloader.dataloader import WebDataModuleFromHDF5, WebDataModuleFromNumpy
-from data_processing.tools.norm import denorm_tensor
+from dataprocessing.tools.norm import denorm_tensor
 
 
 
