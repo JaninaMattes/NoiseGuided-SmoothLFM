@@ -1,122 +1,31 @@
-<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
 <a name="readme-top"></a>
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Don't forget to give the project a star!
-*** Thanks again! Now go create something AMAZING! :D
--->
-
-
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-
-
-
-<h1 align="center"> Noise Guided Smooth LFM</h1>
-
-
-<!-- PROJECT LOGO -->
-<br />
-<div align="center">
-  <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM.git">
-    <img src="assets/logo/img2.png" alt="Logo" width="100" height="100">
-  </a>
-
-<h3 align="center">Exploring Self-Supervised Representation Learning for Interpretability and Control in Flow and Diffusion-based Generative Models</h3>
-
-  <p align="center">
-    The purpose of this work is to explore how established self-supervised representation learning methods can be utilised for interpreting and guiding the behaviour of state-of-the-art Flow and Diffusion-based generative models.
-    <br />
-    <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM">View Demo</a>
-    ·
-    <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/issues">Request Feature</a>
-  </p>
-</div>
-
-
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li><a href="#about-the-project">About The Project</a></li>
-    <li>
-      <a href="#background-diffusion-models--gaussian-flow-matching">Background</a>
-      <ul>
-        <li><a href="#diffusion-models">Diffusion Models</a></li>
-        <li><a href="#flow-matching">Flow Matching</a></li>
-        <li><a href="#probability-flow-ode">Probability Flow ODE</a></li>
-        <li><a href="#stochastic-interpolant-framework">Stochastic Interpolant Framework</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#architecture">Architecture</a>
-      <ul>
-        <li><a href="#stage-1-semantic-compression">Stage 1: Semantic Compression</a></li>
-        <li><a href="#stage-2-latent-conditional-flow-matching-cfm">Stage 2: Latent CFM</a></li>
-        <li><a href="#-variational-autoencoder--vae">β-Variational Autoencoder</a></li>
-        <li><a href="#self-guidance-algorithm">Self-Guidance Algorithm</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#training-dataset">Training Dataset</a>
-      <ul>
-        <li><a href="#building-guidance-free-noise-spaces">Guidance-Free Noise Spaces</a></li>
-        <li><a href="#latent-denoising-via-vae">Latent Denoising via β-VAE</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#ablation">Ablation</a>
-      <ul>
-        <li><a href="#linear-interpolation">Linear Interpolation</a></li>
-        <li><a href="#generated-samples-with-self-conditioned-dit-xl2-velocity-decoder">Generated Samples</a></li>
-      </ul>
-    </li>
-    <li><a href="#built-with">Built With</a></li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
-</details>
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
 
 <div align="center">
+
+<img src="assets/logo/img2.png" alt="Logo" width="96" height="96">
+
+# Noise-Guided Smooth Latent Flow Matching
+
+### Interpretability and Conditional Generation with Flow-Matching Models
+
+**Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, smooth and decodable latent space<br>from the guidance-free noise space of a pre-trained SiT-XL/2 — no labels, no prompts, no retraining of the base model.**
+
+[![Thesis presentation](https://img.shields.io/badge/📑_Thesis_Presentation-PDF-b31b1b?style=for-the-badge)](docs/20250909_MasterThesis_Presentation_JaninaMattes.pdf)
+[![Quickstart](https://img.shields.io/badge/🚀_Quickstart-make_smoke-2ea44f?style=for-the-badge)](#-quickstart)
+[![Cite](https://img.shields.io/badge/📚_Cite-BibTeX-blue?style=for-the-badge)](#-citation)
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.5-EE4C2C?logo=pytorch&logoColor=white)
+![Lightning](https://img.shields.io/badge/Lightning-2.5-792EE5?logo=lightning&logoColor=white)
+![Hydra](https://img.shields.io/badge/Config-Hydra-89b8cd)
+![MLflow](https://img.shields.io/badge/Tracking-MLflow-0194E2?logo=mlflow&logoColor=white)
+![W&B](https://img.shields.io/badge/Tracking-W%26B-FFBE00?logo=weightsandbiases&logoColor=black)
+[![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE.txt)
 
 <table>
   <tr>
-    <td colspan="2" align="center">
-      <img src="assets/readme/pair_08.gif" width="100%">
-    </td>
-    <td colspan="2" align="center">
-      <img src="assets/readme/pair_04.gif" width="100%">
-    </td>
+    <td colspan="2" align="center"><img src="assets/readme/pair_08.gif" width="100%"></td>
+    <td colspan="2" align="center"><img src="assets/readme/pair_04.gif" width="100%"></td>
   </tr>
   <tr>
     <td align="center"><img src="assets/readme/pair_010.gif" width="100%"></td>
@@ -126,614 +35,366 @@
   </tr>
 </table>
 
+<sub><i>Linear interpolations between two self-guidance codes in the auxiliary Bayesian latent space (β-VAE 0.50 → 1.00, β = 0.1), decoded by the self-guided DiT-XL/2 velocity decoder on ImageNet 256×256.</i></sub>
+
 </div>
 
-This repo contains PyTorch model definitions, pre-trained weights and training/sampling code for experiments over ImageNet 256 × 256.
+---
 
-
-## Background: Diffusion Models & Gaussian Flow Matching
-
-Flow Matching and Diffusion Models are two dominant frameworks for generative modelling in vision. This work treats them as interchangeable, a choice that is mathematically justified: **ODE-based Diffusion Models and Gaussian Flow Matching are equivalent** when the source distribution is Gaussian. Different parameterisations yield different noise schedules and loss weightings, but they define the same generative model.
-
-Diffusion transformers first encode the noisy inputs to extract the lower-frequency semantic components, then employ identical modules to decode the higher-frequency details. 
-
-### Diffusion Models
-
-A diffusion process gradually corrupts a data point $\mathbf{x}$ (e.g. an image) by progressively mixing it with Gaussian noise:
-```math
-\mathbf{x}_t = \alpha_t\,\mathbf{x} + \sigma_t\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
-```
-
-where $\alpha_t$ and $\sigma_t$ define the **noise schedule**, whereby this work uses the **variance-preserving** schedule ($\alpha_t^2 + \sigma_t^2 = 1$), ensuring the process transitions smoothly from clean data at $t=0$ to pure noise at $t=1$.
+> [!IMPORTANT]
+> **📑 Master's thesis defence, 09.09.2025** — the slides summarise motivation, method, ablations and qualitative results:
+> **[`docs/20250909_MasterThesis_Presentation_JaninaMattes.pdf`](docs/20250909_MasterThesis_Presentation_JaninaMattes.pdf)**
+> <br>M.Sc. Computer Science, Ludwig Maximilian University of Munich · Supervisor: Prof. Dr. Björn Ommer · Advisors: Johannes Schusterbauer, Ming Gui
 
 <details>
-<summary><b>Reverse Process & DDIM Sampler</b></summary>
+<summary><b>Table of Contents</b></summary>
+
+1. [Overview](#-overview)
+2. [Method](#-method)
+3. [Results](#-results)
+4. [Quickstart](#-quickstart)
+5. [Experiment Tracking](#-experiment-tracking)
+6. [Repository Structure](#-repository-structure)
+7. [Limitations & Future Work](#-limitations--future-work)
+8. [Citation](#-citation)
+9. [References](#-references)
+
+</details>
+
+## ✨ Overview
+
+Although diffusion models remain the architecture of choice, the theoretically simpler, deterministic and nearly invertible **flow matching** paradigm [[1](#ref-1), [2](#ref-2), [3](#ref-3)] is gaining increasing traction. Its internal latent structures, however, remain high-dimensional, distributed along the generative trajectory and little understood, which limits **explainability and control**. Current de facto guidance methods such as classifier-free guidance [[4](#ref-4)] additionally depend on external signals and typically require paired, annotated data.
+
+This work proposes a **hybrid framework** that integrates two complementary approaches within a decoupled generative architecture: a probabilistic, disentangled representation learner (β-VAE [[5](#ref-5), [6](#ref-6)]) and a high-fidelity generative flow matching model (SiT-XL/2 [[7](#ref-7), [8](#ref-8)]). An auxiliary Bayesian encoder extracts high-level semantic codes from the learned **guidance-free noise space** [[9](#ref-9), [10](#ref-10)] of a pre-trained flow matching encoder, yielding a **compact, smooth, decodable and interpretable** representation. These internally derived codes replace external conditioning — we call this **self-guidance** [[11](#ref-11), [12](#ref-12)].
+
+**Contributions**
+
+- 🔍 **Guidance-free noise spaces in flow matching.** Forward ODE integration of a pre-trained SiT-XL/2 maps every image to a unique, semantically structured noise code $\boldsymbol{x}_t$ that reconstructs the input without external guidance (cycle-consistency) [[9](#ref-9), [13](#ref-13)].
+- 🧭 **Self-guidance.** A β-VAE distils $\boldsymbol{x}_t$ into a non-spatial code $\boldsymbol{z}_t \in \mathbb{R}^{1024}$ that conditions a separate velocity decoder, enabling multi-level semantic control **without paired datasets**.
+- 🎛️ **Frequency-aware, decoupled design.** The encoder specialises in low-frequency global semantics, the decoder restores high-frequency detail — mirroring the coarse-to-fine spectral behaviour of diffusion and flow models [[14](#ref-14), [12](#ref-12), [15](#ref-15)].
+- 🌊 **Smooth, interpretable latent space.** Linear walks in the Bayesian $\mathcal{Z}$-space yield consistent attribute-level manipulations and robust interpolation; latent smoothness is quantified with latent variants of PPL and ISTD [[16](#ref-16), [17](#ref-17)].
+- 🔌 **Plug-and-play.** The framework can be applied to existing generative models **without retraining** the base model [[18](#ref-18), [19](#ref-19)].
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🧠 Method
+
+<p align="center">
+  <img src="assets/diagrams/framework_architecture.png" alt="Two-stage framework: frozen latent autoencoder (Stage 1) and the Latent CFM module with conditional DiT-XL/2 encoder, β-VAE encoder and conditional DiT-XL/2 decoder (Stage 2)" width="95%">
+</p>
+<p align="center"><sub><b>Overview of the proposed multi-stage framework.</b> (a) Training: latent compression (Stage 1) is followed by conditional flow-based generation (Stage 2). (b) Inference: reverse-time sampling from noise, guided by the semantic codes $\boldsymbol{z}_t$. ❄️ frozen, 🔥 trained.</sub></p>
+
+We refer to the resulting model class as **Latent Conditional Flow Matching (LCFM)**. Following standard practice [[20](#ref-20)], training and inference are divided into two stages.
+
+> **Time convention.** As in recent flow matching literature [[1](#ref-1), [21](#ref-21)], time flows forward from a Gaussian source $p_0$ at $t = 0$ to the data distribution $p_1$ at $t = 1$. Experiments are named **$t_\text{source} \rightarrow t_\text{target}$**: the β-VAE encodes $\boldsymbol{x}_{t_\text{source}}$ and reconstructs $\boldsymbol{x}_{t_\text{target}}$ (e.g. $0.50 \rightarrow 1.00$ is a *denoising* task, $0.50 \rightarrow 0.50$ a *reconstruction* task).
+
+### Stage 1 — Semantic latent compression
+
+The pre-trained, frozen KL-autoencoder of Latent Diffusion [[20](#ref-20)] maps an image $\boldsymbol{x} \in \mathbb{R}^{256 \times 256 \times 3}$ to a latent $\boldsymbol{x}_1 = \mathcal{E}_\varphi(\boldsymbol{x}) \in \mathbb{R}^{32 \times 32 \times 4}$ (downsampling factor $f = 8$, scaling factor $0.18215$). This removes imperceptible high-frequency detail while preserving semantic content; all further components operate in this latent space $\mathcal{W}$.
+
+### Stage 2 — Latent conditional flow matching
+
+**Flow matching background.** A one-sided linear interpolant defines straight conditional paths from noise $\boldsymbol{x}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ to data $\boldsymbol{x}_1 \sim p_1$ with a constant target velocity [[1](#ref-1), [3](#ref-3), [21](#ref-21)]:
+
+```math
+\boldsymbol{x}_t = (1 - t)\,\boldsymbol{x}_0 + t\,\boldsymbol{x}_1, \qquad \boldsymbol{u}_t = \frac{d\boldsymbol{x}_t}{dt} = \boldsymbol{x}_1 - \boldsymbol{x}_0 .
+```
+
+A neural velocity field $\boldsymbol{v}_\theta$ is regressed onto this target with the **conditional flow matching** objective [[1](#ref-1), [22](#ref-22)]; samples are generated by integrating the probability flow ODE $d\boldsymbol{x}_t/dt = \boldsymbol{v}_\theta(\boldsymbol{x}_t, t)$ with a first-order Euler solver (50 steps).
+
+<details>
+<summary><b>Why straight paths and an ODE?</b></summary>
 <br>
 
-To generate new samples, we reverse the forward process:
+The flow $\boldsymbol{\phi}_t$ of a smooth velocity field pushes the source density forward, $p_t = (\boldsymbol{\phi}_t)_{\sharp}\, p_0$, and its evolution obeys the continuity equation $\partial_t p_t = -\nabla \cdot (p_t\, \boldsymbol{u}_t)$. Regressing $\boldsymbol{v}_\theta$ on the intractable marginal field $\boldsymbol{u}_t(\boldsymbol{x})$ is replaced by regression on the closed-form *conditional* field $\boldsymbol{u}_t(\boldsymbol{x} \mid \boldsymbol{x}_0, \boldsymbol{x}_1)$; both objectives have identical gradients [[1](#ref-1)]. Under a Gaussian source the conditional flows are optimal-transport paths: straighter, lower-curvature trajectories that need fewer function evaluations and accumulate less discretisation error than the curved paths of SDE-based diffusion models [[23](#ref-23), [24](#ref-24)]. Because the dynamics are deterministic, the forward ODE is (approximately) invertible, which is the cycle-consistency property exploited below [[13](#ref-13)].
 
-1. **Initialize** $\mathbf{z}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$
-2. **Denoise**: predict the clean sample with a neural network (denoiser): $\hat{\mathbf{x}} = \hat{\mathbf{x}}(\mathbf{x}_t;\, t)$
-3. **Project back** to a lower noise level $s < t$:
+</details>
+
+#### ① Guidance-free noise space (class-conditional SiT-XL/2 encoder, frozen)
+
+A pre-trained, class-conditional SiT-XL/2 [[7](#ref-7), [8](#ref-8)] defines a time-dependent velocity field $\boldsymbol{v}_\theta(\boldsymbol{x}_t, t, \boldsymbol{y})$. Integrating it **forward in time** transports each clean latent $\boldsymbol{x}_1$ along approximately straight conditional OT paths towards the Gaussian prior, producing progressively noisier latent states $\boldsymbol{x}_t$ that define a flow-based latent space $\mathcal{V}$. We refer to it as a **guidance-free noise space** [[9](#ref-9)]: unlike i.i.d. Gaussian noise, its codes remain linearly correlated with object shape, colour distribution, viewpoint and class identity, and reconstruct their input without additional guidance. The guidance scale is fixed to $\omega = 1$ (the native conditional velocity) to avoid over-saturation and preserve diversity [[4](#ref-4), [25](#ref-25)].
+
+<p align="center">
+  <img src="assets/diagrams/latent_noise_codes1.png" width="70%" alt="Forward ODE noise codes x_t at increasing noise levels">
+</p>
+
+**Dataset.** The resulting *Guidance-Free ImageNet-256* dataset contains **500k training, 100k validation and 10k test pairs** $(\boldsymbol{x}_1, \boldsymbol{x}_t)$ from ImageNet-256 [[26](#ref-26)] (class-balanced, ≈208 GB), with $t$ discretised on $\{1.0, 0.9, \dots, 0.0\}$.
+
+#### ② β-VAE self-guidance encoder (trained)
+
+A fully transformer-based, symmetric **Skip-ViT β-VAE** [[5](#ref-5), [27](#ref-27)] (12 encoder + 12 decoder blocks, patch size 2, ≈80M parameters) compresses $\boldsymbol{x}_t$ into a global, non-spatial bottleneck token $\boldsymbol{z}_t \in \mathbb{R}^{1024}$. Long-range **cross-attention skip connections** inside encoder and decoder improve gradient flow, while cross-connections between the two networks are deliberately omitted to keep a true information bottleneck. The objective balances reconstruction and regularisation towards an isotropic Gaussian prior [[5](#ref-5), [28](#ref-28)]:
+
 ```math
-\mathbf{z}_{s} = \alpha_{s}\,\hat{\mathbf{x}} + \sigma_{s}\,\hat{\boldsymbol{\epsilon}}, \qquad \hat{\boldsymbol{\epsilon}} = \frac{\mathbf{x}_t - \alpha_t\,\hat{\mathbf{x}}}{\sigma_t}
-``` 
+\mathcal{L}_{\beta\text{-VAE}}(\theta, \phi; \boldsymbol{x}_t) = - \mathbb{E}_{q_\phi(\boldsymbol{z}_t \mid \boldsymbol{x}_t)}\big[\log p_\theta(\boldsymbol{x}_{t_\text{target}} \mid \boldsymbol{z}_t)\big] + \beta \, D_\mathrm{KL}\big(q_\phi(\boldsymbol{z}_t \mid \boldsymbol{x}_t) \,\|\, \mathcal{N}(\mathbf{0}, \mathbf{I})\big)
+```
 
-> [!NOTE]
-> This is the **DDIM sampler**. All stochasticity is concentrated in the initial sample $\mathbf{z}_1$, the entire reverse process is deterministic.
+Higher $\beta$ limits bottleneck capacity and encourages disentangled, axis-aligned factors; lower $\beta$ retains more detail — the classic disentanglement–fidelity trade-off.
+
+#### ③ Self-guided flow matching decoder (trained)
+
+Because the lossy bottleneck discards high-frequency detail, a **context-conditional DiT-XL/2 velocity decoder** (initialised from SiT-XL/2, 677M parameters) transports Gaussian noise back to the latent image manifold. $\boldsymbol{z}_t$ is projected by a two-layer MLP, appended to the token sequence and injected into every block via AdaLN-Zero [[8](#ref-8), [12](#ref-12)]:
+
+```math
+\mathcal{L}_\text{CFM}(\theta) = \mathbb{E}_{t \sim \mathcal{U}(0,1),\, \boldsymbol{x}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I}),\, \boldsymbol{x}_1 \sim p_1} \big\| \boldsymbol{v}_\theta(\boldsymbol{x}_t, t, \boldsymbol{z}_t) - (\boldsymbol{x}_1 - \boldsymbol{x}_0) \big\|^2
+```
+
+#### ④ Self-guidance algorithm
+
+<img align="right" src="assets/diagrams/algorithm_self_guidance.png" width="44%" alt="Algorithm 1: Self-guidance for semantic control">
+
+Inspired by classifier-free guidance [[4](#ref-4)], conditioning dropout replaces $\boldsymbol{z}_t$ by a learnable null token $\boldsymbol{z}_\varnothing$ with $p_\text{drop} = 0.1$ (and optionally the class label $\boldsymbol{y}$ by $\boldsymbol{y}_\varnothing$). At inference, two independently tunable scales steer **self-guidance** ($\omega_z$) and **class guidance** ($\omega_y$) around a shared unconditional base velocity:
+
+```math
+\begin{aligned}
+\boldsymbol{v}_\text{CFG}(\boldsymbol{x}_t, t) = \;& \boldsymbol{v}_\theta(\boldsymbol{x}_t, t; \boldsymbol{z}_\varnothing, \boldsymbol{y}_\varnothing) \\
+&+ \omega_z \big(\boldsymbol{v}_\theta(\boldsymbol{x}_t, t; \boldsymbol{z}_t, \boldsymbol{y}_\varnothing) - \boldsymbol{v}_\theta(\boldsymbol{x}_t, t; \boldsymbol{z}_\varnothing, \boldsymbol{y}_\varnothing)\big) \\
+&+ \omega_y \big(\boldsymbol{v}_\theta(\boldsymbol{x}_t, t; \boldsymbol{z}_\varnothing, \boldsymbol{y}) - \boldsymbol{v}_\theta(\boldsymbol{x}_t, t; \boldsymbol{z}_\varnothing, \boldsymbol{y}_\varnothing)\big)
+\end{aligned}
+```
+
+| Scale | Effect |
+|---|---|
+| $\omega = 0$ | unconditional model |
+| $\omega = 1$ | standard conditional model |
+| $\omega > 1$ | sharpens the conditional distribution towards high-probability modes |
+
+<br clear="right"/>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 📊 Results
+
+All β-VAE models share architecture, hyper-parameters and optimisation settings. Fidelity is measured in latent space (PSNR, MSE, MAE, cosine similarity); **latent smoothness** along linear interpolations with **L-PPL** and **L-ISTD** — latent variants of perceptual path length [[16](#ref-16)] and inter-step distance [[17](#ref-17)] that isolate encoder quality from decoder effects (values ×10⁻⁴, lower is smoother).
+
+<details open>
+<summary><b>Effect of the source noise level</b> (denoising, t<sub>target</sub> = 1.00, β = 0.1)</summary>
+<br>
+
+| $t_\text{source} \rightarrow t_\text{target}$ | PSNR ↑ | MSE ↓ | MAE ↓ | CosSim ↑ | L-PPL ↓ | L-ISTD ↓ |
+|---|---|---|---|---|---|---|
+| 0.00 → 1.00 | 17.41 | 0.0182 | 0.108 | 0.969 | **0.3015** | **0.0512** |
+| 0.20 → 1.00 | 17.24 | 0.0189 | 0.110 | 0.957 | 0.8077 | 0.1122 |
+| 0.30 → 1.00 | 18.70 | 0.0135 | 0.093 | 0.976 | 0.3253 | 0.0551 |
+| 0.40 → 1.00 | 19.38 | 0.0115 | 0.086 | 0.979 | 0.3018 | 0.0513 |
+| 0.50 → 1.00 | **20.94** | **0.0100** | **0.079** | **0.981** | 0.5709 | 0.1194 |
+
+Medium noise yields the **highest fidelity**: enough residual structure remains to recover the clean manifold. Pure noise ($t = 0$) gives the smoothest paths, but strong corruption smooths the input signal and may cause collapse or trivial solutions.
+
+</details>
+
+<details>
+<summary><b>Effect of the β regularisation strength</b> (0.20 → 1.00)</summary>
+<br>
+
+| $\beta$ | PSNR ↑ | MSE ↓ | MAE ↓ | CosSim ↑ | L-PPL ↓ | L-ISTD ↓ |
+|---|---|---|---|---|---|---|
+| 1e-4 | **17.75** | **0.0118** | **0.1031** | 0.9694 | 0.8463 | 0.1243 |
+| 0.1 | 17.24 | 0.0189 | 0.1096 | 0.9568 | 0.8077 | 0.1122 |
+| 0.5 | 16.59 | 0.0270 | 0.1318 | 0.9542 | 0.8753 | 0.1542 |
+| 1.0 (standard VAE) | 17.57 | 0.0175 | 0.1052 | 0.9648 | 0.5305 | 0.0884 |
+| 2.0 | 17.45 | 0.0127 | 0.1190 | 0.9606 | **0.5015** | **0.0702** |
+| 3.0 | 17.18 | 0.0192 | 0.1105 | 0.9670 | 0.8878 | 0.1044 |
+| 5.0 | 14.99 | 0.0317 | 0.1564 | **0.9808** | 0.8515 | 0.1169 |
+
+The **disentanglement–fidelity trade-off**: the lowest β lets the encoder capture the most fine-grained information, while smoothness follows a **U-shaped** trend with its optimum at β = 2.0 — very low and very high bottleneck pressure both reduce smoothness.
+
+<p align="center"><img src="assets/diagrams/table_beta_smooth_bvae_vis.png" width="45%" alt="U-shaped latent smoothness over beta"></p>
+
+</details>
+
+<details>
+<summary><b>Self-guidance scale ω<sub>z</sub></b> (0.50 → 1.00, β = 0.1, no external class labels, 50k samples, 50 Euler steps)</summary>
+<br>
+
+| $\omega_z$ | gFID ↓ | LPIPS ↓ | SSIM ↑ | PSNR ↑ | MSE ↓ |
+|---|---|---|---|---|---|
+| 1 | 50.10 | 0.556 | 0.305 | 15.78 | 0.0298 |
+| **3** | **24.50** | **0.495** | **0.371** | **18.65** | **0.0212** |
+| 5 | 38.90 | 0.535 | 0.333 | 16.21 | 0.0395 |
+| 7 | 50.60 | 0.570 | 0.306 | 15.12 | 0.0460 |
+| 9 | 62.40 | 0.608 | 0.280 | 14.21 | 0.0528 |
+
+Intermediate guidance ($\omega_z \approx 3$) performs best [[29](#ref-29), [30](#ref-30)]; stronger guidance over-constrains generation, reduces entropy and leads to over-smoothed or over-saturated samples.
+
+</details>
+
+### Self-guided reconstructions
+
+<p align="center"><img src="assets/diagrams/visual_generated_samples.png" width="100%" alt="Samples generated by the self-conditioned DiT-XL/2 velocity decoder"></p>
+
+Reconstructions maintain **layout, colour distribution, lighting and object location** of the ground truth. Fine-grained stochastic detail remains challenging — very small objects, background foliage and distinctive patterns such as leopard spots or fish scales.
+
+### Semantically meaningful latent interpolation
+
+Linear interpolation between two self-guidance codes assumes a locally Euclidean $\mathcal{Z}$-space shaped by the KL regularisation. Below, fur patterns are manipulated while background, posture and facial expression of the source are preserved:
+
+<p align="center"><img src="assets/diagrams/visual_linear_interpolation.png" width="100%" alt="Linear interpolation between leopard and lion self-guidance codes"></p>
+
+High-frequency textures (e.g. fur) can persist longer than coarse features such as posture — a perceptual *"sticky"* effect, since latent axes of the β-VAE are regularised but not semantically guaranteed.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🚀 Quickstart
+
+**Requirements:** Python 3.12, [uv](https://docs.astral.sh/uv/), a CUDA GPU for real training (the smoke test runs on CPU).
+
+```bash
+git clone https://github.com/JaninaMattes/NoiseGuided-SmoothLFM.git
+cd NoiseGuided-SmoothLFM
+make install          # uv sync --locked: exact, pinned environment in .venv
+make test             # configs compose, all targets import, tracking works  (~15 s)
+make smoke            # trains both stages for 4 steps on dummy data, logged to MLflow
+```
+
+`make` lists all targets. Each experiment is **one command**:
+
+```bash
+# Stage 2a — β-VAE self-guidance encoder (thesis setting 0.50 -> 1.00, β = 0.1)
+make train-bvae
+
+# Ablations are plain Hydra overrides
+make train-bvae ARGS="source_timestep=0.20 model.params.beta=5.0"
+
+# Stage 2b — self-guided SiT-XL/2 velocity decoder on top of a trained β-VAE
+make train-decoder BVAE_CKPT=logs_dir/imnet256/bvae-skipvit-b-2/.../checkpoints/last.ckpt
+
+# Anything else
+make experiment CONFIG=rf_config EXP=imnet256/sit-xl-2_context_cond ARGS="devices=4 use_wandb=True"
+```
+
+<details>
+<summary><b>Data and checkpoints for the real experiments</b></summary>
+<br>
+
+| Artifact | Expected path | Source |
+|---|---|---|
+| SD KL-autoencoder (Stage 1) | `checkpoints/sd_ae.ckpt` | Latent Diffusion [[20](#ref-20)] |
+| SiT-XL/2 256×256 (forward encoder, decoder init) | `checkpoints/SiT-XL-2-256x256.pt` | [willisma/SiT](https://github.com/willisma/SiT) |
+| Guidance-free ImageNet-256 (HDF5) | `dataset/processed/...` (see `configs/data/imagenet256_hdf5_v0.yaml`) | built with `dataprocessing/pipeline/` |
+| Trained β-VAE (for Stage 2b) | `BVAE_CKPT=...` | output of `make train-bvae` |
+
+Paths are plain config values and can be overridden, e.g. `ARGS="data.params.hdf5_file=/data/gf-imagenet256.hdf5"`.
+
+</details>
+
+<details>
+<summary><b>Configuration layout (Hydra)</b></summary>
+<br>
+
+| Root config | Trains | Key knobs |
+|---|---|---|
+| `configs/bvae_config.yaml` | β-VAE encoder (`ldm/trainer_bvae_ti2.py`) | `source_timestep`, `target_timestep`, `model.params.beta` |
+| `configs/rf_config.yaml` | self-guided decoder (`ldm/trainer_rf_vae.py`) | `source_timestep`, `ldm_autoencoder`, `trainer_module.params.use_context` |
+
+Config groups: `model/`, `data/`, `autoencoder/` (Stage 1), `flow/` (forward encoder), `ldm_autoencoder/` (frozen β-VAE), `metrics/`, `lr_scheduler/`, and `experiment/` (complete, reproducible settings — `imnet256/*` for the thesis, `smoke/*` for CI-style checks). `source_timestep`/`target_timestep` are set **once** at the root and propagate to the trainer and the data loaders.
 
 </details>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## 📈 Experiment Tracking
 
+Every run is stored under `logs_dir/<name>/<date>/<slurm-id | time>/` with its resolved `config.yaml` (including the launching command), checkpoints and a local `metrics.csv`. On top, runs are tracked in **MLflow** and/or **Weights & Biases**:
 
-### Flow Matching
+| Config key | Default | Effect |
+|---|---|---|
+| `use_mlflow` | `True` | MLflow run with parameters, per-step metrics, run info tags and `config.yaml` artifact |
+| `mlflow_tracking_uri` | `file:./mlruns` | or set `MLFLOW_TRACKING_URI` to use a tracking server |
+| `use_wandb` / `use_wandb_offline` | `False` | W&B run (online or offline) with the same metrics and config |
+| `log_images` | `True` | sample and reconstruction grids are logged to **every** enabled backend |
 
-The forward process is a **linear interpolation** between data $\mathbf{x}$ and noise $\boldsymbol{\epsilon}$:
-```math
-\mathbf{x}_t = (1 - t)\,\mathbf{x} + t\,\boldsymbol{\epsilon}, \qquad t \in [0, 1]
-```
-
-This recovers the diffusion forward process under the schedule $\alpha_t = 1-t,\; \sigma_t = t$. The evolution between timesteps $s < t$ is then **linear**:
-```math
-\mathbf{x}_t = \mathbf{z}_s + \mathbf{u}\,(t - s)
-```
-
-where $\mathbf{u} = \boldsymbol{\epsilon} - \mathbf{x}$ is the **velocity field**. Rather than predicting noise (as in DDPM), **our model learns to predict this velocity directly**, tracing a straight-line path from data to noise. Such trajectories are smoother and hence reduce path curvature compared to curved diffusion paths, which is advantageous at inference.
-
-> [!NOTE]
-> Lower curvature means fewer NFE (Number of Function Evaluations) , faster and computationally cheaper generation, with less accumulated numerical error during discretisation.
-### Probability Flow ODE
-
-Song et al. show that any stochastic diffusion Stochastic Differential Equation (SDE) can be reformulated as a deterministic **probability flow ODE**, while preserving identical marginal densities $p_t(\mathbf{x})$ at every timestep. This means noise injection is not required during generation.
-
-<p align="center">
-  <img src="assets/diagrams/diagram_ode_sde_sampling.png" alt="SDE vs ODE sampling diagram" width="60%">
-</p>
-
-<details>
-<summary><b>SDE to ODE Equivalence</b></summary>
-<br>
-
-*(TODO: Add derivation or Song et al. formulation here.)*
-
-</details>
-
-New samples are generated from $\mathbf{z}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ by discretising the reverse-time ODE with a numerical solver. This work uses the **first-order Euler method**.
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-
-### Stochastic Interpolant Framework
-
-The **stochastic interpolant** framework [(Albergo & Vanden-Eijnden, 2023)](https://arxiv.org/abs/2209.15571) provides a principled way to construct a time-dependent probability path $\rho(t)$ that bridges any source density $\rho_0$ (e.g. Gaussian noise) and target density $\rho_1$ (e.g. natural images). Crucially, the design of this interpolant is **decoupled from the choice of sampler**, the same learned $\rho(t)$ can be sampled with either a deterministic ODE or a stochastic SDE.
-
-This work builds on the **SiT (Scalable Interpolant Transformer)** architecture [(Ma et al., 2024)](https://arxiv.org/abs/2401.08740), which applies the stochastic interpolant framework at scale for image synthesis. SiT replaces the denoising objective of Diffusion Transformer (DiT) [(Peebles & Xie, 2023)](https://arxiv.org/abs/2212.09748) with a velocity prediction objective, inheriting the flexibility of the interpolant framework while retaining the scalability of transformer-based Diffusion Models.
-
-<p align="center">
-  <img src="assets/diagrams/diagram_stochastic_interpolants.png" alt="ODE vs SDE sampling trajectories under the stochastic interpolant framework" width="60%">
-</p>
-
-> Both samplers trace different trajectories but share the same marginal density $\rho(t)$ at every timestep $t$ — a result established by Song et al. This means ODE and SDE samplers are interchangeable without retraining.
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-## Architecture
-
-The framework follows the standard Latent Diffusion Model architecture introduced by Stable Diffusion, adopting a two-stage process that operates entirely in a learned lower-dimensional latent space. The β-Variational Autoencoder (ß-VAE) follows a ViT-based architecture, whereas the diffusion backbone is based on Scalable Interpolant Transformers (SiT).
-
-### Hybrid Representation Learning Framework
-
-The core motivation behind this framework is to jointly optimise for three desirable properties.
-
-<p align="center">
-  <img src="assets/diagrams/diagram_representation_learning.png" alt="Hybrid Representation Learning Framework diagram" width="70%">
-</p>
-
-**Representation Quality**
-- A lower-dimensional latent space that is both decodable and semantically meaningful
-- Disentangled, smooth latent codes that improve human interpretability and with it model behaviour steerability
-
-**Controllable Generation**
-Controllability is one of the most important characteristics of generative models, as it allows synthesis to be closely conditioned on a guidance signal — here, the non-spatial Self-Guidance code extracted by the $\beta$-VAE encoder.
-
-**Inference Efficiency**
-High-fidelity generation is only practically useful if inference is fast enough for real-world deployment. This framework targets both simultaneously.
-
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-### Stage 1: Semantic Compression
-
-Rather than operating directly in high-dimensional pixel space, this work follows the **Latent Diffusion Model** paradigm [(Rombach et al., 2022)](https://arxiv.org/abs/2112.10752), the foundation behind Stable Diffusion, where the diffusion process is learned entirely in a compressed latent space. 
-
-<p align="center">
-  <img src="assets/diagrams/framework_stage1.png" alt="Framework Architecture Diagram" width="80%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
-</p>
-
-This work utilises the open-source available and pre-trained, Stable Diffusion CNN-VAE encoder and decoder are utilised for semantic compression and decompression over ImageNet 256 × 256. Together, they are defining the fixed latent space in which the Conditional Flow Matching module is then trained. Operating in a slightly compressed latent space reduces not only computational complexity, but also benefits from a lower-variance, more regularised Gaussian latent space.
-
-#### Latent Space Compression via CNN-VAE
-
-A pre-trained **CNN-VAE** encoder maps each image $\mathbf{x} \in \mathbb{R}^{H \times W \times 3}$ into a lower-dimensional latent code $\mathbf{z} \in \mathbb{R}^{h \times w \times c}$, on which the Flow Matching objective is applied. While the latent samples remain "image-like", a slight compression is computationally advantageous: the latent space is significantly smaller than pixel space, reducing both memory and the number of forward passes required during training and inference.
-
-
-<p align="center">
-  <img src="assets/diagrams/latent_noise_codes0.png" alt="Ground truth ImageNet samples vs. CNN-VAE latent representations" width="80%">
-</p>
-
-The figure compares ground-truth ImageNet samples (pixel space) with their CNN-VAE latent representations. The latent codes are 4-channel tensors, visualised here by dropping the 4th channel to produce a plottable RGB image. While they no longer look like natural images, they retain the spatial structure that the Diffusion or Flow Matching model then learns to generate before it is mapped back to the output space.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-### Stage 2: Latent Conditional Flow Matching (CFM)
-
-<p align="center">
-  <img src="assets/diagrams/framework_stage2.png" alt="Framework Architecture Diagram" width="80%">
-</p>
-
-This work is built on the SiT framework, learning ODE-based models to follow straight trajectories connecting a Gaussian source distribution $\pi_0$ and the ImageNet $256 \times 256$ target distribution $\pi_1$ as directly as possible.
-
-
-#### Flow Matching Decoder (DiT-XL/2)
-
-To address the high-frequency information loss (e.g. fine-grained stochastic details, hair strains etc.) inherent when using a $\beta$-Variational Autoeoncder (VAE) when operating within the learned Flow Matching latent noise space, this work adopts a **decoupled two-model design**:
-
-- A **forward-time class-conditional DiT-XL/2 encoder** that extracts high-level semantic features from the noisy latent $\mathbf{x}_t$
-- A **reverse-time self-conditional DiT-XL/2 decoder** that reconstructs the missing high-frequency detail conditioned on ß-VAE features to recover the target sample $\mathbf{x}_0$
-
-Rather than relying on a single module to both denoise and reconstruct, each model is free to specialise for its respective task.
-
-The two models are coupled via a **Self-Guidance** mechanism, which acts as an information channel between encoder and decoder during synthesis. Self-Guidance extends classical classifier-free guidance [(Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598) beyond discrete class labels, conditioning the decoder not only on class information but also on the **continuous embedding vector** extracted by the pre-trained and frozen $\beta$-VAE encoder. This allows the decoder to recover structural and perceptual detail that the $\beta$-VAE bottleneck would otherwise discard. The learned conditional probability paths are illustrated below.
-
-<p align="center">
-  <img src="assets/diagrams/framework_flow_matching_decoder.png" alt="Flow Matching Decoder architecture diagram" width="50%">
-</p>
-
-#### $\beta$-Variational Autoencoder ($\beta$-VAE)
-
-Classical Autoencoders [(Hinton & Salakhutdinov, 2006)](https://www.science.org/doi/10.1126/science.1127647) make use of an encoder and decoder network, trained in a fully self-supervised way to reconstruct the original input while learning a compressed intermediate representation, a form of dimensionality reduction.
-
-A **Variational Autoencoder (VAE)** [(Kingma & Welling, 2014)](https://arxiv.org/abs/1312.6114) does not map the input to a fixed vector, but instead to a Gaussian distribution $p_\theta$, parameterised by $\theta$. The **$\beta$-VAE** extends this by seeking to map data points to latent codes that follow a structured, disentangled Gaussian distribution, from which data can be generated and manipulated. The model is made trainable by explicitly learning the mean $\boldsymbol{\mu}$ and variance $\boldsymbol{\sigma}^2$ of the distribution via the **reparameterisation trick**, which separates the deterministic parameters from the stochastic random variable $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$:
-```math
-\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\epsilon}
-```
-
-If each variable in the inferred latent representation 
- is only sensitive to one single generative factor and relatively invariant to other factors, we will say this representation is disentangled or factorized. One benefit that often comes with disentangled representation is good interpretability and easy generalization to a variety of tasks.
-
-##### ß-VAE Architecture & Vision Transformer
-
-The architecture is based on a highly scalable Vision Transformer (ViT) architecture design which makes use of patch embeddings and Transformer blocks. 
-
-<p align="center">
-  <img src="assets/diagrams/framework_beta_vae.png" alt="Framework Architecture Diagram" width="70%" style="border-radius:10px; background-color:#2e2e2e; padding:10px;">
-</p>
-
-The modules additionally introduces cross-attention skip connections in encoder and decoder to control the flow of information from earlier to later layers. Improves gradient flow during training.
-Preserves fine-grained input details, especially under high input noise settings.
-
-
-Both the Flow Matching module and the β-VAE operate entirely within the fixed CNN-VAE autoencoder latent space, thereby shaping the prior distribution. Together the CFM module allows for abstract high-level feature information extraction and detailed object appearance recovery. 
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-## Training Dataset
-
-The $\beta$-VAE training data is derived from the pre-trained Flow Matching model directly, due to which no external dataset, nor annotations are required. When running the neural ODE forward each latent image $\mathbf{x}_0$ is mapped to a unique, corresponding noise sample $\mathbf{x}_t$ in the learned noise space. To avoid limiting sample diversity, the classifier-free guidance scale is fixed at $w = 1$ (unconditional) throughout. 
-
-#### Forward Diffusion Process
-
-Applying the ODE-based forward process to a compressed latent code $\mathbf{x}_0$ produces a sequence of progressively noisier latent representations $\mathbf{x}_t$ at increasing timesteps $t \in [0, 1]$:
-
-<p align="center">
-  <img src="assets/diagrams/latent_noise_codes1.png" width="70%">
-  <img src="assets/diagrams/latent_noise_codes2.png" width="70%">
-  <img src="assets/diagrams/latent_noise_codes3.png" width="70%">
-</p>
-
-For temporal coverage, pairs $(\mathbf{x}_t, \mathbf{x}_0)$ are collected at subsampled timesteps:
-```math
-t \in \{0.0,\ 0.2,\ 0.5,\ 0.7,\ 0.8\}
-```
-
-> **Note:** The visualisations above are not representative of the true latent space as the 4th channel is dropped for RGB plotting purposes only. Alternatively convolution can be used to enforce a 3-channel output.
-
-
-#### Building "Guidance-Free" Noise Spaces
-
-This work is motivated by the previously described **deterministically structured noise spaces** [(Preechakul et al., 2021)](https://arxiv.org/abs/2111.15640), referred to here as *"Guidance-Free"* [(Zhou et al., 2024)](https://arxiv.org/abs/2411.09502). Under ODE-based Flow Matching we perform interpolation between Gaussian noise and image samples. Hence, the learned noise samples $\mathbf{x}_t$ along the conditional probability path are unique as they retain all necessary high-level semantic information about their input $\mathbf{x}_0$ (e.g., colour, shape, location, object identity, silhouette) which allows almost full reconstruction (i.e., cycle-consistency). This enables high-quality image synthesis **without classifier-free guidance** [(Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598).
-
-
-<p align="center">
-  <img src="assets/diagrams/forward_ode_noise.png" alt="Forward ODE noise space diagram" width="50%">
-</p>
-
-
-This is possible because samples $\mathbf{x}_t$ generated deterministically along the probability path are **unique** since they retain the necessary high-level semantic information about the original sample $\mathbf{x}_0$, including silhouette, colour, shape, and location. As a result, the forward and reverse processes form a consistent cycle: encoding $\mathbf{x}_0 \to \mathbf{x}_1$ and decoding $\mathbf{x}_1 \to \mathbf{x}_0$ recovers the original up to the numerical error introduced by ODE discretisation, a property known as **cycle consistency**.
-
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-#### Latent Denoising via $\beta$-VAE
-
-To learn structure within the learned Flow Matching noise space, the **$\beta$-VAE** receives a noisy latent sample $\mathbf{x}_t$ (e.g. at $t = 0.5$) and learns to extract high-level semantic features of the target distribution , including location, shape, colour, and silhouette , producing a compressed, non-spatial vector code.
-
-The figure below compares ground-truth ImageNet 256×256 samples against clean $\beta$-VAE reconstructions decoded back to image space by a fixed CNN-VAE decoder. Accounting for CNN-VAE decoding errors, this broadly illustrates what semantic information the model retains:
-
-<p align="center">
-  <img src="assets/diagrams/latent_representations.png" alt="Ground truth vs beta-VAE reconstructions" width="80%">
-</p>
-
-While the $\beta$-VAE successfully recovers coarse semantic structure, it cannot reintroduce **high-frequency detail** destroyed during the forward corruption process. Even with a bottleneck size of 1024, object textures, fine edges, and sharp boundaries remain irrecoverable. The right panel illustrates that the reconstructed latent $\hat{\mathbf{z}}_0$ is semantically close to $\mathbf{x}_0$ but not identical , and the CNN-VAE decoder cannot faithfully map it back to pixel space. Decoded samples are blurry, retaining only object location, light distribution, and colour while losing all fine-grained, stochastic structure.
-
-> [!Note]
-> The loss of high-frequency information in the $\beta$-VAE bottleneck, compounded by the already-corrupted noise input, is irrecoverable at the decoding stage, even when semantic denoising is accurate.
-
-This limitation motivates the use of decoupled design, utilising **Self-Guidance** in a subsequent step: a separate Flow Matching model conditioned on the non-spatial $\beta$-VAE vector code bridges the gap between coarse semantic structure and sharp, high-fidelity output.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-## Ablation
-
-To evaluate model quality, a suite of quantitative methods (PCA, t-SNE, Linear Probing, Latent Smoothness (L-PPL, L-ISTD), and error metrics (F1, KLD, MSE, PSNR, CosSim)) and qualitative methods (linear interpolation, visual confusion matrix) is used.
-
-<details>
-<summary><b>Further Analysis</b></summary>
-<br>
-
-#### Reconstruction Output Fidelity & Latent Smoothness
-
-To analyse the impact of architectural choices on the quality of the Self-Guidance codes, ablation studies are performed along two axes: **(1) Output Fidelity**, measured by MSE and PSNR, and **(2) Latent Path Smoothness**, measured by L-PPL and L-ISTD. To avoid negative effects on output fidelity, the $\beta$-hyperparameter is fixed to a small value throughout.
-
-<p align="center">
- <img src="assets/diagrams/table_reconstruction_bvae.png" width="40%">
-</p>
-
-As shown in the table, the best results are achieved at **medium noise levels**, where recovering structure from residual patterns in the input is easier than reconstructing samples at lower timesteps, where large levels of stochasticity must be resolved.
-
-<p align="center">
- <img src="assets/diagrams/table_reconstruction_smooth_bvae.png" width="40%">
-</p>
-
-Latent path smoothness is measured via L-PPL and L-ISTD, which compute perceptual differences between two randomly selected images defining a short path segment, as well as the variance between an adjacent pair.
-
-
-
-#### Denoising Output Fidelity
-
-A second ablated task is denoising, where the model is asked not to reproduce its noisy input but to map it back to the clean image manifold under varying noise levels.
-
-<p align="center">
- <img src="assets/diagrams/table_denoising_bvae.png" width="40%">
-</p>
-
-Similarly, **medium noise levels** yield the best denoising fidelity. More corrupted samples are pushed further from the latent image manifold, making the task increasingly difficult for the $\beta$-VAE.
-
-<p align="center">
- <img src="assets/diagrams/table_denoising_smooth_bvae.png" width="40%">
-</p>
-
-As observed in the reconstruction experiment, higher input noise levels produce better smoothness values , though this may partly stem from implicit over-smoothing of the latent manifold.
-
-
-
-#### Effect of Increasing $\beta$ Regularisation Strength
-
-Finally, the effect of increasing $\beta$-hyperparameter pressure on bottleneck capacity , and with it output fidelity and latent smoothness , is analysed.
-
-<p align="center">
- <img src="assets/diagrams/table_beta_bvae.png" width="40%">
-</p>
-
-The results confirm the known **disentanglement–fidelity trade-off** of $\beta$-VAEs: the highest output fidelity is achieved under the lowest $\beta$-pressures, allowing the encoder to capture more fine-grained information about its input.
-
-Latent smoothness, however, responds differently to $\beta$-pressure. The best smoothness values are achieved at a **medium $\beta = 2.0$**, with both lower and higher values degrading smoothness.
-
-<p align="center">
- <img src="assets/diagrams/table_beta_smooth_bvae.png" width="40%">
-</p>
-
-This trend is visualised below, revealing a characteristic **U-shaped curve** over $\beta$ values:
-
-<p align="center">
- <img src="assets/diagrams/table_beta_smooth_bvae_vis.png" width="40%">
-</p>
-
-</details>
-
-#### Generated Samples with Self-Conditioned DiT-XL/2 Velocity Decoder
-
-The suitability and content of the Self-Guidance code can be further assessed through selected qualitative results generated with the conditional DiT-XL/2 Velocity Decoder.
-
-<p align="center">
- <img src="assets/diagrams/visual_generated_samples.png" alt="Generated samples from Self-Conditioned DiT-XL/2 Velocity Decoder" width="100%">
-</p>
-
-The reconstructed images are not only high-quality, but also highly faithful in their characteristics to the ground truth. However, fine-grained stochastic patterns remain difficult to fully recover — for example, background elements such as leaves and branches, or subtle fur textures in the Snow Leopard sample.
-
-This may be attributed to the loss of high-frequency information at high noise corruption levels in the $\beta$-VAE encoder input, due to which the aggregated Self-Guidance code retains less high-frequency and class-specific detail.
-
-
-#### Linear Interpolation
-
-Linear interpolation is a key qualitative method for evaluating the geometric structure of the auxiliary Bayesian latent space learned by the $\beta$-VAE. It rests on the assumption that this space is **locally linear and Euclidean**: two noisy latent codes, each corresponding to a real image at a specific timestep, are encoded by the pre-trained $\beta$-VAE encoder to produce their respective Self-Guidance codes, between which we interpolate.
-
-<p align="center">
-  <img src="assets/diagrams/algorithm_lerp.png" width="70%">
-</p>
-
-A well-structured latent space should naturally embed semantically similar images nearby. For example, a tiger and a leopard should cluster closer to each other than to unrelated classes. The interpolation between any two such codes should produce smooth, semantically consistent transitions rather than abrupt or incoherent outputs.
-
-
-<p align="center">
-  <img src="assets/diagrams/diagram_linear_interpolation.png" width="70%">
-</p>
-
-The results below illustrate the smoothness and disentanglement of learned concepts in the latent space. Interpolating between a **lion** and a **leopard** in latent space produces consistent, semantically meaningful transitions when decoded back to image space, confirming that the $\beta$-VAE has learned a structured and navigable representation.
-
-<p align="center">
-  <img src="assets/diagrams/visual_linear_interpolation.png" width="100%">
-</p>
-
-Other simpler interpolation samples can be observed in the following between two butterly species. 
-
-<p align="center">
-  <img src="assets/diagrams/visual_linear_interpolation_btfly.png" width="100%">
-</p>
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-## Self-Guidance Algorithm
-
-The Self-Guidance algorithm extends classifier-free guidance [(Ho & Salimans, 2022)](https://arxiv.org/abs/2207.12598). During training, a standard **10% random dropout** is applied, where the conditional signal is replaced with a learnable null token.
-
-<p align="center">
- <img src="assets/diagrams/algorithm_self_guidance.png" alt="Self-Guidance algorithm diagram" width="70%">
-</p>
-
-At inference, the guidance scale $w$ controls the influence of the conditioning signal:
-
-| $w$ | Setting | Effect |
-|-----|---------|--------|
-| $w = 0$ | Unconditional | The conditioning signal does not contribute to the output prediction |
-| $w = 1$ | Conditional | Standard conditional model |
-| $w > 1$ | Guided | Focuses sampling on high-probability modes, avoiding poorly modelled regions of the conditional data distribution |
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-### Built With
-![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.5.1-%23ee4c2c?logo=pytorch)
-![CUDA](https://img.shields.io/badge/CUDA-12.4-green?logo=nvidia)
-![License](https://img.shields.io/badge/license-MIT-lightgrey)
-
-
-For logging this project uses Wandb and Tensorboard.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
-
-### Prerequisites
-
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-  
-### Installation
-
-1. Clone the repo
- ```bash
-    git clone https://github.com/JaninaMattes/NoiseGuided-SmoothLFM.git
-    cd NoiseGuided-SmoothLFM
-```
-
-2. Create environment
 ```bash
-  conda create -n ldm-env python=3.12
-  conda activate ldm-env
+make mlflow-ui                                   # http://127.0.0.1:5000
+make train-bvae ARGS="use_wandb=True log_images=False"
 ```
 
-3. Install core packages
-```bash
-  conda install pytorch=2.5.1 torchvision pytorch-cuda=12.4 -c pytorch -c nvidia
-  conda install lightning=2.5.0 -c conda-forge
-  conda install -c conda-forge pillow matplotlib einops timm h5py pandas webdataset tensorboard wandb
+If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py).
+
+## 📁 Repository Structure
+
+```
+├── train.py                 # single training entry point (Hydra)
+├── Makefile                 # one-command install / test / smoke / train / mlflow-ui
+├── configs/                 # Hydra configs: root configs, groups and experiment/ presets
+├── ldm/
+│   ├── trainer_bvae_ti2.py  # Lightning module: β-VAE self-guidance encoder
+│   ├── trainer_rf_vae.py    # Lightning module: self-guided flow matching decoder
+│   ├── tracking.py          # MLflow / W&B / CSV loggers and image fan-out
+│   ├── frameworks/          # flow matching (fm.py), β-VAE, autoencoders
+│   ├── models/              # DiT/SiT backbones, Skip-ViT encoder/decoder, wrappers
+│   ├── metrics/             # image and latent-noise metric trackers
+│   └── dataloader/          # HDF5 / WebDataset / dummy data modules
+├── dataprocessing/          # build the guidance-free HDF5 dataset
+├── evaluation/              # quantitative & qualitative evaluation, smoothness metrics, plots
+├── scripts/slurm/           # cluster launch scripts
+├── tests/                   # config integrity and tracking tests
+└── docs/                    # thesis presentation
 ```
 
-4. Install additional packages
-```bash
-pip install hydra-core --upgrade
-pip install torch-fidelity torchdiffeq open_clip_torch notebook lpips pytorch-fid moviepy umap-learn
-pip install -U xformers --index-url https://download.pytorch.org/whl/cu124
-pip install git+https://github.com/joh-schb/jutils.git#egg=jutils
-```
-
-5. Run training
-```bash
-python train.py --config configs/your_config.yaml
-```
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## 🔭 Limitations & Future Work
 
-<!-- USAGE EXAMPLES -->
-## Usage
+- **Disentanglement vs. fidelity.** Fully disentangling latent factors while keeping high reconstruction accuracy remains hard — fine-grained and class-specific information is increasingly lost under high input noise and strong β, which can make the self-guidance signal ambiguous (e.g. a fox instead of a leopard).
+- **Metrics.** FID, LPIPS or PSNR offer limited insight into latent representation quality; more rigorous measures of smoothness and controllability beyond L-PPL and L-ISTD are needed [[31](#ref-31)].
+- **Robustness.** The self-conditioned velocity decoder struggles with out-of-distribution inputs, and global, non-spatial codes limit fine-grained spatial reasoning [[32](#ref-32)].
+- **Directions.** Finding meaningful edit directions via linear probes on $\boldsymbol{z}_t$ [[19](#ref-19)], frequency-aware guidance [[15](#ref-15)], 3D conditioning for physically plausible interpolation [[33](#ref-33)], and temporal feature extraction for long-range interpolation [[34](#ref-34)] — building on the representation learning perspective of [[35](#ref-35), [36](#ref-36)].
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+## 📚 Citation
 
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- ROADMAP -->
-## Roadmap
-
-- [x] using Flash Attention in ViT model
-- [x] using ```torch.compile```in PyTorch 2.0
-- [x] monitor global and local FID (over 50k images) and other metrics (PCA, t-SNE, MSE, CosSim etc.)
-- [x] use half-precison and AMP/bfloat16 support
-- [ ] refactor project structure
-
-Precision in likelihood calculation could likely be improved by:
-- [ ] Uniform / Gaussian Dequantization
-
-See the [open issues](https://github.com/github_username/repo_name/issues) for a full list of proposed features (and known issues).
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- LICENSE -->
-## License
-
-Distributed under the MIT License. See `LICENSE.txt` for more information.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-<!-- CONTACT -->
-## Contact
-
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email@email_client.com
-
-Project Link: [https://github.com/JaninaMattes/NoiseGuided-SmoothLFM](https://github.com/JaninaMattes/NoiseGuided-SmoothLFM)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-
-<!-- ACKNOWLEDGMENTS -->
-## Acknowledgments
-
-* [SiT Framework - GitHub Repository](https://github.com/willisma/SiT)
-* [LDM Framework - GitHub Repository](https://github.com/joh-schb/)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-
-## Rsource
-<!-- @inproceedings{Song2020score,
-  author    = {Yang Song and Jascha Sohl-Dickstein and Diederik P. Kingma and Abhishek Kumar and Stefano Ermon and Ben Poole},
-  title     = {Score-Based Generative Modeling through Stochastic Differential Equations},
-  booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2020}
+```bibtex
+@mastersthesis{Mattes2025interpretability,
+  author = {Janina Alica Mattes},
+  title  = {Interpretability and Conditional Generation with Flow-Matching Models},
+  school = {Ludwig Maximilian University of Munich},
+  type   = {Master's thesis},
+  year   = {2025}
 }
+```
 
-@book{Murphy2023probabilistic,
-  author    = {Kevin P. Murphy},
-  title     = {Probabilistic Machine Learning: Advanced Topics},
-  publisher = {MIT Press},
-  year      = {2023}
-} -->
+## 🙏 Acknowledgments
 
-<!-- 
-[0] Dhariwal & Nichol (2021), "Diffusion Models Beat GANs on Image Synthesis."
+This work was carried out at the **Computer Vision & Learning Group (CompVis), LMU Munich**. Thanks to Prof. Dr. Björn Ommer and to Johannes Schusterbauer and Ming Gui for their supervision. The code builds on [SiT](https://github.com/willisma/SiT) [[7](#ref-7)], [DiT](https://github.com/facebookresearch/DiT) [[8](#ref-8)], [Latent Diffusion](https://github.com/CompVis/latent-diffusion) [[20](#ref-20)] and [jutils](https://github.com/joh-schb/jutils).
 
-[1] Ma et al. (2024), "SiT: Stochastic interpolant transport for generative modeling."
+Distributed under the MIT License — see [`LICENSE.txt`](LICENSE.txt).
 
-[2] Guo et al. (2024), "Smooth Diffusion: Crafting Smooth Latent Spaces in Diffusion Models."
+## 📖 References
 
-[3] Zhang et al. (2024), "DiffMorpher: Unleashing the Capability of Diffusion Models for Image Morphing."
+<a id="ref-1"></a>[1] Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le, "Flow matching for generative modeling," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
+<a id="ref-2"></a>[2] M. S. Albergo and E. Vanden-Eijnden, "Building normalizing flows with stochastic interpolants," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
+<a id="ref-3"></a>[3] X. Liu, C. Gong, and Q. Liu, "Flow straight and fast: Learning to generate and transfer data with rectified flow," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
+<a id="ref-4"></a>[4] J. Ho and T. Salimans, "Classifier-free diffusion guidance," in *Proc. NeurIPS Workshop Deep Generative Models and Downstream Applications*, 2021.<br>
+<a id="ref-5"></a>[5] I. Higgins, L. Matthey, A. Pal, C. Burgess, X. Glorot, M. Botvinick, S. Mohamed, and A. Lerchner, "β-VAE: Learning basic visual concepts with a constrained variational framework," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2017.<br>
+<a id="ref-6"></a>[6] D. P. Kingma and M. Welling, "Auto-encoding variational Bayes," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2014.<br>
+<a id="ref-7"></a>[7] N. Ma, M. Goldstein, M. S. Albergo, N. M. Boffi, E. Vanden-Eijnden, and S. Xie, "SiT: Exploring flow and diffusion-based generative models with scalable interpolant transformers," in *Proc. Eur. Conf. Comput. Vis. (ECCV)*, 2024.<br>
+<a id="ref-8"></a>[8] W. Peebles and S. Xie, "Scalable diffusion models with transformers," in *Proc. IEEE/CVF Int. Conf. Comput. Vis. (ICCV)*, 2023, pp. 4195–4205.<br>
+<a id="ref-9"></a>[9] D. Ahn, J. Kang, S. Lee, J. Min, M. Kim, W. Jang, *et al.*, "A noise is worth diffusion guidance," arXiv preprint arXiv:2412.03895, 2024.<br>
+<a id="ref-10"></a>[10] Z. Zhou, S. Shao, L. Bai, Z. Xu, B. Han, and Z. Xie, "Golden noise for diffusion models: A learning framework," arXiv preprint arXiv:2411.09502, 2024.<br>
+<a id="ref-11"></a>[11] V. T. Hu, Y. Chen, M. Caron, Y. M. Asano, C. G. M. Snoek, and B. Ommer, "Guided diffusion from self-supervised diffusion features," arXiv preprint arXiv:2312.08825, 2024.<br>
+<a id="ref-12"></a>[12] S. Wang, Z. Tian, W. Huang, and L. Wang, "DDT: Decoupled diffusion transformer," arXiv preprint arXiv:2504.05741, 2025.<br>
+<a id="ref-13"></a>[13] X. Su, J. Song, C. Meng, and S. Ermon, "Dual diffusion implicit bridges for image-to-image translation," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
+<a id="ref-14"></a>[14] S. Dieleman, "Diffusion is spectral autoregression," Sep. 2024. [Online]. Available: https://sander.ai/2024/09/02/spectral-autoregression.html<br>
+<a id="ref-15"></a>[15] S. Sadat, T. Vontobel, F. Salehi, and R. M. Weber, "Guidance in the frequency domain enables high-fidelity sampling at low CFG scales," arXiv preprint arXiv:2506.19713, 2025.<br>
+<a id="ref-16"></a>[16] T. Karras, S. Laine, and T. Aila, "A style-based generator architecture for generative adversarial networks," in *Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2019, pp. 4401–4410.<br>
+<a id="ref-17"></a>[17] J. Guo, X. Xu, Y. Pu, Z. Ni, C. Wang, M. Vasu, S. Song, G. Huang, and H. Shi, "Smooth diffusion: Crafting smooth latent spaces in diffusion models," in *Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2024.<br>
+<a id="ref-18"></a>[18] K. Preechakul, N. Chatthee, S. Wizadwongsa, and S. Suwajanakorn, "Diffusion autoencoders: Toward a meaningful and decodable representation," in *Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2022, pp. 10619–10629.<br>
+<a id="ref-19"></a>[19] M. Fuest, P. Ma, M. Gui, J. Schusterbauer, V. T. Hu, and B. Ommer, "Diffusion models and representation learning: A survey," arXiv preprint arXiv:2407.00783, 2024.<br>
+<a id="ref-20"></a>[20] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, "High-resolution image synthesis with latent diffusion models," in *Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2022, pp. 10684–10695.<br>
+<a id="ref-21"></a>[21] M. S. Albergo, N. M. Boffi, and E. Vanden-Eijnden, "Stochastic interpolants: A unifying framework for flows and diffusions," arXiv preprint arXiv:2303.08797, 2023.<br>
+<a id="ref-22"></a>[22] Y. Lipman, M. Havasi, P. Holderrieth, N. Shaul, M. Le, B. Karrer, R. T. Q. Chen, D. Lopez-Paz, H. Ben-Hamu, and I. Gat, "Flow matching guide and code," arXiv preprint arXiv:2412.06264, 2024.<br>
+<a id="ref-23"></a>[23] Y. Song, J. Sohl-Dickstein, D. P. Kingma, A. Kumar, S. Ermon, and B. Poole, "Score-based generative modeling through stochastic differential equations," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2021.<br>
+<a id="ref-24"></a>[24] J. Song, C. Meng, and S. Ermon, "Denoising diffusion implicit models," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2021.<br>
+<a id="ref-25"></a>[25] P. Dhariwal and A. Q. Nichol, "Diffusion models beat GANs on image synthesis," in *Adv. Neural Inf. Process. Syst. (NeurIPS)*, vol. 34, 2021, pp. 8780–8794.<br>
+<a id="ref-26"></a>[26] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei, "ImageNet: A large-scale hierarchical image database," in *Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2009, pp. 248–255.<br>
+<a id="ref-27"></a>[27] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, "An image is worth 16x16 words: Transformers for image recognition at scale," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2021.<br>
+<a id="ref-28"></a>[28] C. P. Burgess, I. Higgins, A. Pal, L. Matthey, N. Watters, G. Desjardins, and A. Lerchner, "Understanding disentangling in β-VAE," arXiv preprint arXiv:1804.03599, 2018.<br>
+<a id="ref-29"></a>[29] M. Heusel, H. Ramsauer, T. Unterthiner, B. Nessler, and S. Hochreiter, "GANs trained by a two time-scale update rule converge to a local Nash equilibrium," in *Adv. Neural Inf. Process. Syst. (NeurIPS)*, vol. 30, 2017, pp. 6626–6637.<br>
+<a id="ref-30"></a>[30] R. Zhang, P. Isola, A. A. Efros, E. Shechtman, and O. Wang, "The unreasonable effectiveness of deep features as a perceptual metric," in *Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2018, pp. 586–595.<br>
+<a id="ref-31"></a>[31] L. Manduchi, K. Pandey, C. Meister, R. Bamler, R. Cotterell, S. Däubener, S. Fellenz, A. Fischer, T. Gärtner, M. Kirchler, M. Kloft, Y. Li, C. Lippert, G. de Melo, E. Nalisnick, B. Ommer, R. Ranganath, M. Rudolph, K. Ullrich, G. Van den Broeck, J. E. Vogt, Y. Wang, F. Wenzel, F. Wood, S. Mandt, and V. Fortuin, "On the challenges and opportunities in generative AI," arXiv preprint arXiv:2403.00025, 2025.<br>
+<a id="ref-32"></a>[32] V. T. Hu, W. Zhang, M. Tang, P. Mettes, D. Zhao, and C. Snoek, "Latent space editing in transformer-based flow matching," in *Proc. AAAI Conf. Artif. Intell.*, vol. 38, no. 3, 2024, pp. 2247–2255.<br>
+<a id="ref-33"></a>[33] Z. Shi, S. Peng, Y. Xu, A. Geiger, Y. Liao, and Y. Shen, "3D generative models: A survey," arXiv preprint arXiv:2210.15663, 2023.<br>
+<a id="ref-34"></a>[34] S. Jain, D. Watson, E. Tabellion, A. Hołyński, B. Poole, and J. Kontkanen, "Video interpolation with diffusion models," in *Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2024, pp. 7341–7351.<br>
+<a id="ref-35"></a>[35] Y. Bengio, A. Courville, and P. Vincent, "Representation learning: A review and new perspectives," *IEEE Trans. Pattern Anal. Mach. Intell.*, vol. 35, no. 8, pp. 1798–1828, 2013.<br>
+<a id="ref-36"></a>[36] P. Vincent, H. Larochelle, I. Lajoie, Y. Bengio, and P.-A. Manzagol, "Stacked denoising autoencoders: Learning useful representations in a deep network with a local denoising criterion," *J. Mach. Learn. Res.*, vol. 11, pp. 3371–3408, 2010.<br>
 
-[4] Fuest et al. (2024), "Diffusion Models and Representation Learning: A Survey."
-
-[5] Lipman et al. (2023), "Flow Matching for Generative Modeling."
-
-[7] Albergo et al. (2023), "Stochastic Interpolants: A Unifying Framework for Flows and Diffusions." -->
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-<!-- https://github.com/JaninaMattes/NoiseGuided-SmoothLFM -->
-[contributors-shield]: https://img.shields.io/github/contributors/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
-[contributors-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
-[forks-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/network/members
-[stars-shield]: https://img.shields.io/github/stars/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
-[stars-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/stargazers
-[issues-shield]: https://img.shields.io/github/issues/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
-[issues-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/issues
-[license-shield]: https://img.shields.io/github/license/JaninaMattes/NoiseGuided-SmoothLFM.svg?style=for-the-badge
-[license-url]: https://github.com/JaninaMattes/NoiseGuided-SmoothLFM/blob/main/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/linkedin_username
-[product-screenshot]: images/screenshot.png
-[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
-[Next-url]: https://nextjs.org/
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-[Vue.js]: https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
-[Vue-url]: https://vuejs.org/
-[Angular.io]: https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white
-[Angular-url]: https://angular.io/
-[Svelte.dev]: https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00
-[Svelte-url]: https://svelte.dev/
-[Laravel.com]: https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white
-[Laravel-url]: https://laravel.com
-[Bootstrap.com]: https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white
-[Bootstrap-url]: https://getbootstrap.com
-[JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
-[JQuery-url]: https://jquery.com 
-
-
-
-
-
-
-
-<!-- ## ✨ Highlights
-
-- 🌀 **Noise-guided latent smoothness** for continuous morphing and perceptually stable interpolations.
-- 🚀 Built on **Scalable Interpolant Transformers (SiT)** and latent diffusion.
-- 🔬 Extensive quantitative evaluations: PCA, UMAP, linear probes, ISTD, LDPL metrics.
-- 🎥 Supports advanced metrics: FID, Inception Score, LPIPS, SSIM, PSNR, and custom smoothness metrics.
-- 💥 Enables **creative editing**, seamless transitions, and robust self-guidance. -->
-
-
-<!-- ## 🌊 Smooth Interpolations
-
-Large-scale generative models such as Diffusion Models and the recent Flow Matching (FM) paradigm have demonstrated remarkable synthesis capabilities (Dhariwal & Nichol, 2021; Lipman et al., 2023; Albergo et al., 2023). However, their capacity for robust and structured representation learning remains largely underexplored. Continuous-time architectures, including Scalable Interpolant Transformers (SiT) (Ma et al., 2024), have yet to be rigorously evaluated regarding their ability to learn compact, semantically meaningful latent spaces.
-
-By design, Diffusion and Flow-based models lack explicit architectural constraints or dedicated modules for enforcing smooth, disentangled feature extraction. While this choice preserves sample fidelity and diversity, it inherently limits interpretability and fine-grained control (Fuest et al., 2024).
-
-In contrast to supervised or heavily engineered methods, our approach introduces a fully self-supervised, representation-learning-based guidance mechanism. By integrating a tunable β-VAE encoder, we extract compact, smooth latent codes directly from pretrained generative backbones. This enables semantically coherent interpolations without external annotations or handcrafted constraints, providing a scalable and interpretable solution.
-
-Evaluating interpolation behavior , for example, via linear interpolations or latent space walks , offers an intuitive and interpretable means of assessing representation quality. While prior works have explored smoother latent traversals and morphing capabilities (Guo et al., 2024; Zhang et al., 2024), these typically rely on explicit supervision, complex augmentation pipelines, or auxiliary conditioning networks, which introduce additional complexity and reduce scalability.
-
-Our framework is lightweight, architecture-agnostic, and directly applicable to a wide range of Diffusion and Flow-based backbones without retraining.
-
-> 🎯 **Our method enables smooth, continuous transitions between images while preserving fine-grained semantic details and global structure.** This facilitates creative interpolations, intuitive attribute editing, and robust exploratory latent space walks , all while maintaining high sample quality and diversity. -->
-
-<!-- ---
-
-## 💡 Motivation
-
-This framework tackles core trade-offs in generative modeling- **sample quality, diversity, and inference speed** —while introducing a principled path to greater **interpretability and controllability** without relying on annotated datasets. It achieves this by integrating an auxiliary Bayesian β-VAE encoder and leveraging deterministic continuous flows instead of stochastic noise schedules, yielding smoother, more structured, and more controllable outputs.
-
---- -->
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
