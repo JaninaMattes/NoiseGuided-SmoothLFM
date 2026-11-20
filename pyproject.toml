@@ -35,6 +35,7 @@ dev = [
     "mlflow==2.19.0",
     "opencv-python-headless==4.10.0.84",
     "pywavelets==1.8.0",
+    "ruff==0.15.16",
 ]
 
 [tool.uv.sources]
@@ -44,3 +45,7 @@ jutils = { git = "https://github.com/joh-schb/jutils.git" }
 testpaths = ["tests"]
 pythonpath = ["."]
 filterwarnings = ["ignore::DeprecationWarning", "ignore::SyntaxWarning"]
+markers = [
+    "slow: end-to-end training runs (make test-all)",
+    "weights: checks against the trained thesis checkpoints in $NGSLFM_THESIS_CKPTS",
+]
