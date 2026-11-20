@@ -1,0 +1,190 @@
+paths:
+  checkpoints: checkpoints
+  data: data
+  imagenet: data/imagenet
+  logs: logs_dir
+  bvae_ckpt: checkpoints/beta_vae/last.ckpt
+dataset_name: gf-imagenet256-v0
+dataset_file: data/processed/gf-imagenet256-v0.hdf5
+name: flow_decoder/0.5x-1.0x
+seed: 2025
+source_timestep: 0.5
+target_timestep: 1.0
+use_wandb: false
+use_wandb_offline: false
+wandb_project: image-ldm
+use_mlflow: true
+mlflow_tracking_uri: file:./mlruns
+mlflow_experiment: image-ldm
+log_images: true
+tags:
+- flow-decoder
+- self-guidance
+user: test
+load_weights: null
+resume_checkpoint: null
+checkpoint_params:
+  every_n_train_steps: 20000
+  save_top_k: -1
+  verbose: true
+  save_last: true
+  auto_insert_metric_name: false
+trainer_module:
+  params:
+    lr: 5.0e-05
+    weight_decay: 0.0
+    optimizer: adamw
+    n_images_to_vis: 16
+    log_grad_norm: false
+    image_logging: true
+    source_timestep: 0.5
+    target_timestep: 1.0
+    sample_kwargs:
+      num_steps: 50
+      progress: false
+    ema_rate: 0.0
+    ema_update_every: 1
+    ema_update_after_step: 1000
+    first_stage_cfg:
+      name: AutoencoderKL
+      target: jutils.nn.kl_autoencoder.AutoencoderKL
+      params:
+        ckpt_path: checkpoints/sd_ae.ckpt
+    metric_tracker_cfg:
+      name: image_metrics
+      target: ldm.metrics.img_metrics.ImageMetricsTracker
+      params:
+        num_crops: 4
+        crop_size: 256
+    lr_scheduler_cfg:
+      name: constant
+      target: jutils.nn.lr_schedulers.get_constant_schedule_with_warmup
+      params:
+        num_warmup_steps: 2000
+    num_classes: 1000
+    use_context: true
+    flow_cfg:
+      name: FlowDecoder-SiT-XL-2
+      target: ldm.frameworks.flow.fm.FlowModel
+      params:
+        schedule: linear
+        sigma_min: 0.0
+        net_cfg:
+          target: ldm.models.wrapper.dit_context.DiTLDMWrapper
+          params:
+            in_channels: 4
+            input_size: 32
+            depth: 28
+            hidden_size: 1152
+            patch_size: 2
+            num_heads: 16
+            context_size: 1024
+            cat_context: true
+            num_classes: 1000
+            context_dropout_prob: 0.1
+            class_dropout_prob: 0.1
+            learn_sigma: false
+            compile: true
+            ckpt_path: checkpoints/SiT-XL-2-256x256.pt
+    third_stage_cfg:
+      name: PretrainedBetaVAE
+      target: ldm.models.wrapper.pretrained_beta_vae.PretrainedBetaVAE
+      params:
+        ckpt_path: checkpoints/beta_vae/last.ckpt
+  target: ldm.trainer_flow_decoder.TrainerModuleLatentFlow
+lr_warmup_steps: 2000
+trainer_params:
+  max_steps: -1
+  max_epochs: -1
+  num_sanity_val_steps: 1
+  accumulate_grad_batches: 8
+  log_every_n_steps: 50
+  limit_val_batches: 8
+  check_val_every_n_epoch: 1
+  gradient_clip_val: 1.0
+  precision: bf16-mixed
+  enable_checkpointing: true
+callbacks:
+- target: lightning.pytorch.callbacks.LearningRateMonitor
+  params:
+    logging_interval: step
+profile: false
+profiling:
+  warmup: 40
+  active: 1
+  filename: profile.json
+  cpu: true
+  cuda: true
+  record_shapes: false
+  profile_memory: false
+  with_flops: false
+num_nodes: 1
+devices: -1
+auto_requeue: false
+tqdm_refresh_rate: 1
+deepspeed_stage: 0
+p2p_disable: false
+slurm_id: null
+model:
+  name: FlowDecoder-SiT-XL-2
+  target: ldm.frameworks.flow.fm.FlowModel
+  params:
+    schedule: linear
+    sigma_min: 0.0
+    net_cfg:
+      target: ldm.models.wrapper.dit_context.DiTLDMWrapper
+      params:
+        in_channels: 4
+        input_size: 32
+        depth: 28
+        hidden_size: 1152
+        patch_size: 2
+        num_heads: 16
+        context_size: 1024
+        cat_context: true
+        num_classes: 1000
+        context_dropout_prob: 0.1
+        class_dropout_prob: 0.1
+        learn_sigma: false
+        compile: true
+        ckpt_path: checkpoints/SiT-XL-2-256x256.pt
+data:
+  name: guidance-free-imagenet256
+  num_classes: 1000
+  target: ldm.dataloader.dataloader.hdf5_dataloader.HDF5DataModule
+  params:
+    hdf5_file: data/processed/gf-imagenet256-v0.hdf5
+    source_timestep: 0.5
+    target_timestep: 1.0
+    train_group: train
+    val_group: validation
+    batch_size: 32
+    val_batch_size: 16
+    num_workers: 8
+    val_num_workers: 8
+    pin_memory: true
+    prefetch_factor: 4
+    balance_classes: true
+    p: 0.5
+    seed: 2025
+first_stage:
+  name: AutoencoderKL
+  target: jutils.nn.kl_autoencoder.AutoencoderKL
+  params:
+    ckpt_path: checkpoints/sd_ae.ckpt
+guidance_encoder:
+  name: PretrainedBetaVAE
+  target: ldm.models.wrapper.pretrained_beta_vae.PretrainedBetaVAE
+  params:
+    ckpt_path: checkpoints/beta_vae/last.ckpt
+lr_scheduler:
+  name: constant
+  target: jutils.nn.lr_schedulers.get_constant_schedule_with_warmup
+  params:
+    num_warmup_steps: 2000
+metrics:
+  name: image_metrics
+  target: ldm.metrics.img_metrics.ImageMetricsTracker
+  params:
+    num_crops: 4
+    crop_size: 256
