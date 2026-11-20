@@ -18,7 +18,7 @@ dev = [
     "h5py==3.12.1",
     "matplotlib==3.10.0",
     "open-clip-torch==2.29.0",
-    "pillow==11.0.0",
+    "pillow==13.0.0",
     "pytest==9.0.2",
     "timm==1.0.12",
     "torch-fidelity==0.3.0",
