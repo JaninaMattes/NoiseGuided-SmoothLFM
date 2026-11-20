@@ -53,7 +53,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__f
 sys.path.append(project_root)
 
 # Custom modules
-from ldm.trainer_rf_vae import TrainerModuleLatentFlow
+from ldm.trainer_flow_decoder import TrainerModuleLatentFlow
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
 from ldm.utils.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]

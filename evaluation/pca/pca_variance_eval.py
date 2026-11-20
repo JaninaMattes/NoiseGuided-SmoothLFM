@@ -76,8 +76,8 @@ sys.path.append(project_root)
 
 # Project-specific modules
 from ldm.utils.helpers import un_normalize_ims
-from data_processing.tools.norm import denorm_metrics_tensor, denorm_tensor
-from ldm.trainer_bvae_ti2 import TrainerModuleLatentBetaVae
+from dataprocessing.tools.norm import denorm_metrics_tensor, denorm_tensor
+from ldm.trainer_beta_vae import TrainerModuleLatentBetaVae
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
 # Torch precision

@@ -52,7 +52,7 @@ from ldm.trainer import TrainerModuleLatentFlow
 from ldm.dataloader.dataloader.hdf5_dataloader import HDF5DataModule
 
 from ldm.utils.helpers import un_normalize_ims # Convert from [-1, 1] to [0, 255]
-from data_processing.tools.norm import denorm_tensor, denorm_metrics_tensor
+from dataprocessing.tools.norm import denorm_tensor, denorm_metrics_tensor
 
 
 
