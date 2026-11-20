@@ -8,7 +8,7 @@
 
 ### Interpretability and Conditional Generation with Flow-Matching Models
 
-**Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, smooth and decodable latent space<br>from the guidance-free noise space of a pre-trained SiT-XL/2 — no labels, no prompts, no retraining of the base model.**
+Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, smooth and decodable latent space from the guidance-free noise space of a pre-trained SiT-XL/2; without additional labels, no text prompt conditioning, no retraining of the base model.
 
 [![Thesis presentation](https://img.shields.io/badge/📑_Thesis_Presentation-PDF-b31b1b?style=for-the-badge)](docs/20250909_MasterThesis_Presentation_JaninaMattes.pdf)
 [![Quickstart](https://img.shields.io/badge/🚀_Quickstart-make_smoke-2ea44f?style=for-the-badge)](#-quickstart)
