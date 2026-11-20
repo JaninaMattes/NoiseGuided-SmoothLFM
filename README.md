@@ -8,11 +8,11 @@
 
 ### Interpretability and Conditional Generation with Flow-Matching Models
 
-**Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, smooth and decodable latent space<br>from the guidance-free noise space of a pre-trained SiT-XL/2 — no labels, no prompts, no retraining of the base model.**
+Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, smooth and decodable latent space from the guidance-free noise space of a pre-trained SiT-XL/2; without additional labels, no text prompt conditioning, no retraining of the base model.
 
 [![Thesis presentation](https://img.shields.io/badge/📑_Thesis_Presentation-PDF-b31b1b?style=for-the-badge)](docs/20250909_MasterThesis_Presentation_JaninaMattes.pdf)
 [![Quickstart](https://img.shields.io/badge/🚀_Quickstart-make_smoke-2ea44f?style=for-the-badge)](#-quickstart)
-[![Cite](https://img.shields.io/badge/📚_Cite-BibTeX-blue?style=for-the-badge)](#-citation)
+[![Cite](https://img.shields.io/badge/📚_Cite-BibTeX-blue?style=for-the-badge)](#citation)
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.5-EE4C2C?logo=pytorch&logoColor=white)
@@ -49,19 +49,19 @@
 <details>
 <summary><b>Table of Contents</b></summary>
 
-1. [Overview](#-overview)
-2. [Method](#-method)
-3. [Results](#-results)
+1. [Overview](#overview)
+2. [Method](#method)
+3. [Results](#results)
 4. [Quickstart](#-quickstart)
-5. [Experiment Tracking](#-experiment-tracking)
-6. [Repository Structure](#-repository-structure)
-7. [Limitations & Future Work](#-limitations--future-work)
-8. [Citation](#-citation)
-9. [References](#-references)
+5. [Experiment Tracking](#experiment-tracking)
+6. [Repository Structure](#repository-structure)
+7. [Limitations & Future Work](#limitations--future-work)
+8. [Citation](#citation)
+9. [References](#references)
 
 </details>
 
-## ✨ Overview
+## Overview
 
 Although diffusion models remain the architecture of choice, the theoretically simpler, deterministic and nearly invertible **flow matching** paradigm [[1](#ref-1), [2](#ref-2), [3](#ref-3)] is gaining increasing traction. Its internal latent structures, however, remain high-dimensional, distributed along the generative trajectory and little understood, which limits **explainability and control**. Current de facto guidance methods such as classifier-free guidance [[4](#ref-4)] additionally depend on external signals and typically require paired, annotated data.
 
@@ -77,7 +77,7 @@ This work proposes a **hybrid framework** that integrates two complementary appr
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 🧠 Method
+## Method
 
 <p align="center">
   <img src="assets/diagrams/framework_architecture.png" alt="Two-stage framework: frozen latent autoencoder (Stage 1) and the Latent CFM module with conditional DiT-XL/2 encoder, β-VAE encoder and conditional DiT-XL/2 decoder (Stage 2)" width="95%">
@@ -162,7 +162,7 @@ Inspired by classifier-free guidance [[4](#ref-4)], conditioning dropout replace
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 📊 Results
+## Results
 
 All β-VAE models share architecture, hyper-parameters and optimisation settings. Fidelity is measured in latent space (PSNR, MSE, MAE, cosine similarity); **latent smoothness** along linear interpolations with **L-PPL** and **L-ISTD** — latent variants of perceptual path length [[16](#ref-16)] and inter-step distance [[17](#ref-17)] that isolate encoder quality from decoder effects (values ×10⁻⁴, lower is smoother).
 
@@ -313,13 +313,13 @@ CI ([`.github/workflows/ci-cd.yaml`](.github/workflows/ci-cd.yaml)) runs `make l
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 📈 Experiment Tracking
+## Experiment Tracking
 
 Every run is stored under `logs_dir/<name>/<date>/<slurm-id | time>/` with its resolved `config.yaml` (including the launching command), checkpoints and a local `metrics.csv`. On top, runs are tracked in **MLflow** and/or **Weights & Biases**:
 
 | Config key | Default | Effect |
 |---|---|---|
-| `use_mlflow` | `True` | MLflow run with hyper-parameters, per-step metrics, run info tags and `config.yaml` artifact |
+| `use_mlflow` | `True` | MLflow run with hyper-parameters, per-step metrics, run info tags and `config.yaml` artefact |
 | `mlflow_tracking_uri` | `file:./mlruns` | or set `MLFLOW_TRACKING_URI` to use a tracking server |
 | `use_wandb` / `use_wandb_offline` | `False` | W&B run (online or offline) with the same metrics and config |
 | `log_images` | `True` | sample and reconstruction grids are logged to **every** enabled backend |
@@ -330,9 +330,9 @@ make train-bvae ARGS="use_wandb=True log_images=False"
 make archive-runs RUNS_REMOTE=user@storage-host:/archive/ngslfm/runs ARGS="--prune"
 ```
 
-If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py). See [docs/mlflow.md](docs/mlflow.md) for MLflow usage and [docs/run_archive.md](docs/run_archive.md) for moving finished runs to remote storage.
+If neither backend is enabled, TensorBoard is used as a fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py). See [docs/mlflow.md](docs/mlflow.md) for MLflow usage and [docs/run_archive.md](docs/run_archive.md) for moving finished runs to remote storage.
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 ├── train.py                     # training entry point for both Stage-2 models (Hydra)
@@ -357,14 +357,14 @@ If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 🔭 Limitations & Future Work
+## Limitations & Future Work
 
 - **Disentanglement vs. fidelity.** Fully disentangling latent factors while keeping high reconstruction accuracy remains hard — fine-grained and class-specific information is increasingly lost under high input noise and strong β, which can make the self-guidance signal ambiguous (e.g. a fox instead of a leopard).
 - **Metrics.** FID, LPIPS or PSNR offer limited insight into latent representation quality; more rigorous measures of smoothness and controllability beyond L-PPL and L-ISTD are needed [[31](#ref-31)].
 - **Robustness.** The self-conditioned velocity decoder struggles with out-of-distribution inputs, and global, non-spatial codes limit fine-grained spatial reasoning [[32](#ref-32)].
 - **Directions.** Finding meaningful edit directions via linear probes on $\boldsymbol{z}_t$ [[19](#ref-19)], frequency-aware guidance [[15](#ref-15)], 3D conditioning for physically plausible interpolation [[33](#ref-33)], and temporal feature extraction for long-range interpolation [[34](#ref-34)] — building on the representation learning perspective of [[35](#ref-35), [36](#ref-36)].
 
-## 📚 Citation
+## Citation
 
 ```bibtex
 @mastersthesis{Mattes2025interpretability,
@@ -376,13 +376,13 @@ If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to
 }
 ```
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 This work was carried out at the **Computer Vision & Learning Group (CompVis), LMU Munich**. Thanks to Prof. Dr. Björn Ommer and to Johannes Schusterbauer and Ming Gui for their supervision. The code builds on [SiT](https://github.com/willisma/SiT) [[7](#ref-7)], [DiT](https://github.com/facebookresearch/DiT) [[8](#ref-8)], [Latent Diffusion](https://github.com/CompVis/latent-diffusion) [[20](#ref-20)] and [jutils](https://github.com/joh-schb/jutils).
 
 Distributed under the MIT License — see [`LICENSE.txt`](LICENSE.txt).
 
-## 📖 References
+## References
 
 <a id="ref-1"></a>[1] Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le, "Flow matching for generative modeling," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
 <a id="ref-2"></a>[2] M. S. Albergo and E. Vanden-Eijnden, "Building normalizing flows with stochastic interpolants," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
