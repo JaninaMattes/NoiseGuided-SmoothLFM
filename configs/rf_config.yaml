@@ -1,9 +1,11 @@
+# Stage 2b: self-guided conditional flow matching decoder v_theta(x_t, t, z_t), conditioned on frozen β-VAE codes z_t.
+# Run: python train.py --config-name rf_config [experiment=imnet256/sit-xl-2_context_cond]
 defaults:
   - _self_
-  - model: sit-s-2
-  - data: dummy256_latent               # dummy data
+  - model: sit-s-2                      # small debug flow model; the thesis model is sit-xl-2_context
+  - data: dummy256_latents              # random tensors with the shapes of the real latent dataset
   - autoencoder: tiny_ae                # pre-trained autoencoder on SD latent codes
-  - ldm_autoencoder: ldm_bvae           # ldm_bvae_baseline, ldm_bvae  # pre-trained autoencoder on LDM latent codes (Baseline x0.5 -> x0.5)
+  - ldm_autoencoder: null               # frozen β-VAE encoder providing z_t (e.g. 05x10x_0.1b_vit_b_2)
   - lr_scheduler: null
   - metrics: null
   - experiment: null                    # must be last in defaults list as it can override all others
@@ -14,12 +16,21 @@ defaults:
   
 # ----------------------------------------
 name: debug/your_exp
+seed: 2025
+
+# Flow matching time convention: t=0 Gaussian noise, t=1 data.
+source_timestep: 0.50       # x_t from which the β-VAE extracts the self-guidance code z_t
+target_timestep: 1.00       # clean latent x_1 the decoder learns to generate
 
 # ----------------------------------------
-# logging
+# logging (see ldm/tracking.py) - a local metrics.csv is always written
 use_wandb: False
 use_wandb_offline: False
 wandb_project: image-ldm
+use_mlflow: True
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,file:./mlruns}
+mlflow_experiment: ${wandb_project}
+log_images: True            # log sample grids in addition to scalar metrics
 
 tags: [
   "flow",
@@ -51,7 +62,11 @@ trainer_module:
     weight_decay: 0.0
     n_images_to_vis: 16
     log_grad_norm: False       # Other: grad log might be slow
+    image_logging: ${log_images}
     num_classes: 1000           # Other: no class labels  # 1000 for Imagenet256, 100 for CIFAR10, 10 for MNIST
+    source_timestep: ${source_timestep}
+    target_timestep: ${target_timestep}
+    use_context: False         # self-guidance: condition on z_t (requires ldm_autoencoder)
     
     sample_kwargs:
       num_steps: 50

@@ -18,8 +18,8 @@ params:
   multinode: True
   pin_memory: True
   prefetch_factor: 4
-  source_timestep: 0.50
-  target_timestep: 1.00
+  source_timestep: ${source_timestep}
+  target_timestep: ${target_timestep}
   
   # The following parameters are used to set the number of workers 
   # for the training and validation dataloaders.
@@ -27,15 +27,15 @@ params:
     target: ldm.dataloader.dataloader.hdf5_dataloader.HDF5DataModule
     params:
       group_name: train
-      source_timestep: 0.50
-      target_timestep: 1.00
+      source_timestep: ${source_timestep}
+      target_timestep: ${target_timestep}
       balance_classes: True
   
   validation:
     target: ldm.dataloader.dataloader.hdf5_dataloader.HDF5DataModule
     params:
       group_name: validation
-      source_timestep: 0.50
-      target_timestep: 1.00
+      source_timestep: ${source_timestep}
+      target_timestep: ${target_timestep}
 
 

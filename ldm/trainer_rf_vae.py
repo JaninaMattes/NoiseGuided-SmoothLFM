@@ -1,14 +1,10 @@
 from typing import Optional
-import wandb
 import torch
 import einops
-from PIL import Image
 from functools import partial
 import numpy as np
 
-import torch
 from lightning import LightningModule
-from lightning.pytorch.loggers import WandbLogger
 from torchmetrics.image.fid import FrechetInceptionDistance
 
 from jutils import instantiate_from_config
@@ -17,6 +13,7 @@ from jutils import exists, freeze, default
 
 from ldm.ema import EMA
 from ldm.helpers import resize_ims, denorm_tensor
+from ldm.tracking import log_image
 
 
 def un_normalize_img(img):
@@ -98,6 +95,7 @@ class TrainerModuleLatentFlow(LightningModule):
         use_context: bool = True,
         log_grad_norm: bool = False,
         optimizer: str = 'adamw',
+        image_logging: bool = True,                                 # log sample grids (in addition to scalar metrics)
     ):
         super().__init__()
 
@@ -167,6 +165,7 @@ class TrainerModuleLatentFlow(LightningModule):
 
         # visualization
         self.sample_kwargs = sample_kwargs or {}
+        self.image_logging = image_logging
         self.n_images_to_vis = n_images_to_vis
         self.image_shape = None
         self.latent_shape = None
@@ -423,21 +422,13 @@ class TrainerModuleLatentFlow(LightningModule):
             img: torch.Tensor or np.ndarray of shape (b, c, h, w) in range [0, 255]
             name: str
         """
-        # resize if necessary
+        if not self.image_logging:
+            return
         if to_grid:
             img = img_to_grid(img, stack=stack, split=split)
-        # convert to numpy
         if isinstance(img, torch.Tensor):
             img = img.cpu().numpy()
-        # log to wandb
-        if isinstance(self.logger, WandbLogger):
-            img = img.astype(np.uint8)
-            img = Image.fromarray(img)
-            img = wandb.Image(img)
-            self.logger.experiment.log({f"{name}/samples": img})
-        else:
-            img = einops.rearrange(img, "h w c -> c h w")
-            self.logger.experiment.add_image(f"{name}/samples", img, global_step=self.global_step)
+        log_image(self.loggers, f"{name}/samples", img.astype(np.uint8), step=self.global_step)
 
             
             

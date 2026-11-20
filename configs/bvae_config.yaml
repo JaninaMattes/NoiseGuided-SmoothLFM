@@ -1,9 +1,11 @@
+# Stage 2a: β-VAE self-guidance encoder trained on the guidance-free noise space (x_t -> z_t -> x_target).
+# Run: python train.py [experiment=imnet256/bvae-skipvit-b-2]
 defaults:
   - _self_
-  - model: skip-vit-bvae-s-2-t2i
-  - data: dummy256_latent               # dummy data
+  - model: skip-vit-bvae-s-2-t2i        # small debug β-VAE; the thesis model is skip-vit-bvae-b-2-t2i
+  - data: dummy256_latents              # random tensors with the shapes of the real latent dataset
   - autoencoder: tiny_ae                # pre-trained autoencoder on SD latent codes
-  - flow: sit-b-4                       # pre-trained ldm flow model
+  - flow: sit-xl-2                      # pre-trained, class-conditional SiT-XL/2 (forward-time encoder)
   - lr_scheduler: null
   - metrics: null
   - experiment: null                    # must be last in defaults list as it can override all others
@@ -14,12 +16,21 @@ defaults:
   
 # ----------------------------------------
 name: debug/your_exp
+seed: 2025
+
+# Flow matching time convention: t=0 Gaussian noise, t=1 data.
+source_timestep: 0.50       # x_t fed to the β-VAE encoder (guidance-free noise code)
+target_timestep: 1.00       # reconstruction target (1.00 = clean latent -> denoising task)
 
 # ----------------------------------------
-# logging
+# logging (see ldm/tracking.py) - a local metrics.csv is always written
 use_wandb: False
 use_wandb_offline: False
 wandb_project: image-ldm
+use_mlflow: True
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,file:./mlruns}
+mlflow_experiment: ${wandb_project}
+log_images: True            # log sample grids in addition to scalar metrics
 
 tags: [
   "vae",
@@ -50,9 +61,10 @@ trainer_module:
     weight_decay: 0.0
     optimizer: 'adamw'        # adamw, adam, sgd
     n_images_to_vis: 16
-    source_timestep: 0.5        # Source: x0, t=0.0 (full-noise), t=1.0 (data), t={0.25, ..., 0.75} etc. default: 0.5 (mid-point)
-    target_timestep: 1.0        # Target: x1, t=0.0 (full-noise), t=1.0 (data), t={0.25, ..., 0.75} etc. default: 0.5 (mid-point)
+    source_timestep: ${source_timestep}
+    target_timestep: ${target_timestep}
     log_grad_norm: False        # Other: grad log might be slow
+    image_logging: ${log_images}
 
     sample_kwargs:
       num_steps: 50

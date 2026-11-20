@@ -71,7 +71,7 @@ export ARGS="experiment=imnet256/sit-xl_context_cond_cfg_v0 \
 
 # ---------------------- Launch
 srun --ntasks-per-node=1 \
-    python train_rf.py $ARGS \
+    python train.py --config-name rf_config $ARGS \
     num_nodes=${SLURM_NNODES} slurm_id=${SLURM_JOB_ID}
 
 # ---------------------- End

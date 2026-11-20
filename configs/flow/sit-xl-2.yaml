@@ -1,4 +1,4 @@
-name: SiT-XL-2
+name: SiT-XL-2  # pre-trained class-conditional SiT-XL/2 (Ma et al. 2024), used as forward-time encoder
 # Flow Model
 target: ldm.frameworks.flow.fm.FlowModel
 params:

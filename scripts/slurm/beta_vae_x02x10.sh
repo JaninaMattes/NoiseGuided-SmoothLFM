@@ -69,7 +69,7 @@ export ARGS="experiment=imnet256/bvae-skipvit-b-2 \
 
 # ---------------------- Launch
 srun --ntasks-per-node=1 \
-    python train_bvae_ti2.py ${ARGS} "num_nodes=${SLURM_NNODES}" "slurm_id=${SLURM_JOB_ID}"
+    python train.py ${ARGS} "num_nodes=${SLURM_NNODES}" "slurm_id=${SLURM_JOB_ID}"
 
 # ---------------------- End
 echo "########## JOB FINISHED ##########"
