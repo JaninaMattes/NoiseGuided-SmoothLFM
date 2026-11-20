@@ -1,6 +1,7 @@
+# Tiny distilled SD autoencoder (TAESD) - fast approximate decoding for debugging only.
 name: TinyAutoencoderKL
 target: jutils.nn.tiny_autoencoder.TinyAutoencoderKL
 params:
-  encoder_path: checkpoints/taesd_encoder.pth
-  decoder_path: checkpoints/taesd_decoder.pth
+  encoder_path: ${paths.checkpoints}/taesd_encoder.pth
+  decoder_path: ${paths.checkpoints}/taesd_decoder.pth
   latent_channels: 4

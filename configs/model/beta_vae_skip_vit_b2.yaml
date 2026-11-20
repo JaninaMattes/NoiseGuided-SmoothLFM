@@ -9,7 +9,7 @@ params:
   kld_weight: 1.0
 
   encoder_cfg:
-    target: ldm.models.autoencoder.encoder.skip_vit_t2i.SkipViTEncoder
+    target: ldm.models.autoencoder.encoder.skip_vit.SkipViTEncoder
     params:
       in_channels: 4
       image_size: 32
@@ -27,7 +27,7 @@ params:
       compile: True
 
   decoder_cfg:
-    target: ldm.models.autoencoder.decoder.skip_vit_t2i.SkipViTDecoder
+    target: ldm.models.autoencoder.decoder.skip_vit.SkipViTDecoder
     params:
       in_channels: 4
       image_size: 32

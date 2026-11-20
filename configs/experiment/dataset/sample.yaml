@@ -1,0 +1,17 @@
+# @package _global_
+# Small real dataset from the sample images tracked in this repository (needs `make weights`).
+#   python build_dataset.py experiment=dataset/sample            (make dataset-sample)
+defaults:
+  - override /subset: all
+
+dataset_name: gf-imagenet256-sample
+batch_size: 8
+num_workers: 0
+log_every: 1
+splits:
+  train:
+    source_dir: ${paths.data}/dataset/test-samples
+    max_per_class: 8
+  validation:
+    source_dir: ${paths.data}/dataset/test-samples
+    max_per_class: 2

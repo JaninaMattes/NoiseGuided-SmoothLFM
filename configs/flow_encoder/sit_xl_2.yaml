@@ -1,5 +1,6 @@
-name: SiT-XL-2  # pre-trained class-conditional SiT-XL/2 (Ma et al. 2024), used as forward-time encoder
-# Flow Model
+# Frozen, pre-trained class-conditional SiT-XL/2 (Ma et al., 2024). Its forward-time ODE maps clean latents
+# x_1 to guidance-free noise codes x_t; used by the β-VAE trainer and by build_dataset.py.
+name: SiT-XL-2
 target: ldm.frameworks.flow.fm.FlowModel
 params:
   schedule: linear
@@ -7,10 +8,10 @@ params:
   net_cfg:
     target: ldm.models.wrapper.dit.DiTLDMWrapper
     params:
-      model_type: DiT-XL/2  
+      model_type: DiT-XL/2
       input_size: 32
       num_classes: 1000
-      learn_sigma: True
+      learn_sigma: True             # legacy DiT/SiT checkpoint layout; sigma output is unused
       legacy_attn: True
       class_dropout_prob: 0.1
-      ckpt_path: checkpoints/SiT-XL-2-256x256.pt
+      ckpt_path: ${paths.checkpoints}/SiT-XL-2-256x256.pt

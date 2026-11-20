@@ -1,0 +1,22 @@
+# @package _global_
+# CPU smoke test of dataset generation: stand-in models, a few repository sample images, no weights.
+#   python build_dataset.py experiment=smoke/dataset
+defaults:
+  - override /first_stage: pooling_stub
+  - override /flow_encoder: dit_s2_random
+  - override /subset: all
+
+dataset_name: smoke
+class_labels: [0, 1]
+device: cpu
+batch_size: 2
+num_workers: 0
+log_every: 1
+ode_steps: 10
+splits:
+  train:
+    source_dir: ${paths.data}/dataset/test-samples
+    max_per_class: 2
+  validation:
+    source_dir: ${paths.data}/dataset/test-samples
+    max_per_class: 1

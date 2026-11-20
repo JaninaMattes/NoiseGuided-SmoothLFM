@@ -1,4 +1,5 @@
+# Stage 1: frozen Stable Diffusion KL-autoencoder (f = 8): 256x256x3 images <-> 32x32x4 latents, scale 0.18215.
 name: AutoencoderKL
-target: jutils.nn.kl_autoencoder.AutoencoderKL      # first stage model (KL-Autoencoder from LDM)
+target: jutils.nn.kl_autoencoder.AutoencoderKL
 params:
-  ckpt_path: checkpoints/sd_ae.ckpt
+  ckpt_path: ${paths.checkpoints}/sd_ae.ckpt

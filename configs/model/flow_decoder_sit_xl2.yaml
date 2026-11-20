@@ -1,5 +1,6 @@
-name: DiT-XL-2
-# Flow Model (SiT)
+name: FlowDecoder-SiT-XL-2
+# Thesis self-guided velocity decoder: context-conditional DiT-XL/2 (677M). z_t is embedded by a two-layer MLP and
+# appended to the token sequence (cat_context); AdaLN-Zero is conditioned on t + y.
 target: ldm.frameworks.flow.fm.FlowModel
 params:
   schedule: linear
@@ -20,4 +21,4 @@ params:
       class_dropout_prob: 0.1             # 0.0: no dropout, 0.1: 10% dropout of class label
       learn_sigma: False                  # trained without sigma
       compile: True
-      ckpt_path: checkpoints/SiT-XL-2-256x256.pt
+      ckpt_path: ${paths.checkpoints}/SiT-XL-2-256x256.pt      # decoder is initialised from SiT-XL/2

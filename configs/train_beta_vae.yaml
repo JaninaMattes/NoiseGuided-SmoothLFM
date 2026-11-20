@@ -1,134 +1,29 @@
-# Stage 2a: β-VAE self-guidance encoder trained on the guidance-free noise space (x_t -> z_t -> x_target).
-# Run: python train.py [experiment=imnet256/bvae-skipvit-b-2]
+# Stage 2a — β-VAE self-guidance encoder: x_{t_source} -> z_t -> x_{t_target}.
+# The defaults reproduce the thesis setting (Skip-ViT-B/2, 0.50 -> 1.00, β = 0.1).
+#   python train.py                                          (make train-bvae)
+#   python train.py source_timestep=0.20 model.params.beta=5.0
 defaults:
+  - base/paths
+  - base/train
   - _self_
-  - model: skip-vit-bvae-s-2-t2i        # small debug β-VAE; the thesis model is skip-vit-bvae-b-2-t2i
-  - data: dummy256_latents              # random tensors with the shapes of the real latent dataset
-  - autoencoder: tiny_ae                # pre-trained autoencoder on SD latent codes
-  - flow: sit-xl-2                      # pre-trained, class-conditional SiT-XL/2 (forward-time encoder)
-  - lr_scheduler: null
-  - metrics: null
-  - experiment: null                    # must be last in defaults list as it can override all others
+  - model: beta_vae_skip_vit_b2         # thesis β-VAE; beta_vae_skip_vit_s2 for debugging
+  - data: guidance_free_imagenet256     # (x_t, x_1) pairs from build_dataset.py
+  - first_stage: sd_ae                  # frozen SD KL-autoencoder (decodes samples for validation)
+  - flow_encoder: sit_xl_2              # frozen class-conditional SiT-XL/2 (forward-time ODE)
+  - lr_scheduler: constant
+  - metrics: latent_metrics
+  - experiment: null                    # must be last: experiments may override everything above
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
 
-  # disable hydra logging
-  - override hydra/hydra_logging: disabled  
-  - override hydra/job_logging: disabled 
-  
-# ----------------------------------------
-name: debug/your_exp
-seed: 2025
+name: beta_vae/${source_timestep}x-${target_timestep}x-${model.params.beta}b
+tags: [beta-vae]
 
-# Flow matching time convention: t=0 Gaussian noise, t=1 data.
-source_timestep: 0.50       # x_t fed to the β-VAE encoder (guidance-free noise code)
-target_timestep: 1.00       # reconstruction target (1.00 = clean latent -> denoising task)
-
-# ----------------------------------------
-# logging (see ldm/tracking.py) - a local metrics.csv is always written
-use_wandb: False
-use_wandb_offline: False
-wandb_project: image-ldm
-use_mlflow: True
-mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,file:./mlruns}
-mlflow_experiment: ${wandb_project}
-log_images: True            # log sample grids in addition to scalar metrics
-
-tags: [
-  "vae",
-  "skip-vit",
-  "patchsize_2",
-  "source_timestep_0.0",
-  "target_timestep_1.0",
-]
-
-# checkpoint loading
-load_weights: null
-resume_checkpoint: null
-
-# checkpoint saving (lightning callback)
-checkpoint_params:              # filename refers to number of gradient updates
-    every_n_train_steps: 10000  # gradient update steps
-    save_top_k: -1              # needs to be -1, otherwise it overwrites
-    verbose: True
-    save_last: True
-    auto_insert_metric_name: False
-
-# ----------------------------------------
-# train logics
 trainer_module:
-  target: ldm.trainer_bvae_ti2.TrainerModuleLatentBetaVae
+  target: ldm.trainer_beta_vae.TrainerModuleLatentBetaVae
   params:
-    lr: 1e-4
-    weight_decay: 0.0
-    optimizer: 'adamw'        # adamw, adam, sgd
-    n_images_to_vis: 16
-    source_timestep: ${source_timestep}
-    target_timestep: ${target_timestep}
-    log_grad_norm: False        # Other: grad log might be slow
-    image_logging: ${log_images}
-
-    sample_kwargs:
-      num_steps: 50
-      progress: False
-      cond_key: 'y'
-    
-    # EMA
-    ema_rate: 0.9999       # if 0, no EMA
-    ema_update_every: 1
-    ema_update_after_step: 1000
-    
-    # model specific
     vae_cfg: ${model}
-    first_stage_cfg: ${oc.select:autoencoder, null}
-    second_stage_cfg: ${oc.select:flow, null}
-    metric_tracker_cfg: ${oc.select:metrics, null}
-    num_classes: ${oc.select:flow.params.net_cfg.params.num_classes, -1}
-    lr_scheduler_cfg: ${oc.select:lr_scheduler, null}
-  
-trainer_params:
-  max_steps: -1
-  max_epochs: -1
-  num_sanity_val_steps: 1
-  accumulate_grad_batches: 8  # gradient accumulation -> effective batch size = batch_size * accumulate_grad_batches
-  log_every_n_steps: 50       # gradient update steps
-  limit_val_batches: 8        # per GPU
-  # val_check_interval: 4000   # steps, regardless of gradient accumulation
-  check_val_every_n_epoch: 1
-  gradient_clip_val: 1.0        # 0.0 for no clipping, 1.0 for default - or 0.5 for ViT
-  precision: 32-true
-
-callbacks:
-  - target: lightning.pytorch.callbacks.LearningRateMonitor
-    params:
-      logging_interval: 'step'
-
-# ----------------------------------------
-# profiling
-profile: false
-profiling:
-  warmup: 40
-  active: 1
-  filename: profile.json
-  cpu: true
-  cuda: true
-  record_shapes: false
-  profile_memory: false
-  with_flops: false
-
-# ----------------------------------------
-# distributed
-num_nodes: 1
-devices: -1
-auto_requeue: False
-tqdm_refresh_rate: 1        # set higher on slurm (otherwise prints tqdm every step)
-deepspeed_stage: 0
-p2p_disable: False          # heidelberg
-slurm_id: null
-
-# ----------------------------------------
-user: ${oc.env:USER}
-
-# don't log and save files
-hydra:
-  output_subdir: null
-  run:
-    dir: .
+    second_stage_cfg: ${oc.select:flow_encoder, null}
+    num_classes: ${oc.select:flow_encoder.params.net_cfg.params.num_classes, -1}
+    sample_kwargs:
+      cond_key: y

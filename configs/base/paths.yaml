@@ -1,0 +1,13 @@
+# @package _global_
+# Every filesystem location used by training and dataset generation, in one place.
+# Override with environment variables or on the command line (e.g. paths.data=/scratch/data).
+paths:
+  checkpoints: ${oc.env:NGSLFM_CHECKPOINTS,checkpoints}     # public pre-trained weights (make weights)
+  data: ${oc.env:NGSLFM_DATA,data}                          # raw images and generated HDF5 datasets
+  imagenet: ${oc.env:IMAGENET_DIR,${paths.data}/imagenet}   # ImageNet in class-folder layout (train/, val/)
+  logs: logs_dir                                            # one sub-directory per run
+  bvae_ckpt: ${oc.env:BVAE_CKPT,${paths.checkpoints}/beta_vae/last.ckpt}   # frozen β-VAE for the flow decoder
+
+# The guidance-free dataset shared by dataset generation (writer) and training (reader).
+dataset_name: gf-imagenet256-v0                             # see configs/subset/
+dataset_file: ${paths.data}/processed/${dataset_name}.hdf5

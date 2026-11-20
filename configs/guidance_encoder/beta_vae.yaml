@@ -1,5 +1,6 @@
-name: AutoencoderLDM_05x10x_0.1B
-target: ldm.models.wrapper.beta_vae-t2i.BVaeLDMWrapper     # Wrapper to use LDM Autoencder pre-trained model    
+# Frozen, pre-trained β-VAE (output of train_beta_vae.yaml) providing the self-guidance code z_t.
+# Set the checkpoint with BVAE_CKPT=... or paths.bvae_ckpt=...
+name: PretrainedBetaVAE
+target: ldm.models.wrapper.pretrained_beta_vae.PretrainedBetaVAE
 params:
-  ckpt_path: logs_dir/imnet256/beta-vae-skipViT-b-2/imagenet256_hdf5_v2/0.50x-1.00x-0.1b/2025-06-16/T210501/checkpoints/last.ckpt   #logs_dir/imnet256/beta-vae-skipViT-S-2/imagenet256_hdf5_v0/baseline/0.50x-1.00x-0.1b/2025-05-10/27587/checkpoints/last.ckpt
-  # (Baseline model x0.5 -> x0.5)
+  ckpt_path: ${paths.bvae_ckpt}

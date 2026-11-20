@@ -1,0 +1,101 @@
+# @package _global_
+# Settings shared by both Stage-2 training runs (train_beta_vae.yaml, train_flow_decoder.yaml).
+# Root configs only add what is specific to their model.
+name: debug/your_exp
+seed: 2025
+
+# Flow matching time convention: t=0 Gaussian noise, t=1 data. "0.50 -> 1.00" is the denoising task.
+source_timestep: 0.50       # x_t encoded by the β-VAE (guidance-free noise code)
+target_timestep: 1.00       # reconstruction target of the β-VAE / generation target of the decoder
+
+# ----------------------------------------
+# experiment tracking (ldm/tracking.py) - a local metrics.csv is always written
+use_wandb: False
+use_wandb_offline: False
+wandb_project: image-ldm
+use_mlflow: True
+mlflow_tracking_uri: ${oc.env:MLFLOW_TRACKING_URI,file:./mlruns}
+mlflow_experiment: ${wandb_project}
+log_images: True            # log sample grids in addition to scalar metrics
+tags: []
+user: ${oc.env:USER,unknown}
+
+# ----------------------------------------
+# checkpoints
+load_weights: null          # initialise weights only
+resume_checkpoint: null     # resume the full training state
+checkpoint_params:          # lightning ModelCheckpoint; filename counts gradient updates
+  every_n_train_steps: 10000
+  save_top_k: -1            # keep all, otherwise checkpoints are overwritten
+  verbose: True
+  save_last: True
+  auto_insert_metric_name: False
+
+# ----------------------------------------
+# Lightning module parameters shared by both trainers
+trainer_module:
+  params:
+    lr: 1e-4
+    weight_decay: 0.0
+    optimizer: adamw
+    n_images_to_vis: 16
+    log_grad_norm: False    # slow
+    image_logging: ${log_images}
+    source_timestep: ${source_timestep}
+    target_timestep: ${target_timestep}
+    sample_kwargs:
+      num_steps: 50         # Euler steps (50 NFE) for sampling
+      progress: False
+    ema_rate: 0.0           # 0 disables EMA
+    ema_update_every: 1
+    ema_update_after_step: 1000
+    first_stage_cfg: ${oc.select:first_stage, null}
+    metric_tracker_cfg: ${oc.select:metrics, null}
+    lr_scheduler_cfg: ${oc.select:lr_scheduler, null}
+
+lr_warmup_steps: 2000      # linear warm-up of every lr_scheduler option
+
+trainer_params:
+  max_steps: -1
+  max_epochs: -1
+  num_sanity_val_steps: 1
+  accumulate_grad_batches: 8    # effective batch size = batch_size * devices * accumulate_grad_batches
+  log_every_n_steps: 50
+  limit_val_batches: 8          # per device
+  check_val_every_n_epoch: 1
+  gradient_clip_val: 1.0
+  precision: bf16-mixed
+  enable_checkpointing: True
+
+callbacks:
+  - target: lightning.pytorch.callbacks.LearningRateMonitor
+    params:
+      logging_interval: step
+
+# ----------------------------------------
+# profiling
+profile: False
+profiling:
+  warmup: 40
+  active: 1
+  filename: profile.json
+  cpu: True
+  cuda: True
+  record_shapes: False
+  profile_memory: False
+  with_flops: False
+
+# ----------------------------------------
+# distributed
+num_nodes: 1
+devices: -1                 # -1: all visible GPUs
+auto_requeue: False
+tqdm_refresh_rate: 1        # set higher on SLURM
+deepspeed_stage: 0
+p2p_disable: False          # NCCL P2P workaround for some multi-GPU servers
+slurm_id: null
+
+hydra:                      # no hydra output directories; runs are stored under paths.logs
+  output_subdir: null
+  run:
+    dir: .

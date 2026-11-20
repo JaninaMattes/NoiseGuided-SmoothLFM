@@ -1,0 +1,41 @@
+# Generate the guidance-free (x_1, x_t) HDF5 dataset used by both Stage-2 trainings.
+# Forward-time ODE of the frozen class-conditional SiT-XL/2 with ω = 1 (thesis Sec. 3.2.1, 4.1).
+#   python build_dataset.py                          (make dataset IMAGENET_DIR=/data/imagenet)
+#   python build_dataset.py subset=imagenet256_v2 splits.train.max_per_class=100
+defaults:
+  - base/paths
+  - _self_
+  - first_stage: sd_ae
+  - flow_encoder: sit_xl_2
+  - subset: imagenet256_v0              # class subset and dataset_name
+  - experiment: null
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+seed: 2025
+device: auto                            # cuda if available, else cpu
+batch_size: 32
+num_workers: 8
+log_every: 100                          # batches
+
+image_size: 256                         # resize + centre crop
+num_classes: 1000
+timesteps: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0]   # stored states; t=1 clean latent, t=0 noise
+ode_steps: 100                          # Euler steps over [0, 1] (as in the original data generation)
+cfg_scale: 1.0                          # guidance-free: native conditional velocity
+
+splits:                                 # HDF5 group -> source images
+  train:
+    source_dir: ${paths.imagenet}/train
+    max_per_class: null                 # null: all images of a class
+  validation:
+    source_dir: ${paths.imagenet}/val
+    max_per_class: null
+
+output: ${dataset_file}
+compression: lzf
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .

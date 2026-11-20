@@ -1,0 +1,4 @@
+# @package _global_
+# Every class found in the source folders.
+dataset_name: gf-imagenet256-all
+class_labels: null

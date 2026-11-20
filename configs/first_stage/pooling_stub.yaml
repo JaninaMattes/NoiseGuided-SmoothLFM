@@ -1,0 +1,3 @@
+# Parameter-free stand-in for sd_ae (smoke tests only): same shapes, no weights.
+name: PoolingAutoencoder
+target: ldm.testing.PoolingAutoencoder
