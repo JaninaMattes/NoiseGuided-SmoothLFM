@@ -1,0 +1,20 @@
+# Guidance-free ImageNet-256: (x_1, x_t) pairs written by build_dataset.py (one HDF5 file, one group per split).
+# The class subset is selected when building the dataset (configs/subset/), the file via dataset_name.
+name: guidance-free-imagenet256
+num_classes: 1000
+target: ldm.dataloader.dataloader.hdf5_dataloader.HDF5DataModule
+params:
+  hdf5_file: ${dataset_file}
+  source_timestep: ${source_timestep}
+  target_timestep: ${target_timestep}
+  train_group: train
+  val_group: validation
+  batch_size: 32
+  val_batch_size: 16
+  num_workers: 8
+  val_num_workers: 8
+  pin_memory: True
+  prefetch_factor: 4
+  balance_classes: True     # class-balanced weighted sampling
+  p: 0.5                    # random horizontal flip (training split only)
+  seed: ${seed}

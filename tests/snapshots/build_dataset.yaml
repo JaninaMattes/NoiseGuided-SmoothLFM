@@ -1,0 +1,86 @@
+paths:
+  checkpoints: checkpoints
+  data: data
+  imagenet: data/imagenet
+  logs: logs_dir
+  bvae_ckpt: checkpoints/beta_vae/last.ckpt
+dataset_name: gf-imagenet256-v0
+dataset_file: data/processed/gf-imagenet256-v0.hdf5
+seed: 2025
+device: auto
+batch_size: 32
+num_workers: 8
+log_every: 100
+image_size: 256
+num_classes: 1000
+timesteps:
+- 1.0
+- 0.9
+- 0.8
+- 0.7
+- 0.6
+- 0.5
+- 0.4
+- 0.3
+- 0.2
+- 0.1
+- 0.0
+ode_steps: 100
+cfg_scale: 1.0
+splits:
+  train:
+    source_dir: data/imagenet/train
+    max_per_class: null
+  validation:
+    source_dir: data/imagenet/val
+    max_per_class: null
+output: data/processed/gf-imagenet256-v0.hdf5
+compression: lzf
+first_stage:
+  name: AutoencoderKL
+  target: jutils.nn.kl_autoencoder.AutoencoderKL
+  params:
+    ckpt_path: checkpoints/sd_ae.ckpt
+flow_encoder:
+  name: SiT-XL-2
+  target: ldm.frameworks.flow.fm.FlowModel
+  params:
+    schedule: linear
+    sigma_min: 0.0
+    net_cfg:
+      target: ldm.models.wrapper.dit.DiTLDMWrapper
+      params:
+        model_type: DiT-XL/2
+        input_size: 32
+        num_classes: 1000
+        learn_sigma: true
+        legacy_attn: true
+        class_dropout_prob: 0.1
+        ckpt_path: checkpoints/SiT-XL-2-256x256.pt
+class_labels:
+- 0
+- 1
+- 88
+- 89
+- 93
+- 96
+- 130
+- 154
+- 158
+- 236
+- 248
+- 250
+- 259
+- 270
+- 290
+- 291
+- 292
+- 294
+- 295
+- 296
+- 330
+- 332
+- 339
+- 340
+- 954
+- 957

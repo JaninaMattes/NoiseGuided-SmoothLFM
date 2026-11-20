@@ -1,0 +1,38 @@
+# @package _global_
+# CPU smoke test of the β-VAE pipeline on the smoke dataset (build it first: experiment=smoke/dataset).
+# Stand-in first stage, small model, no pre-trained weights; runs training and validation incl. image logging.
+#   python train.py experiment=smoke/beta_vae
+defaults:
+  - override /model: beta_vae_skip_vit_s2
+  - override /first_stage: pooling_stub
+  - override /flow_encoder: null
+  - override /metrics: null
+
+name: smoke/beta_vae
+tags: [smoke]
+mlflow_experiment: smoke      # keep smoke runs out of the real experiment
+dataset_name: smoke
+model:
+  params:
+    beta: 1e-4
+
+data:
+  params:
+    batch_size: 2
+    val_batch_size: 2
+    num_workers: 0
+    val_num_workers: 0
+    pin_memory: False
+
+checkpoint_params:
+  every_n_train_steps: 1000
+
+trainer_params:
+  max_steps: 4
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+  num_sanity_val_steps: 0
+  limit_val_batches: 1
+  val_check_interval: 2
+  check_val_every_n_epoch: null
+  precision: 32-true

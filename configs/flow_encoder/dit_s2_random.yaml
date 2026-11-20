@@ -1,0 +1,18 @@
+# Small, randomly initialised class-conditional flow model with the SiT-XL/2 interface (smoke tests only).
+name: DiT-S-2-random
+target: ldm.frameworks.flow.fm.FlowModel
+params:
+  schedule: linear
+  sigma_min: 0.0
+  net_cfg:
+    target: ldm.models.transformer.dit.DiT
+    params:
+      input_size: 32
+      in_channels: 4
+      patch_size: 2
+      hidden_size: 64
+      depth: 2
+      num_heads: 2
+      num_classes: 1000
+      class_dropout_prob: 0.1
+      learn_sigma: False

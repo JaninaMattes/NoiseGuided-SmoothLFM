@@ -1,0 +1,29 @@
+# Stage 2a — β-VAE self-guidance encoder: x_{t_source} -> z_t -> x_{t_target}.
+# The defaults reproduce the thesis setting (Skip-ViT-B/2, 0.50 -> 1.00, β = 0.1).
+#   python train.py                                          (make train-bvae)
+#   python train.py source_timestep=0.20 model.params.beta=5.0
+defaults:
+  - base/paths
+  - base/train
+  - _self_
+  - model: beta_vae_skip_vit_b2         # thesis β-VAE; beta_vae_skip_vit_s2 for debugging
+  - data: guidance_free_imagenet256     # (x_t, x_1) pairs from build_dataset.py
+  - first_stage: sd_ae                  # frozen SD KL-autoencoder (decodes samples for validation)
+  - flow_encoder: sit_xl_2              # frozen class-conditional SiT-XL/2 (forward-time ODE)
+  - lr_scheduler: constant
+  - metrics: latent_metrics
+  - experiment: null                    # must be last: experiments may override everything above
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+name: beta_vae/${source_timestep}x-${target_timestep}x-${model.params.beta}b
+tags: [beta-vae]
+
+trainer_module:
+  target: ldm.trainer_beta_vae.TrainerModuleLatentBetaVae
+  params:
+    vae_cfg: ${model}
+    second_stage_cfg: ${oc.select:flow_encoder, null}
+    num_classes: ${oc.select:flow_encoder.params.net_cfg.params.num_classes, -1}
+    sample_kwargs:
+      cond_key: y

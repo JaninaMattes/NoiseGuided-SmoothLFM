@@ -1,0 +1,33 @@
+# Lint and the full test suite on every push and pull request:
+# config composition, frozen thesis setup (tests/snapshots/), data pipeline, checkpoint compatibility,
+# tracking and end-to-end CPU training of every stage. Same commands as locally: make lint && make test-all.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install pinned dependencies
+        run: make install
+
+      - name: Lint
+        run: make lint
+
+      - name: Tests (incl. end-to-end training)
+        run: make test-all

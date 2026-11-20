@@ -1,0 +1,14 @@
+# @package _global_
+# CPU smoke test of the full self-guidance path: a frozen β-VAE (dummy checkpoint) provides z_t to the decoder.
+#   make dummy-checkpoint && python train.py --config-name train_flow_decoder experiment=smoke/flow_decoder_guided
+defaults:
+  - smoke/flow_decoder
+  - override /guidance_encoder: beta_vae
+
+name: smoke/flow_decoder_guided
+paths:
+  bvae_ckpt: ${paths.checkpoints}/dummy/beta_vae_skip_vit_s2.ckpt
+
+trainer_module:
+  params:
+    use_context: True

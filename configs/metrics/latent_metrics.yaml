@@ -1,0 +1,6 @@
+# Image metrics plus statistics of noisy latents (used for β-VAE training).
+name: latent_metrics
+target: ldm.metrics.noise_metrics.NoiseMetricsTracker
+params:
+  num_crops: 4
+  crop_size: 256

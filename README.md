@@ -12,7 +12,7 @@ Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, sm
 
 [![Thesis presentation](https://img.shields.io/badge/📑_Thesis_Presentation-PDF-b31b1b?style=for-the-badge)](docs/20250909_MasterThesis_Presentation_JaninaMattes.pdf)
 [![Quickstart](https://img.shields.io/badge/🚀_Quickstart-make_smoke-2ea44f?style=for-the-badge)](#-quickstart)
-[![Cite](https://img.shields.io/badge/📚_Cite-BibTeX-blue?style=for-the-badge)](#-citation)
+[![Cite](https://img.shields.io/badge/📚_Cite-BibTeX-blue?style=for-the-badge)](#citation)
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.5-EE4C2C?logo=pytorch&logoColor=white)
@@ -49,15 +49,15 @@ Self-supervised *self-guidance* for flow matching: a β-VAE learns a compact, sm
 <details>
 <summary><b>Table of Contents</b></summary>
 
-1. [Overview](#-overview)
-2. [Method](#-method)
-3. [Results](#-results)
+1. [Overview](#overview)
+2. [Method](#method)
+3. [Results](#results)
 4. [Quickstart](#-quickstart)
-5. [Experiment Tracking](#-experiment-tracking)
-6. [Repository Structure](#-repository-structure)
-7. [Limitations & Future Work](#-limitations--future-work)
-8. [Citation](#-citation)
-9. [References](#-references)
+5. [Experiment Tracking](#experiment-tracking)
+6. [Repository Structure](#repository-structure)
+7. [Limitations & Future Work](#limitations--future-work)
+8. [Citation](#citation)
+9. [References](#references)
 
 </details>
 
@@ -236,44 +236,49 @@ High-frequency textures (e.g. fur) can persist longer than coarse features such 
 
 ## 🚀 Quickstart
 
-**Requirements:** Python 3.12, [uv](https://docs.astral.sh/uv/), a CUDA GPU for real training (the smoke test runs on CPU).
+**Requirements:** Python 3.12, [uv](https://docs.astral.sh/uv/), a CUDA GPU for real training (tests and smoke runs use the CPU).
 
 ```bash
 git clone https://github.com/JaninaMattes/NoiseGuided-SmoothLFM.git
 cd NoiseGuided-SmoothLFM
 make install          # uv sync --locked: exact, pinned environment in .venv
-make test             # configs compose, all targets import, tracking works  (~15 s)
-make smoke            # trains both stages for 4 steps on dummy data, logged to MLflow
+make test             # configs, frozen thesis setup, data pipeline, checkpoints, tracking  (~15 s)
+make smoke            # CPU, no weights: build a mini dataset, train β-VAE and decoder, log to MLflow
 ```
 
-`make` lists all targets. Each experiment is **one command**:
+`make` lists all targets. The full pipeline takes one command per step:
 
 ```bash
+make weights                                    # SD autoencoder + SiT-XL/2 into checkpoints/
+make dataset IMAGENET_DIR=/data/imagenet        # guidance-free HDF5 dataset (resumable)
+
 # Stage 2a — β-VAE self-guidance encoder (thesis setting 0.50 -> 1.00, β = 0.1)
 make train-bvae
-
-# Ablations are plain Hydra overrides
-make train-bvae ARGS="source_timestep=0.20 model.params.beta=5.0"
+make train-bvae ARGS="source_timestep=0.20 model.params.beta=5.0"     # ablations are Hydra overrides
 
 # Stage 2b — self-guided SiT-XL/2 velocity decoder on top of a trained β-VAE
-make train-decoder BVAE_CKPT=logs_dir/imnet256/bvae-skipvit-b-2/.../checkpoints/last.ckpt
+make train-decoder BVAE_CKPT=logs_dir/beta_vae/0.5x-1.0x-0.1b/<date>/<run>/checkpoints/last.ckpt
 
-# Anything else
-make experiment CONFIG=rf_config EXP=imnet256/sit-xl-2_context_cond ARGS="devices=4 use_wandb=True"
+# Without trained weights: random β-VAE checkpoint + small models
+make train-decoder BVAE_CKPT=checkpoints/dummy/beta_vae_skip_vit_s2.ckpt EXP=smoke/flow_decoder_guided
 ```
+
+On a SLURM cluster, submit the same runs with `scripts/slurm/train.sbatch` (usage in its header).
 
 <details>
 <summary><b>Data and checkpoints for the real experiments</b></summary>
 <br>
 
-| Artifact | Expected path | Source |
+| Artifact | Default path | Created by |
 |---|---|---|
-| SD KL-autoencoder (Stage 1) | `checkpoints/sd_ae.ckpt` | Latent Diffusion [[20](#ref-20)] |
-| SiT-XL/2 256×256 (forward encoder, decoder init) | `checkpoints/SiT-XL-2-256x256.pt` | [willisma/SiT](https://github.com/willisma/SiT) |
-| Guidance-free ImageNet-256 (HDF5) | `dataset/processed/...` (see `configs/data/imagenet256_hdf5_v0.yaml`) | built with `dataprocessing/pipeline/` |
-| Trained β-VAE (for Stage 2b) | `BVAE_CKPT=...` | output of `make train-bvae` |
+| SD KL-autoencoder (Stage 1) | `checkpoints/sd_ae.ckpt` | `make weights` (Latent Diffusion [[20](#ref-20)]) |
+| SiT-XL/2 256×256 (forward encoder, decoder init) | `checkpoints/SiT-XL-2-256x256.pt` | `make weights` ([willisma/SiT](https://github.com/willisma/SiT)) |
+| Guidance-free ImageNet-256 (HDF5) | `data/processed/gf-imagenet256-v0.hdf5` | `make dataset` |
+| Trained β-VAE (for Stage 2b) | `checkpoints/beta_vae/last.ckpt` | `make train-bvae` |
 
-Paths are plain config values and can be overridden, e.g. `ARGS="data.params.hdf5_file=/data/gf-imagenet256.hdf5"`.
+All paths are in [`configs/base/paths.yaml`](configs/base/paths.yaml). Override them with the environment variables
+`NGSLFM_CHECKPOINTS`, `NGSLFM_DATA`, `IMAGENET_DIR` and `BVAE_CKPT`, or on the command line
+(e.g. `ARGS="paths.data=/scratch/data"`).
 
 </details>
 
@@ -281,12 +286,28 @@ Paths are plain config values and can be overridden, e.g. `ARGS="data.params.hdf
 <summary><b>Configuration layout (Hydra)</b></summary>
 <br>
 
-| Root config | Trains | Key knobs |
+| Root config | Runs | Key knobs |
 |---|---|---|
-| `configs/bvae_config.yaml` | β-VAE encoder (`ldm/trainer_bvae_ti2.py`) | `source_timestep`, `target_timestep`, `model.params.beta` |
-| `configs/rf_config.yaml` | self-guided decoder (`ldm/trainer_rf_vae.py`) | `source_timestep`, `ldm_autoencoder`, `trainer_module.params.use_context` |
+| `configs/build_dataset.yaml` | guidance-free dataset (`dataprocessing/build.py`) | `subset`, `timesteps`, `ode_steps`, `splits.*.max_per_class` |
+| `configs/train_beta_vae.yaml` | β-VAE encoder (`ldm/trainer_beta_vae.py`) | `source_timestep`, `target_timestep`, `model.params.beta` |
+| `configs/train_flow_decoder.yaml` | self-guided decoder (`ldm/trainer_flow_decoder.py`) | `source_timestep`, `paths.bvae_ckpt`, `trainer_module.params.use_context` |
 
-Config groups: `model/`, `data/`, `autoencoder/` (Stage 1), `flow/` (forward encoder), `ldm_autoencoder/` (frozen β-VAE), `metrics/`, `lr_scheduler/`, and `experiment/` (complete, reproducible settings — `imnet256/*` for the thesis, `smoke/*` for CI-style checks). `source_timestep`/`target_timestep` are set **once** at the root and propagate to the trainer and the data loaders.
+Shared settings live in `configs/base/` (paths, training and tracking defaults). Config groups: `first_stage/`, `flow_encoder/`, `guidance_encoder/`, `model/`, `data/`, `subset/`, `metrics/`, `lr_scheduler/` and `experiment/` (`smoke/*`, `dataset/*`). The root defaults reproduce the thesis setting. `source_timestep`/`target_timestep` are set **once** at the root and reach both the trainer and the data loaders. What each component and name means is in [docs/architecture.md](docs/architecture.md).
+
+</details>
+
+<details>
+<summary><b>Tests and reproducibility</b></summary>
+<br>
+
+| Command | Checks |
+|---|---|
+| `make test` | every config composes and its targets import; the resolved thesis configs match `tests/snapshots/`; forward ODE, HDF5 writer/reader and dataset build; legacy checkpoint names; run archiving; tracking |
+| `make test-all` | additionally trains every stage end to end on the CPU (~1 min) |
+| `NGSLFM_THESIS_CKPTS=<dir> make test-all` | additionally loads the trained thesis checkpoints in `<dir>` |
+| `make snapshots` | accepts an **intended** change to the experimental setup (commit the updated snapshot with it) |
+
+CI ([`.github/workflows/ci-cd.yaml`](.github/workflows/ci-cd.yaml)) runs `make lint` and `make test-all` on every push and pull request.
 
 </details>
 
@@ -298,7 +319,7 @@ Every run is stored under `logs_dir/<name>/<date>/<slurm-id | time>/` with its r
 
 | Config key | Default | Effect |
 |---|---|---|
-| `use_mlflow` | `True` | MLflow run with parameters, per-step metrics, run info tags and `config.yaml` artefact |
+| `use_mlflow` | `True` | MLflow run with hyper-parameters, per-step metrics, run info tags and `config.yaml` artefact |
 | `mlflow_tracking_uri` | `file:./mlruns` | or set `MLFLOW_TRACKING_URI` to use a tracking server |
 | `use_wandb` / `use_wandb_offline` | `False` | W&B run (online or offline) with the same metrics and config |
 | `log_images` | `True` | sample and reconstruction grids are logged to **every** enabled backend |
@@ -306,29 +327,32 @@ Every run is stored under `logs_dir/<name>/<date>/<slurm-id | time>/` with its r
 ```bash
 make mlflow-ui                                   # http://127.0.0.1:5000
 make train-bvae ARGS="use_wandb=True log_images=False"
+make archive-runs RUNS_REMOTE=user@storage-host:/archive/ngslfm/runs ARGS="--prune"
 ```
 
-If neither backend is enabled, TensorBoard is used as a fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py).
+If neither backend is enabled, TensorBoard is used as a fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py). See [docs/mlflow.md](docs/mlflow.md) for MLflow usage and [docs/run_archive.md](docs/run_archive.md) for moving finished runs to remote storage.
 
 ## Repository Structure
 
 ```
-├── train.py                 # single training entry point (Hydra)
-├── Makefile                 # one-command install / test / smoke / train / mlflow-ui
-├── configs/                 # Hydra configs: root configs, groups and experiment/ presets
+├── train.py                     # training entry point for both Stage-2 models (Hydra)
+├── build_dataset.py             # dataset entry point: guidance-free HDF5 dataset
+├── Makefile                     # one command per workflow; `make` lists them
+├── configs/                     # root configs, base/ defaults, groups and experiment/ presets
 ├── ldm/
-│   ├── trainer_bvae_ti2.py  # Lightning module: β-VAE self-guidance encoder
-│   ├── trainer_rf_vae.py    # Lightning module: self-guided flow matching decoder
-│   ├── tracking.py          # MLflow / W&B / CSV loggers and image fan-out
-│   ├── frameworks/          # flow matching (fm.py), β-VAE, autoencoders
-│   ├── models/              # DiT/SiT backbones, Skip-ViT encoder/decoder, wrappers
-│   ├── metrics/             # image and latent-noise metric trackers
-│   └── dataloader/          # HDF5 / WebDataset / dummy data modules
-├── dataprocessing/          # build the guidance-free HDF5 dataset
-├── evaluation/              # quantitative & qualitative evaluation, smoothness metrics, plots
-├── scripts/slurm/           # cluster launch scripts
-├── tests/                   # config integrity and tracking tests
-└── docs/                    # thesis presentation
+│   ├── trainer_beta_vae.py      # Lightning module: β-VAE self-guidance encoder
+│   ├── trainer_flow_decoder.py  # Lightning module: self-guided flow matching decoder
+│   ├── tracking.py              # MLflow / W&B / CSV loggers and image fan-out
+│   ├── legacy.py                # old module names -> new, keeps old checkpoints loadable
+│   ├── frameworks/              # flow matching (fm.py), β-VAE, autoencoders
+│   ├── models/                  # DiT/SiT backbones, Skip-ViT encoder/decoder, wrappers
+│   ├── metrics/                 # image and latent-noise metric trackers
+│   └── dataloader/              # HDF5 data module
+├── dataprocessing/              # forward ODE, image sources and HDF5 writer for the dataset
+├── evaluation/                  # quantitative & qualitative evaluation, smoothness metrics, plots
+├── scripts/                     # weights download, dummy checkpoint, run archiving, SLURM job
+├── tests/                       # test suite (+ snapshots/ of the thesis configs)
+└── docs/                        # thesis presentation, architecture, MLflow and archiving guides
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

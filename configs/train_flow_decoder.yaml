@@ -1,0 +1,31 @@
+# Stage 2b — self-guided flow matching decoder v_θ(x_t, t, y, z_t), conditioned on the frozen β-VAE code z_t.
+# The defaults reproduce the thesis setting (SiT-XL/2 initialised decoder, lr 5e-5, β-VAE 0.50 -> 1.00).
+#   python train.py --config-name train_flow_decoder paths.bvae_ckpt=<beta_vae/last.ckpt>   (make train-decoder)
+defaults:
+  - base/paths
+  - base/train
+  - _self_
+  - model: flow_decoder_sit_xl2         # thesis decoder; flow_decoder_sit_s2 for debugging
+  - data: guidance_free_imagenet256
+  - first_stage: sd_ae
+  - guidance_encoder: beta_vae          # frozen β-VAE providing z_t (paths.bvae_ckpt)
+  - lr_scheduler: constant
+  - metrics: image_metrics
+  - experiment: null                    # must be last: experiments may override everything above
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+name: flow_decoder/${source_timestep}x-${target_timestep}x
+tags: [flow-decoder, self-guidance]
+
+checkpoint_params:
+  every_n_train_steps: 20000
+
+trainer_module:
+  target: ldm.trainer_flow_decoder.TrainerModuleLatentFlow
+  params:
+    lr: 5e-5
+    num_classes: 1000           # ImageNet; the null label 1000 disables class guidance
+    use_context: True           # self-guidance; set False together with guidance_encoder=null
+    flow_cfg: ${model}
+    third_stage_cfg: ${oc.select:guidance_encoder, null}

@@ -13,7 +13,7 @@ parentdir = os.path.dirname(os.path.dirname(__file__))
 parentparentdir = os.path.dirname(parentdir)
 sys.path.insert(0, parentparentdir)
 
-from ldm.models.transformer.dit import DiT_models
+from ldm.models.transformer.dit import DiT_models  # noqa: E402 (after the sys.path setup)
 
 
 def gen_data(bs):
