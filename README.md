@@ -352,7 +352,7 @@ If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to
 }
 ```
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 This work was carried out at the **Computer Vision & Learning Group (CompVis), LMU Munich**. Thanks to Prof. Dr. Björn Ommer and to Johannes Schusterbauer and Ming Gui for their supervision. The code builds on [SiT](https://github.com/willisma/SiT) [[7](#ref-7)], [DiT](https://github.com/facebookresearch/DiT) [[8](#ref-8)], [Latent Diffusion](https://github.com/CompVis/latent-diffusion) [[20](#ref-20)] and [jutils](https://github.com/joh-schb/jutils).
 
