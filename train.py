@@ -1,11 +1,11 @@
 """Single training entry point for both Stage-2 models of the framework.
 
-    python train.py                                   # β-VAE self-guidance encoder (configs/bvae_config.yaml)
-    python train.py --config-name rf_config           # self-guided flow matching decoder (configs/rf_config.yaml)
-    python train.py experiment=imnet256/bvae-skipvit-b-2 use_mlflow=True
+    python train.py                                       # β-VAE self-guidance encoder (configs/train_beta_vae.yaml)
+    python train.py --config-name train_flow_decoder      # self-guided flow matching decoder
+    python train.py experiment=smoke/beta_vae use_wandb=True
 
 Any config value can be overridden on the command line (Hydra syntax).
-Runs are stored under ``logs_dir/<name>/<day>/<slurm-id | timestamp>``.
+Runs are stored under ``<paths.logs>/<name>/<day>/<slurm-id | timestamp>``.
 """
 import datetime
 import os
@@ -14,7 +14,7 @@ import sys
 
 import hydra
 import torch
-from jutils import count_parameters, exists, instantiate_from_config
+from jutils import count_parameters, exists
 from lightning import Trainer, seed_everything
 from lightning.pytorch.callbacks import DeviceStatsMonitor, ModelCheckpoint, TQDMProgressBar
 from lightning.pytorch.plugins.environments import SLURMEnvironment
@@ -25,6 +25,7 @@ from torch.distributed.algorithms.ddp_comm_hooks import default_hooks
 from torch.profiler import ProfilerActivity
 
 from ldm.helpers import load_model_weights
+from ldm.legacy import instantiate
 from ldm.tracking import build_loggers, log_run_info
 
 torch.set_float32_matmul_precision("high")
@@ -88,27 +89,27 @@ def device_kwargs(cfg: DictConfig) -> dict:
     return kwargs
 
 
-@hydra.main(config_path="configs", config_name="bvae_config", version_base=None)
+@hydra.main(config_path="configs", config_name="train_beta_vae", version_base=None)
 def main(cfg: DictConfig):
     seed_everything(cfg.seed)
     check_config(cfg)
     print(OmegaConf.to_yaml(cfg))
 
-    """ Run directory: logs_dir/<cfg.name>/<day>/<slurm-id OR timestamp> """
+    """ Run directory: <paths.logs>/<cfg.name>/<day>/<slurm-id OR timestamp> """
     now = datetime.datetime.now()
     postfix = str(cfg.slurm_id) if exists(cfg.slurm_id) else now.strftime("T%H%M%S")
     exp_name = os.path.join(cfg.name, now.strftime("%Y-%m-%d"), postfix)
-    log_dir = os.path.join("logs_dir", exp_name)
+    log_dir = os.path.join(cfg.paths.logs, exp_name)
     ckpt_dir = os.path.join(log_dir, "checkpoints")
     loggers = build_loggers(cfg, log_dir, run_name=exp_name)
 
     """ Data and model """
-    data = instantiate_from_config(cfg.data)
+    data = instantiate(cfg.data)
     if hasattr(data, "prepare_data"):
         data.prepare_data()
     if hasattr(data, "setup"):
         data.setup(stage="fit")
-    module = instantiate_from_config(cfg.trainer_module)
+    module = instantiate(cfg.trainer_module)
 
     """ Callbacks """
     callbacks = [
@@ -117,7 +118,7 @@ def main(cfg: DictConfig):
     ]
     if cfg.tqdm_refresh_rate != 1:
         callbacks.append(TQDMProgressBar(refresh_rate=cfg.tqdm_refresh_rate))
-    callbacks.extend(instantiate_from_config(cb_cfg) for cb_cfg in cfg.callbacks)
+    callbacks.extend(instantiate(cb_cfg) for cb_cfg in cfg.callbacks)
 
     """ Trainer """
     gpu_kwargs = device_kwargs(cfg)
