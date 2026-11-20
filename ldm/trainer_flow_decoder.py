@@ -7,7 +7,7 @@ import numpy as np
 from lightning import LightningModule
 from torchmetrics.image.fid import FrechetInceptionDistance
 
-from jutils import instantiate_from_config
+from ldm.legacy import instantiate
 from jutils import load_partial_from_config
 from jutils import exists, freeze, default
 
@@ -63,7 +63,8 @@ def vis_taerget_pred_grid(target_img, pred_img, add_img=None, normalize=False):
     pred_img = einops.rearrange(pred_img, "b c h w -> (b h) w c")
     if exists(add_img):
         add_img = einops.rearrange(add_img, "b c h w -> (b h) w c")
-        grid = torch.cat([target_img, pred_img, add_img], dim=1)
+        tensor = [target_img, pred_img, add_img]
+        grid = torch.cat(tensor, dim=1)
     else:
         grid = torch.cat([target_img, pred_img], dim=1)
     # normalize to [0, 255] 
@@ -100,7 +101,7 @@ class TrainerModuleLatentFlow(LightningModule):
         super().__init__()
 
         # Flow Model
-        self.model = instantiate_from_config(flow_cfg)
+        self.model = instantiate(flow_cfg)
         if ema_rate == 0.0:
             self.ema_model = None
         else:
@@ -116,7 +117,7 @@ class TrainerModuleLatentFlow(LightningModule):
         # Second stage (Flow with SiT) settings
         self.second_stage = None
         if exists(second_stage_cfg):
-            flow_model = instantiate_from_config(second_stage_cfg)
+            flow_model = instantiate(second_stage_cfg)
             self.second_stage = torch.compile(flow_model, fullgraph=True)
             freeze(self.second_stage)
             self.second_stage.eval()
@@ -124,7 +125,7 @@ class TrainerModuleLatentFlow(LightningModule):
         # KL Autoencoder (SD3) - first stage settings
         self.first_stage = None
         if exists(first_stage_cfg):
-            first_stage = instantiate_from_config(first_stage_cfg)
+            first_stage = instantiate(first_stage_cfg)
             self.first_stage = torch.compile(first_stage, fullgraph=True)
             freeze(self.first_stage)
             self.first_stage.eval()
@@ -132,7 +133,7 @@ class TrainerModuleLatentFlow(LightningModule):
         # LDM ß-VAE Autoencoder - third stage settings
         self.third_stage = None
         if exists(third_stage_cfg):
-            third_stage = instantiate_from_config(third_stage_cfg)
+            third_stage = instantiate(third_stage_cfg)
             # TODO: Fix bug in compile function       
             if torch.cuda.is_available() and torch.cuda.device_count() > 0:
                 backend = 'inductor' if torch.cuda.get_device_capability()[0] >= 7 else 'aot_eager'
@@ -147,7 +148,7 @@ class TrainerModuleLatentFlow(LightningModule):
         # Metric tracker
         self.metric_tracker = None
         if exists(metric_tracker_cfg):
-            self.metric_tracker = instantiate_from_config(metric_tracker_cfg)
+            self.metric_tracker = instantiate(metric_tracker_cfg)
         else:
             self.fid = FrechetInceptionDistance(
                 feature=2048,
@@ -219,8 +220,9 @@ class TrainerModuleLatentFlow(LightningModule):
     @torch.no_grad()
     def encode_second_stage(self, latent, t, y=None, sample_kwargs=None):
         sample_kwargs = sample_kwargs or {}
-        if exists(self.second_stage):
-            xt, _ = self.second_stage.encode(latent, search_key=t, y=y, **sample_kwargs)           # x0: noise, x: target, t: timestep
+        if not exists(self.second_stage):
+            raise ValueError("x_t is missing from the batch and no flow encoder (second_stage_cfg) is configured.")
+        xt, _ = self.second_stage.encode(latent, search_key=t, y=y, **sample_kwargs)           # x0: noise, x: target, t: timestep
         return xt
     
     @torch.no_grad()

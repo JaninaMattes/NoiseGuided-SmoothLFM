@@ -7,7 +7,7 @@ import torch
 from lightning import LightningModule
 from torchmetrics.image.fid import FrechetInceptionDistance
 
-from jutils import instantiate_from_config
+from ldm.legacy import instantiate
 from jutils import load_partial_from_config
 from jutils import exists, freeze, default
 
@@ -79,7 +79,7 @@ class TrainerModuleLatentBetaVae(LightningModule):
         super().__init__()
         
         # Beta-VAE Model
-        self.model = instantiate_from_config(vae_cfg)
+        self.model = instantiate(vae_cfg)
         if ema_rate == 0.0:
             self.ema_model = None
         else:
@@ -95,7 +95,7 @@ class TrainerModuleLatentBetaVae(LightningModule):
         # KL Autoencoder - first stage settings
         self.first_stage = None
         if exists(first_stage_cfg):
-            first_stage = instantiate_from_config(first_stage_cfg)
+            first_stage = instantiate(first_stage_cfg)
             self.first_stage = torch.compile(first_stage, fullgraph=True)
             freeze(self.first_stage)
             self.first_stage.eval()
@@ -103,7 +103,7 @@ class TrainerModuleLatentBetaVae(LightningModule):
         # Second stage (Flow with SiT) settings
         self.second_stage = None
         if exists(second_stage_cfg):
-            flow_model = instantiate_from_config(second_stage_cfg)
+            flow_model = instantiate(second_stage_cfg)
             self.second_stage = torch.compile(flow_model, fullgraph=True)
             freeze(self.second_stage)
             self.second_stage.eval()
@@ -111,7 +111,7 @@ class TrainerModuleLatentBetaVae(LightningModule):
         # Metric tracker
         self.metric_tracker = None
         if exists(metric_tracker_cfg):
-            self.metric_tracker = instantiate_from_config(metric_tracker_cfg)
+            self.metric_tracker = instantiate(metric_tracker_cfg)
         else:
             self.fid = FrechetInceptionDistance(
                 feature=2048,
@@ -185,8 +185,9 @@ class TrainerModuleLatentBetaVae(LightningModule):
     
     @torch.no_grad()
     def encode_second_stage(self, latent, t, y=None):
-        if exists(self.second_stage):
-            xt, _ = self.second_stage.encode(latent, search_key=t, y=y, **self.sample_kwargs)               # x0: noise, x: target, t: timestep
+        if not exists(self.second_stage):
+            raise ValueError("x_t is missing from the batch and no flow encoder (second_stage_cfg) is configured.")
+        xt, _ = self.second_stage.encode(latent, search_key=t, y=y, **self.sample_kwargs)               # x0: noise, x: target, t: timestep
         return xt
     
     @torch.no_grad()

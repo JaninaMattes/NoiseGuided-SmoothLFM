@@ -19,7 +19,7 @@ import torch
 from torch.nn import functional as F
 import torch.nn as nn
 
-from jutils import instantiate_from_config
+from ldm.legacy import instantiate
 from jutils import exists, freeze, default
 
 
@@ -67,9 +67,9 @@ class BetaVAEModel(BaseVAE):
 
         # Instantiate the encoder and decoder
         self.encoder = encoder_cfg if isinstance(
-            encoder_cfg, nn.Module) else instantiate_from_config(encoder_cfg)
+            encoder_cfg, nn.Module) else instantiate(encoder_cfg)
         self.decoder = decoder_cfg if isinstance(
-            decoder_cfg, nn.Module) else instantiate_from_config(decoder_cfg)
+            decoder_cfg, nn.Module) else instantiate(decoder_cfg)
 
         # Add annealing agents
         self.annealing_agent = None
@@ -77,14 +77,14 @@ class BetaVAEModel(BaseVAE):
             if isinstance(annealing_cfg, Annealer):
                 self.annealing_agent = annealing_cfg
             else:
-                self.annealing_agent = instantiate_from_config(annealing_cfg)
+                self.annealing_agent = instantiate(annealing_cfg)
 
         self.beta_annealing_agent = None
         if exists(beta_annealing_cfg):
             if isinstance(beta_annealing_cfg, BetaAnnealer):
                 self.beta_annealing_agent = beta_annealing_cfg
             else:
-                self.beta_annealing_agent = instantiate_from_config(
+                self.beta_annealing_agent = instantiate(
                     beta_annealing_cfg)
             print(f"Using beta annealing.")
 
@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     # Define configuration for Deterministic AE mode (no bottleneck)
     encoder_config_ae = {
-        "target": "ldm.models.autoencoder.encoder.skip_vit_t2i.SkipViTEncoder",
+        "target": "ldm.models.autoencoder.encoder.skip_vit.SkipViTEncoder",
         "params": {
             "in_channels": 4,
             "image_size": 32,
@@ -311,7 +311,7 @@ if __name__ == '__main__':
     }
 
     decoder_config_ae = {
-        "target": "ldm.models.autoencoder.decoder.skip_vit_t2i.SkipViTDecoder",
+        "target": "ldm.models.autoencoder.decoder.skip_vit.SkipViTDecoder",
         "params": {
             "in_channels": 4,
             "image_size": 32,
