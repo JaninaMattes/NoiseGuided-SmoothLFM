@@ -61,7 +61,7 @@
 
 </details>
 
-## ✨ Overview
+## Overview
 
 Although diffusion models remain the architecture of choice, the theoretically simpler, deterministic and nearly invertible **flow matching** paradigm [[1](#ref-1), [2](#ref-2), [3](#ref-3)] is gaining increasing traction. Its internal latent structures, however, remain high-dimensional, distributed along the generative trajectory and little understood, which limits **explainability and control**. Current de facto guidance methods such as classifier-free guidance [[4](#ref-4)] additionally depend on external signals and typically require paired, annotated data.
 
@@ -77,7 +77,7 @@ This work proposes a **hybrid framework** that integrates two complementary appr
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 🧠 Method
+## Method
 
 <p align="center">
   <img src="assets/diagrams/framework_architecture.png" alt="Two-stage framework: frozen latent autoencoder (Stage 1) and the Latent CFM module with conditional DiT-XL/2 encoder, β-VAE encoder and conditional DiT-XL/2 decoder (Stage 2)" width="95%">
@@ -162,7 +162,7 @@ Inspired by classifier-free guidance [[4](#ref-4)], conditioning dropout replace
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 📊 Results
+## Results
 
 All β-VAE models share architecture, hyper-parameters and optimisation settings. Fidelity is measured in latent space (PSNR, MSE, MAE, cosine similarity); **latent smoothness** along linear interpolations with **L-PPL** and **L-ISTD** — latent variants of perceptual path length [[16](#ref-16)] and inter-step distance [[17](#ref-17)] that isolate encoder quality from decoder effects (values ×10⁻⁴, lower is smoother).
 
@@ -292,13 +292,13 @@ Config groups: `model/`, `data/`, `autoencoder/` (Stage 1), `flow/` (forward enc
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 📈 Experiment Tracking
+## Experiment Tracking
 
 Every run is stored under `logs_dir/<name>/<date>/<slurm-id | time>/` with its resolved `config.yaml` (including the launching command), checkpoints and a local `metrics.csv`. On top, runs are tracked in **MLflow** and/or **Weights & Biases**:
 
 | Config key | Default | Effect |
 |---|---|---|
-| `use_mlflow` | `True` | MLflow run with parameters, per-step metrics, run info tags and `config.yaml` artifact |
+| `use_mlflow` | `True` | MLflow run with parameters, per-step metrics, run info tags and `config.yaml` artefact |
 | `mlflow_tracking_uri` | `file:./mlruns` | or set `MLFLOW_TRACKING_URI` to use a tracking server |
 | `use_wandb` / `use_wandb_offline` | `False` | W&B run (online or offline) with the same metrics and config |
 | `log_images` | `True` | sample and reconstruction grids are logged to **every** enabled backend |
@@ -308,9 +308,9 @@ make mlflow-ui                                   # http://127.0.0.1:5000
 make train-bvae ARGS="use_wandb=True log_images=False"
 ```
 
-If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py).
+If neither backend is enabled, TensorBoard is used as a fallback. Smoke runs go to the separate MLflow experiment `smoke`. The logic lives in a single module, [`ldm/tracking.py`](ldm/tracking.py).
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 ├── train.py                 # single training entry point (Hydra)
@@ -333,14 +333,14 @@ If neither backend is enabled, TensorBoard is used as fallback. Smoke runs go to
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 🔭 Limitations & Future Work
+## Limitations & Future Work
 
 - **Disentanglement vs. fidelity.** Fully disentangling latent factors while keeping high reconstruction accuracy remains hard — fine-grained and class-specific information is increasingly lost under high input noise and strong β, which can make the self-guidance signal ambiguous (e.g. a fox instead of a leopard).
 - **Metrics.** FID, LPIPS or PSNR offer limited insight into latent representation quality; more rigorous measures of smoothness and controllability beyond L-PPL and L-ISTD are needed [[31](#ref-31)].
 - **Robustness.** The self-conditioned velocity decoder struggles with out-of-distribution inputs, and global, non-spatial codes limit fine-grained spatial reasoning [[32](#ref-32)].
 - **Directions.** Finding meaningful edit directions via linear probes on $\boldsymbol{z}_t$ [[19](#ref-19)], frequency-aware guidance [[15](#ref-15)], 3D conditioning for physically plausible interpolation [[33](#ref-33)], and temporal feature extraction for long-range interpolation [[34](#ref-34)] — building on the representation learning perspective of [[35](#ref-35), [36](#ref-36)].
 
-## 📚 Citation
+## Citation
 
 ```bibtex
 @mastersthesis{Mattes2025interpretability,
@@ -358,7 +358,7 @@ This work was carried out at the **Computer Vision & Learning Group (CompVis), L
 
 Distributed under the MIT License — see [`LICENSE.txt`](LICENSE.txt).
 
-## 📖 References
+## References
 
 <a id="ref-1"></a>[1] Y. Lipman, R. T. Q. Chen, H. Ben-Hamu, M. Nickel, and M. Le, "Flow matching for generative modeling," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
 <a id="ref-2"></a>[2] M. S. Albergo and E. Vanden-Eijnden, "Building normalizing flows with stochastic interpolants," in *Proc. Int. Conf. Learn. Represent. (ICLR)*, 2023.<br>
